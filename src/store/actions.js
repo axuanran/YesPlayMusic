@@ -193,9 +193,10 @@ export default {
   fetchUserProfile: ({ commit }) => {
     if (!isAccountLoggedIn()) return;
     return userAccount().then(result => {
-      if (result.code === 200) {
+      if (result?.code === 200) {
         commit('updateData', { key: 'user', value: result.profile });
       }
+      return result;
     });
   },
 };

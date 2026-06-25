@@ -34,6 +34,20 @@
           <svg-icon icon-class="arrow-right"></svg-icon>
         </div>
       </div>
+      <div
+        class="card"
+        @mouseover="activeCard = 3"
+        @mouseleave="activeCard = 0"
+        @click="goTo('account', { mode: 'cookie' })"
+      >
+        <div class="container" :class="{ active: activeCard === 3 }">
+          <div class="title-info">
+            <div class="title">Cookie 登录</div>
+            <div class="info">使用 MUSIC_U 等 Cookie 登录</div>
+          </div>
+          <svg-icon icon-class="arrow-right"></svg-icon>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -57,8 +71,8 @@ export default {
     NProgress.done();
   },
   methods: {
-    goTo(path) {
-      this.$router.push({ path: '/login/' + path });
+    goTo(path, query = {}) {
+      this.$router.push({ path: '/login/' + path, query });
     },
   },
 };

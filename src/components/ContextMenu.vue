@@ -85,7 +85,9 @@ export default {
   padding: 6px;
   z-index: 1000;
   -webkit-app-region: no-drag;
-  transition: background 125ms ease-out, opacity 125ms ease-out,
+  transition:
+    background 125ms ease-out,
+    opacity 125ms ease-out,
     transform 125ms ease-out;
 
   &:focus {
@@ -123,7 +125,9 @@ export default {
   &:hover {
     color: var(--color-primary);
     background: var(--color-primary-bg-for-transparent);
-    transition: opacity 125ms ease-out, transform 125ms ease-out;
+    transition:
+      opacity 125ms ease-out,
+      transform 125ms ease-out;
   }
   &:active {
     opacity: 0.75;

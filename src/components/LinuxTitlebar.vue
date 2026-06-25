@@ -1,7 +1,7 @@
 <template>
   <div class="linux-titlebar">
     <div class="logo">
-      <img src="img/logos/yesplaymusic-white24x24.png" />
+      <img src="/img/logos/yesplaymusic-white24x24.png" />
     </div>
     <div class="title">{{ title }}</div>
     <div class="controls">
@@ -87,7 +87,8 @@ export default {
   .title {
     padding: 8px;
     font-size: 12px;
-    font-family: 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+    font-family:
+      'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
     justify-self: center;
     margin: 0 auto;
   }

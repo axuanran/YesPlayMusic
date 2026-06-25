@@ -77,7 +77,6 @@ module.exports = {
     config.plugin('chunkPlugin').use(webpack.optimize.LimitChunkCountPlugin, [
       {
         maxChunks: 3,
-        minChunkSize: 10_000,
       },
     ]);
   },

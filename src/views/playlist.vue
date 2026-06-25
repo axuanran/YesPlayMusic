@@ -734,7 +734,8 @@ export default {
 }
 
 .gradient-fog {
-  background: linear-gradient(-180deg, #bcc5ce 0%, #929ead 98%),
+  background:
+    linear-gradient(-180deg, #bcc5ce 0%, #929ead 98%),
     radial-gradient(
       at top left,
       rgba(255, 255, 255, 0.3) 0%,

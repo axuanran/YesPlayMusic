@@ -2,7 +2,7 @@
 
 import { register } from 'register-service-worker';
 
-if (!process.env.IS_ELECTRON) {
+if (process.env.NODE_ENV === 'production' && !process.env.IS_ELECTRON) {
   register(`${process.env.BASE_URL}service-worker.js`, {
     ready() {
       // console.log(

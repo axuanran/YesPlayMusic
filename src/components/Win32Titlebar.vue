@@ -80,7 +80,8 @@ export default {
   .title {
     padding: 8px 12px;
     font-size: 12px;
-    font-family: 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+    font-family:
+      'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
   }
   .controls {
     height: 32px;

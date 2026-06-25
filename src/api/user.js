@@ -21,13 +21,28 @@ export function userDetail(uid) {
  * 获取账号详情
  * 说明 : 登录后调用此接口 ,可获取用户账号信息
  */
-export function userAccount() {
+export function userAccount(params = {}) {
   return request({
     url: '/user/account',
     method: 'get',
     params: {
       timestamp: new Date().getTime(),
+      ...params,
     },
+  });
+}
+
+export function userAccountWithCookie(cookie) {
+  const data = new URLSearchParams();
+  data.set('cookie', cookie);
+
+  return request({
+    url: '/user/account',
+    method: 'post',
+    params: {
+      timestamp: new Date().getTime(),
+    },
+    data,
   });
 }
 

@@ -1775,8 +1775,11 @@ input[type='number'] {
   transition: 0.2s cubic-bezier(0.24, 0, 0.5, 1);
 }
 .afterAnimation {
-  box-shadow: 0 0 0 1px hsla(0, 0%, 0%, 0.1), 0 4px 0px 0 hsla(0, 0%, 0%, 0.04),
-    0 4px 9px hsla(0, 0%, 0%, 0.13), 0 3px 3px hsla(0, 0%, 0%, 0.05);
+  box-shadow:
+    0 0 0 1px hsla(0, 0%, 0%, 0.1),
+    0 4px 0px 0 hsla(0, 0%, 0%, 0.04),
+    0 4px 9px hsla(0, 0%, 0%, 0.13),
+    0 3px 3px hsla(0, 0%, 0%, 0.05);
   -webkit-transition: 0.35s cubic-bezier(0.54, 1.6, 0.5, 1);
   transition: 0.35s cubic-bezier(0.54, 1.6, 0.5, 1);
 }
@@ -1817,8 +1820,11 @@ input[type='number'] {
   content: '';
   position: absolute;
   display: block;
-  box-shadow: 0 0 0 1px hsla(0, 0%, 0%, 0.02), 0 4px 0px 0 hsla(0, 0%, 0%, 0.01),
-    0 4px 9px hsla(0, 0%, 0%, 0.08), 0 3px 3px hsla(0, 0%, 0%, 0.03);
+  box-shadow:
+    0 0 0 1px hsla(0, 0%, 0%, 0.02),
+    0 4px 0px 0 hsla(0, 0%, 0%, 0.01),
+    0 4px 9px hsla(0, 0%, 0%, 0.08),
+    0 3px 3px hsla(0, 0%, 0%, 0.03);
   -webkit-transition: 0.35s cubic-bezier(0.54, 1.6, 0.5, 1);
   transition: 0.35s cubic-bezier(0.54, 1.6, 0.5, 1);
   background: #fff;

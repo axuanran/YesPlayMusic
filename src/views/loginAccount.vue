@@ -78,6 +78,20 @@
             {{ qrCodeInformation }}
           </div>
         </div>
+        <div v-show="mode === 'cookie'" class="cookie-login">
+          <textarea
+            v-model="cookieText"
+            placeholder="粘贴 MUSIC_U=...; __csrf=... 等网易云 Cookie"
+            @focus="inputFocus = 'cookie'"
+            @blur="inputFocus = ''"
+          ></textarea>
+          <div class="cookie-tip">
+            至少需要 MUSIC_U。Cookie 只会保存在本机浏览器和 localStorage。
+          </div>
+          <div v-show="cookieError" class="cookie-error">
+            {{ cookieError }}
+          </div>
+        </div>
       </div>
       <div v-show="mode !== 'qrCode'" class="confirm">
         <button v-show="!processing" @click="login">
@@ -101,9 +115,13 @@
         <a v-show="mode !== 'qrCode'" @click="changeMode('qrCode')">
           二维码登录
         </a>
+        <span v-show="mode !== 'cookie'">|</span>
+        <a v-show="mode !== 'cookie'" @click="changeMode('cookie')">
+          Cookie 登录
+        </a>
       </div>
       <div
-        v-show="mode !== 'qrCode'"
+        v-show="mode !== 'qrCode' && mode !== 'cookie'"
         class="notice"
         v-html="isElectron ? $t('login.noticeElectron') : $t('login.notice')"
       ></div>
@@ -116,7 +134,8 @@ import QRCode from 'qrcode';
 import md5 from 'crypto-js/md5';
 import NProgress from 'nprogress';
 import { mapMutations } from 'vuex';
-import { setCookies } from '@/utils/auth';
+import { normalizeCookieString, removeCookie, setCookies } from '@/utils/auth';
+import { userAccountWithCookie } from '@/api/user';
 import nativeAlert from '@/utils/nativeAlert';
 import {
   loginWithPhone,
@@ -136,6 +155,8 @@ export default {
       email: '',
       password: '',
       smsCode: '',
+      cookieText: '',
+      cookieError: '',
       inputFocus: '',
       qrCodeKey: '',
       qrCodeSvg: '',
@@ -149,10 +170,12 @@ export default {
     },
   },
   created() {
-    if (['phone', 'email', 'qrCode'].includes(this.$route.query.mode)) {
+    if (
+      ['phone', 'email', 'qrCode', 'cookie'].includes(this.$route.query.mode)
+    ) {
       this.mode = this.$route.query.mode;
     }
-    this.getQrCodeKey();
+    if (this.mode === 'qrCode') this.getQrCodeKey();
   },
   beforeDestroy() {
     clearInterval(this.qrCodeCheckInterval);
@@ -185,7 +208,9 @@ export default {
       return true;
     },
     login() {
-      if (this.mode === 'phone') {
+      if (this.mode === 'cookie') {
+        this.loginWithCookie();
+      } else if (this.mode === 'phone') {
         this.processing = this.validatePhone();
         if (!this.processing) return;
         loginWithPhone({
@@ -232,8 +257,50 @@ export default {
         nativeAlert(data.msg ?? data.message ?? '账号或密码错误，请检查');
       }
     },
+    loginWithCookie() {
+      if (!this.cookieText.includes('MUSIC_U=')) {
+        this.cookieError = 'Cookie 中缺少 MUSIC_U';
+        return;
+      }
+
+      this.processing = true;
+      this.cookieError = '';
+      const cookie = normalizeCookieString(this.cookieText);
+      userAccountWithCookie(cookie)
+        .then(result => {
+          if (!result?.profile?.userId) {
+            const message = result?.msg ?? result?.message ?? result?.code;
+            throw new Error(
+              message
+                ? `无法获取账号信息：${message}`
+                : '无法获取账号信息，请检查 Cookie 是否有效'
+            );
+          }
+
+          setCookies(cookie);
+          this.updateData({ key: 'loginMode', value: 'account' });
+          this.updateData({ key: 'user', value: result.profile });
+          this.processing = false;
+          this.$router.push({ path: '/library' });
+          this.$store.dispatch('fetchLikedPlaylist').catch(error => {
+            console.warn(
+              'Failed to fetch liked playlists after cookie login',
+              error
+            );
+          });
+        })
+        .catch(error => {
+          console.error('Cookie login failed', error);
+          this.processing = false;
+          this.cookieError = error.message ?? `Cookie 登录失败：${error}`;
+          this.updateData({ key: 'loginMode', value: null });
+          removeCookie('MUSIC_U');
+          removeCookie('__csrf');
+        });
+    },
     getQrCodeKey() {
       return loginQrCodeKey().then(result => {
+        if (!result) return;
         if (result.code === 200) {
           this.qrCodeKey = result.data.unikey;
           QRCode.toString(
@@ -269,6 +336,7 @@ export default {
       this.qrCodeCheckInterval = setInterval(() => {
         if (this.qrCodeKey === '') return;
         loginQrCodeCheck(this.qrCodeKey).then(result => {
+          if (!result) return;
           if (result.code === 800) {
             this.getQrCodeKey(); // 重新生成QrCode
             this.qrCodeInformation = '二维码已失效，请重新扫码';
@@ -289,6 +357,7 @@ export default {
     changeMode(mode) {
       this.mode = mode;
       if (mode === 'qrCode') {
+        if (!this.qrCodeKey) this.getQrCodeKey();
         this.checkQrCodeLogin();
       } else {
         clearInterval(this.qrCodeCheckInterval);
@@ -487,5 +556,43 @@ button.loading {
   color: var(--color-text);
   text-align: center;
   margin-bottom: 28px;
+}
+
+.cookie-login {
+  width: 300px;
+
+  textarea {
+    width: 100%;
+    min-height: 128px;
+    resize: vertical;
+    box-sizing: border-box;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    background: var(--color-secondary-bg);
+    color: var(--color-text);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  textarea:focus {
+    outline: none;
+    background: var(--color-primary-bg);
+  }
+
+  .cookie-tip {
+    margin-top: 8px;
+    color: var(--color-text);
+    font-size: 12px;
+    line-height: 1.5;
+    opacity: 0.58;
+  }
+
+  .cookie-error {
+    margin-top: 8px;
+    color: #e9546b;
+    font-size: 12px;
+    line-height: 1.5;
+  }
 }
 </style>

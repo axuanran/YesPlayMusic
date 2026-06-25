@@ -38,7 +38,7 @@
 import ButtonIcon from '@/components/ButtonIcon.vue';
 import ArtistsInLine from '@/components/ArtistsInLine.vue';
 import { mapState } from 'vuex';
-import * as Vibrant from 'node-vibrant/dist/vibrant.worker.min.js';
+import { Vibrant } from 'node-vibrant/browser';
 import Color from 'color';
 
 export default {
