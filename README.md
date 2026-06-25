@@ -135,7 +135,7 @@ yarn install
 
 4. （可选）使用 Nginx 反向代理 API，将 API 路径映射为 `/api`，如果 API 和网页不在同一个域名下的话（跨域），会有一些 bug。
 
-5. 复制 `/.env.example` 文件为 `/.env`，修改里面 `VUE_APP_NETEASE_API_URL` 的值为网易云 API 地址。本地开发的话可以填写 API 地址为 `http://localhost:3000`，YesPlayMusic 地址为 `http://localhost:8080`。如果你使用了反向代理 API，可以填写 API 地址为 `/api`。
+5. 复制 `/.env.example` 文件为 `/.env`，修改里面 `VUE_APP_NETEASE_API_URL` 的值为网易云 API 地址。本地开发的话可以填写 API 地址为 `http://localhost:3000`，YesPlayMusic 地址为 `http://localhost:20201`。如果你使用了反向代理 API，可以填写 API 地址为 `/api`。
 
 ```
 VUE_APP_NETEASE_API_URL=http://localhost:3000
@@ -214,12 +214,12 @@ cd /home/runner/${REPL_SLUG}/music && yarn install && yarn run build
 
 5. 选择下列表格的命令来打包适合的你的安装包，打包出来的文件在 `/dist_electron` 目录下。了解更多信息可访问 [electron-builder 文档](https://www.electron.build/cli)
 
-| 命令                                       | 说明                      |
-| ------------------------------------------ | ------------------------- |
-| `yarn electron:build --windows nsis:ia32`  | Windows 32 位             |
-| `yarn electron:build --windows nsis:arm64` | Windows ARM               |
-| `yarn electron:build --linux deb:armv7l`   | Debian armv7l（树莓派等） |
-| `yarn electron:build --macos dir:arm64`    | macOS ARM                 |
+| 命令                                      | 说明                      |
+| ----------------------------------------- | ------------------------- |
+| `yarn electron:build-win --ia32`          | Windows 32 位             |
+| `yarn electron:build-win --arm64`         | Windows ARM               |
+| `yarn electron:build-linux --armv7l --deb` | Debian armv7l（树莓派等） |
+| `yarn electron:build-mac --arm64 --dir`   | macOS ARM                 |
 
 ## :computer: 配置开发环境
 
@@ -235,7 +235,7 @@ yarn install
 cp .env.example .env
 
 # 运行（网页端）
-yarn serve
+yarn dev
 
 # 运行（electron）
 yarn electron:serve
