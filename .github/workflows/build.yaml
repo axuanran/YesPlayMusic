@@ -88,3 +88,25 @@ jobs:
           name: YesPlayMusic-linux
           path: dist_electron/*.AppImage
           if-no-files-found: ignore
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: YesPlayMusic-*
+          merge-multiple: true
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: release-${{ github.run_number }}
+          name: Release ${{ github.run_number }}
+          body: |
+            Automated build from master branch.
+            Commit: ${{ github.sha }}
+            Run: ${{ github.run_id }}
+          draft: false
+          prerelease: false
+          files: artifacts/*
