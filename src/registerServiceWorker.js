@@ -1,7 +1,8 @@
 import { register } from 'register-service-worker';
+import { env, isElectron } from '@/utils/env';
 
-if (process.env.NODE_ENV === 'production' && !process.env.IS_ELECTRON) {
-  register(`${process.env.BASE_URL}service-worker.js`, {
+if (env.NODE_ENV === 'production' && !isElectron) {
+  register(`${env.BASE_URL}service-worker.js`, {
     ready() {
       // console.log(
       //   "App is being served from cache by a service worker.\n" +

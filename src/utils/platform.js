@@ -1,6 +1,9 @@
-export const isWindows = process.platform === 'win32';
-export const isMac = process.platform === 'darwin';
-export const isLinux = process.platform === 'linux';
-export const isDevelopment = process.env.NODE_ENV === 'development';
+import { isDevelopment, platform } from '@/utils/env';
+
+export { isDevelopment };
+
+export const isWindows = platform === 'win32';
+export const isMac = platform === 'darwin';
+export const isLinux = platform === 'linux';
 
 export const isCreateTray = isWindows || isLinux || isDevelopment;

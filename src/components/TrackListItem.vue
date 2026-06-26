@@ -91,6 +91,7 @@ import ArtistsInLine from '@/components/ArtistsInLine.vue';
 import ExplicitSymbol from '@/components/ExplicitSymbol.vue';
 import { mapState } from 'vuex';
 import { isNil } from 'lodash';
+import { isElectron } from '@/utils/env';
 
 export default {
   name: 'TrackListItem',
@@ -192,7 +193,7 @@ export default {
       );
     },
     showUnavailableSongInGreyStyle() {
-      return process.env.IS_ELECTRON
+      return isElectron
         ? !this.$store.state.settings.enableUnblockNeteaseMusic
         : true;
     },

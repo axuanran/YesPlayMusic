@@ -143,6 +143,7 @@ import { mapMutations } from 'vuex';
 import { normalizeCookieString, removeCookie, setCookies } from '@/utils/auth';
 import { userAccountWithCookie } from '@/api/user';
 import nativeAlert from '@/utils/nativeAlert';
+import { isElectron } from '@/utils/env';
 import {
   loginWithPhone,
   loginWithEmail,
@@ -172,7 +173,7 @@ export default {
   },
   computed: {
     isElectron() {
-      return process.env.IS_ELECTRON;
+      return isElectron;
     },
   },
   created() {

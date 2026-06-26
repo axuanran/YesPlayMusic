@@ -9,6 +9,7 @@ import AudioEngine from '@/utils/AudioEngine';
 import { isAccountLoggedIn } from '@/utils/auth';
 import { cacheTrackSource, getTrackSource } from '@/utils/db';
 import { isCreateTray } from '@/utils/platform';
+import { isElectron } from '@/utils/env';
 import shuffle from 'lodash/shuffle';
 import { decode as base642Buffer } from '@/utils/base64';
 // MPRIS disabled during Electron 42 migration
@@ -460,7 +461,7 @@ export default class {
     console.debug(`[debug][Player.js] _getAudioSourceFromUnblockMusic`);
 
     if (
-      process.env.IS_ELECTRON !== true ||
+      !isElectron ||
       store.state.settings.enableUnblockNeteaseMusic === false
     ) {
       return null;
@@ -738,7 +739,7 @@ export default class {
   }
   _playDiscordPresence(track, seekTime = 0) {
     if (
-      process.env.IS_ELECTRON !== true ||
+      !isElectron ||
       store.state.settings.enableDiscordRichPresence === false
     ) {
       return null;
@@ -749,7 +750,7 @@ export default class {
   }
   _pauseDiscordPresence(track) {
     if (
-      process.env.IS_ELECTRON !== true ||
+      !isElectron ||
       store.state.settings.enableDiscordRichPresence === false
     ) {
       return null;
@@ -1004,7 +1005,7 @@ export default class {
   }
 
   sendSelfToIpcMain() {
-    if (process.env.IS_ELECTRON !== true) return false;
+    if (!isElectron) return false;
     let liked = store.state.liked.songs.includes(this.currentTrack.id);
     electronPlayer?.player({
       playing: this.playing,

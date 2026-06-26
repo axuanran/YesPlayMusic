@@ -1,8 +1,8 @@
 import router from '@/router';
 import { doLogout, getCookieString } from '@/utils/auth';
+import { env } from '@/utils/env';
 import axios from 'axios';
 
-const env = process.env ?? {};
 let baseURL = '';
 // Web 和 Electron 跑在不同端口避免同时启动时冲突
 if (env.IS_ELECTRON) {

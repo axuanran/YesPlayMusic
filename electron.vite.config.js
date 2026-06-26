@@ -31,8 +31,11 @@ export default defineConfig(({ mode }) => ({
     },
     define: {
       __static: 'global.__static',
+      __APP_ENV__: JSON.stringify(createProcessEnv(mode)),
+      __APP_PLATFORM__: JSON.stringify(process.platform),
     },
     build: {
+      outDir: r('./out/main'),
       rollupOptions: {
         input: r('./src/main/index.js'),
       },
@@ -47,6 +50,7 @@ export default defineConfig(({ mode }) => ({
       },
     },
     build: {
+      outDir: r('./out/preload'),
       rollupOptions: {
         input: r('./src/preload/index.js'),
       },
@@ -78,7 +82,15 @@ export default defineConfig(({ mode }) => ({
       },
     },
     define: {
-      'process.env': JSON.stringify(createProcessEnv(mode)),
+      __APP_ENV__: JSON.stringify(createProcessEnv(mode)),
+      __APP_P
+
+
+
+
+
+
+LATFORM__: JSON.stringify(process.platform),
     },
     server: {
       host: process.env.DEV_SERVER_HOST || '127.0.0.1',
@@ -92,6 +104,8 @@ export default defineConfig(({ mode }) => ({
       },
     },
     build: {
+      outDir: r('./out/renderer'),
+      emptyOutDir: true,
       sourcemap: false,
       rollupOptions: {
         output: {

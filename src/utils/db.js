@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Dexie from 'dexie';
 import store from '@/store';
+import { isElectron } from '@/utils/env';
 // import pkg from "../../package.json";
 
 const db = new Dexie('yesplaymusic');
@@ -49,7 +50,7 @@ async function waitForSettingsReady(timeoutMs = 5000) {
 
 // 初始化现有缓存总大小，确保应用启动时能正确判断并清理超限缓存
 async function initTracksCacheBytes() {
-  if (!process.env.IS_ELECTRON) return;
+  if (!isElectron) return;
   try {
     await waitForSettingsReady();
     const all = await db.trackSources.toArray();
@@ -67,8 +68,7 @@ async function initTracksCacheBytes() {
   }
 }
 
-// 模块加载时触发初始化
-initTracksCacheBytes();
+setTimeout(initTracksCacheBytes, 0);
 
 async function deleteExcessCache() {
   if (
@@ -91,7 +91,7 @@ async function deleteExcessCache() {
 }
 
 export function cacheTrackSource(trackInfo, url, bitRate, from = 'netease') {
-  if (!process.env.IS_ELECTRON) return;
+  if (!isElectron) return;
   const name = trackInfo.name;
   const artist =
     (trackInfo.ar && trackInfo.ar[0]?.name) ||

@@ -56,7 +56,7 @@ global.__static = app.isPackaged
   : path.join(__dirname, '../../public');
 
 const log = text => {
-  console.log(`${clc.blueBright('[background.js]')} ${text}`);
+  console.log(`${clc.blueBright('[main]')} ${text}`);
 };
 
 const closeOnLinux = (e, win, store) => {
@@ -296,10 +296,11 @@ class Background {
       );
       if (!process.env.IS_TEST) this.window.webContents.openDevTools();
     } else {
+      const rendererUrl = 'http://127.0.0.1:27232/src/renderer/';
       this.window.loadURL(
         showLibraryDefault
-          ? 'http://127.0.0.1:27232/#/library'
-          : 'http://127.0.0.1:27232'
+          ? `${rendererUrl}#/library`
+          : rendererUrl
       );
     }
   }

@@ -818,6 +818,8 @@ import {
 } from '@/utils/common';
 import { countDBSize, clearDB } from '@/utils/db';
 import pkg from '../../package.json';
+import { isElectron } from '@/utils/env';
+import { isLinux, isMac } from '@/utils/platform';
 
 const electronSettings = window.electronAPI?.settings;
 
@@ -848,13 +850,13 @@ export default {
   computed: {
     ...mapState(['player', 'settings', 'data', 'lastfm']),
     isElectron() {
-      return process.env.IS_ELECTRON;
+      return isElectron;
     },
     isMac() {
-      return /macintosh|mac os x/i.test(navigator.userAgent);
+      return isMac;
     },
     isLinux() {
-      return process.platform === 'linux';
+      return isLinux;
     },
     version() {
       return pkg.version;
@@ -1355,11 +1357,11 @@ export default {
   },
   created() {
     this.countDBSize('tracks');
-    if (process.env.IS_ELECTRON) this.getAllOutputDevices();
+    if (isElectron) this.getAllOutputDevices();
   },
   activated() {
     this.countDBSize('tracks');
-    if (process.env.IS_ELECTRON) this.getAllOutputDevices();
+    if (isElectron) this.getAllOutputDevices();
   },
   methods: {
     ...mapActions(['showToast']),
@@ -1448,7 +1450,7 @@ export default {
       } else if (this.settings.lang === 'zh-TW') {
         shortcut = shortcut.replace('Space', '空白鍵');
       }
-      if (process.platform === 'darwin') {
+      if (isMac) {
         return shortcut
           .replace('CommandOrControl', '⌘')
           .replace('Command', '⌘')

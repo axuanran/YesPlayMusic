@@ -36,6 +36,7 @@ import { ipcRenderer } from './electron/ipcRenderer';
 import { isAccountLoggedIn, isLooseLoggedIn } from '@/utils/auth';
 import Lyrics from './views/lyrics.vue';
 import { mapState } from 'vuex';
+import { isElectron } from '@/utils/env';
 
 export default {
   name: 'App',
@@ -50,7 +51,7 @@ export default {
   },
   data() {
     return {
-      isElectron: process.env.IS_ELECTRON, // true || undefined
+      isElectron,
       userSelectNone: false,
       // keep-alive :include matches component name (PascalCase), not route name
       keepAliveComponents: [

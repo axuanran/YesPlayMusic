@@ -1,3 +1,5 @@
+import { isElectron } from '@/utils/env';
+
 /**
  * Returns an alert-like function that fits current runtime environment
  *
@@ -12,7 +14,7 @@
  * @see {@link https://github.com/electron/electron/issues/19977} for upstream electron issue
  */
 const nativeAlert = (() => {
-  if (process.env.IS_ELECTRON === true) {
+  if (isElectron) {
     return message => {
       if (window.electronAPI?.app?.showNativeAlert) {
         window.electronAPI.app.showNativeAlert(message);

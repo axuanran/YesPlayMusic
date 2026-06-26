@@ -30,6 +30,7 @@
 import '@vscode/codicons/dist/codicon.css';
 
 import { mapState } from 'vuex';
+import { isElectron } from '@/utils/env';
 
 const electronWindow = window.electronAPI?.window;
 
@@ -44,7 +45,7 @@ export default {
     ...mapState(['title']),
   },
   created() {
-    if (process.env.IS_ELECTRON === true) {
+    if (isElectron) {
       this.removeIsMaximizedListener = electronWindow?.onIsMaximized(value => {
         this.isMaximized = value;
       });

@@ -86,6 +86,8 @@ import Win32Titlebar from '@/components/Win32Titlebar.vue';
 import LinuxTitlebar from '@/components/LinuxTitlebar.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
 import ButtonIcon from '@/components/ButtonIcon.vue';
+import { isElectron } from '@/utils/env';
+import { isLinux, isWindows } from '@/utils/platform';
 
 export default {
   name: 'Navbar',
@@ -119,12 +121,9 @@ export default {
     },
   },
   created() {
-    if (process.platform === 'win32') {
+    if (isWindows) {
       this.enableWin32Titlebar = true;
-    } else if (
-      process.platform === 'linux' &&
-      this.settings.linuxEnableCustomTitlebar
-    ) {
+    } else if (isLinux && this.settings.linuxEnableCustomTitlebar) {
       this.enableLinuxTitlebar = true;
     }
   },
@@ -161,7 +160,7 @@ export default {
       window.open('https://github.com/qier222/YesPlayMusic');
     },
     toLogin() {
-      if (process.env.IS_ELECTRON === true) {
+      if (isElectron) {
         this.$router.push({ name: 'loginAccount' });
       } else {
         this.$router.push({ name: 'login' });

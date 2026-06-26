@@ -1,11 +1,13 @@
+import { env } from '@/utils/env';
+
 const ERROR_UPLOAD_URL = 'http://127.0.0.1:27232/dev/error';
 
 const isEnabled = () =>
-  process.env.NODE_ENV === 'development' &&
-  process.env.VUE_APP_RENDERER_ERROR_UPLOAD !== 'false';
+  env.NODE_ENV === 'development' &&
+  env.VUE_APP_RENDERER_ERROR_UPLOAD !== 'false';
 
 const isConsoleUploadEnabled = () =>
-  process.env.VUE_APP_RENDERER_CONSOLE_UPLOAD !== 'false';
+  env.VUE_APP_RENDERER_CONSOLE_UPLOAD !== 'false';
 
 const sentConsoleMessages = new Map();
 const MAX_CONSOLE_UPLOADS = 30;

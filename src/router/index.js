@@ -4,6 +4,7 @@ import {
   createWebHistory,
 } from 'vue-router';
 import { isLooseLoggedIn, isAccountLoggedIn } from '@/utils/auth';
+import { isElectron } from '@/utils/env';
 
 const routes = [
   {
@@ -137,9 +138,7 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: process.env.IS_ELECTRON
-    ? createWebHashHistory()
-    : createWebHistory(),
+  history: isElectron ? createWebHashHistory() : createWebHistory(),
   routes,
 });
 
@@ -156,7 +155,7 @@ router.beforeEach((to, from, next) => {
     if (isLooseLoggedIn()) {
       return next();
     } else {
-      if (process.env.IS_ELECTRON === true) {
+      if (isElectron) {
         return next({ path: '/login/account' });
       } else {
         return next({ path: '/login' });
