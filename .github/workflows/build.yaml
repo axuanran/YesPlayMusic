@@ -1,7 +1,7 @@
 name: Release
 
 env:
-  YARN_INSTALL_NOPT: yarn add --ignore-platform --ignore-optional --non-interactive --no-lockfile --exact
+  YARN_INSTALL_NOPT: yarn add --ignore-platform --ignore-engines --non-interactive --no-lockfile --exact
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
 
       - name: Install Node.js, NPM and Yarn
         uses: actions/setup-node@v4
@@ -38,16 +38,14 @@ jobs:
           corepack prepare yarn@1.22.22 --activate
 
       - name: Install RPM & Pacman (on Ubuntu)
-        if: runner.os == 'Linux'
+        if: runner.os == "Linux"
         run: |
-          sudo apt-get update &&
-          sudo apt-get install --no-install-recommends -y rpm &&
-          sudo apt-get install --no-install-recommends -y libarchive-tools &&
-          sudo apt-get install --no-install-recommends -y libopenjp2-tools
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y rpm libarchive-tools libopenjp2-tools
 
       - name: Install Snapcraft (on Ubuntu)
         uses: samuelmeuli/action-snapcraft@v3
-        if: startsWith(matrix.os, 'ubuntu')
+        if: runner.os == "Linux"
 
       - name: Clean broken install state
         run: |
@@ -64,23 +62,14 @@ jobs:
         shell: bash
 
       - name: Install UNM dependencies for Windows
-        if: runner.os == 'Windows'
+        if: runner.os == "Windows"
         run: |
           ${{ env.YARN_INSTALL_NOPT }} \
             @unblockneteasemusic/rust-napi-win32-x64-msvc@${{steps.get_unm_version.outputs.unmver}}
         shell: bash
 
-      - name: Install UNM dependencies for macOS
-        if: runner.os == 'macOS'
-        run: |
-          ${{ env.YARN_INSTALL_NOPT }} \
-            @unblockneteasemusic/rust-napi-darwin-x64@${{steps.get_unm_version.outputs.unmver}} \
-            @unblockneteasemusic/rust-napi-darwin-arm64@${{steps.get_unm_version.outputs.unmver}} \
-            dmg-license
-        shell: bash
-
       - name: Install UNM dependencies for Linux
-        if: runner.os == 'Linux'
+        if: runner.os == "Linux"
         run: |
           ${{ env.YARN_INSTALL_NOPT }} \
             @unblockneteasemusic/rust-napi-linux-x64-gnu@${{steps.get_unm_version.outputs.unmver}} \
@@ -93,14 +82,12 @@ jobs:
             const plat = process.platform + '-' + process.arch;
             console.log('node', process.version, plat);
             const map = {
-              'linux-x64':    '@rollup/rollup-linux-x64-gnu',
-              'darwin-arm64': '@rollup/rollup-darwin-arm64',
-              'darwin-x64':   '@rollup/rollup-darwin-x64',
-              'win32-x64':    '@rollup/rollup-win32-x64-msvc',
+              'linux-x64': '@rollup/rollup-linux-x64-gnu',
+              'win32-x64': '@rollup/rollup-win32-x64-msvc',
             };
             const pkg = map[plat];
             if (pkg) console.log(require.resolve(pkg + '/package.json'));
-            else console.log('no native rollup needed for ' + plat);
+            else console.log('no native rollup check for ' + plat);
           "
           node -e "require('rollup'); console.log('rollup ok')"
         shell: bash
@@ -110,23 +97,25 @@ jobs:
         env:
           VUE_APP_NETEASE_API_URL: /api
           VUE_APP_ELECTRON_API_URL: /api
-          VUE_APP_ELECTRON_API_URL_DEV: ${{ vars.VUE_APP_ELECTRON_API_URL_DEV || 'http://127.0.0.1:10754' }}
+          VUE_APP_ELECTRON_API_URL_DEV: ${{ vars.VUE_APP_ELECTRON_API_URL_DEV || "http://127.0.0.1:10754" }}
           VUE_APP_LASTFM_API_KEY: ${{ vars.VUE_APP_LASTFM_API_KEY }}
           VUE_APP_LASTFM_API_SHARED_SECRET: ${{ secrets.VUE_APP_LASTFM_API_SHARED_SECRET }}
 
       - name: Package / release Electron app
-        run: npx electron-builder --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        run: npx electron-builder --publish ${{ startsWith(github.ref, "refs/tags/v") && "always" || "never" }}
         env:
           GH_TOKEN: ${{ github.token }}
           EP_PRELEASE: true
 
       - uses: actions/upload-artifact@v4
+        if: runner.os == "Windows"
         with:
           name: YesPlayMusic-win
           path: dist_electron/*Setup*.exe
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
+        if: runner.os == "Linux"
         with:
           name: YesPlayMusic-linux
           path: dist_electron/*.AppImage
