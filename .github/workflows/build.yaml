@@ -57,8 +57,6 @@ jobs:
           yarn install --frozen-lockfile --ignore-optional --non-interactive
           unm_version=$(node -e "console.log(require('./node_modules/@unblockneteasemusic/rust-napi/package.json').version)")
           echo "unmver=${unm_version}" >> "$GITHUB_OUTPUT"
-        env:
-          PHANTOMJS_SKIP_DOWNLOAD: 'true'
         shell: bash
 
       - name: Install UNM dependencies for Windows

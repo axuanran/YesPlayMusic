@@ -17,7 +17,6 @@
     "electron:build-win": "electron-vite build && electron-builder -w",
     "electron:build-linux": "electron-vite build && electron-builder -l",
     "electron:serve": "yarn desktop:dev",
-    "electron:buildicon": "electron-icon-builder --input=./build/icons/icon.png --output=build --flatten",
     "electron:publish": "electron-vite build && electron-builder -mwl -p always",
     "postinstall": "electron-builder install-app-deps",
     "postuninstall": "electron-builder install-app-deps",
@@ -40,9 +39,9 @@
     ],
     "publish": [
       {
-      "provider": "github",
-      "owner": "axuanran",
-      "repo": "YesPlayMusic",
+        "provider": "github",
+        "owner": "axuanran",
+        "repo": "YesPlayMusic",
         "vPrefixedTagName": true,
         "releaseType": "draft"
       }
@@ -158,7 +157,6 @@
     "electron-context-menu": "^4.1.2",
     "electron-debug": "^4.1.0",
     "electron-devtools-installer": "^4.0",
-    "electron-icon-builder": "^2.0.1",
     "electron-is-dev": "^3.0.1",
     "electron-log": "^5.4.4",
     "electron-store": "^11.0.2",
