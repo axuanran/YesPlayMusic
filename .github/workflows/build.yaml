@@ -87,17 +87,17 @@ jobs:
       - name: Install rollup native binary (for electron-vite)
         if: runner.os != 'Windows'
         run: |
-          ROLLUP_VER=$(node -e "console.log(JSON.parse(require('fs').readFileSync('node_modules/rollup/package.json','utf8')).version)")
-          case "$(uname -s)" in
-            Linux)   PKG="@rollup/rollup-linux-x64-gnu" ;;
-            Darwin)
-              case "$(uname -m)" in
-                arm64) PKG="@rollup/rollup-darwin-arm64" ;;
-                *)     PKG="@rollup/rollup-darwin-x64" ;;
-              esac ;;
+          ROLLUP_VER=$(node -e "console.log(JSON.parse(require('fs').readFileSync('node_modules/vite/node_modules/rollup/package.json','utf8')).version)")
+          PLATFORM=$(node -p "process.platform + '-' + process.arch")
+          case "$PLATFORM" in
+            linux-x64)     PKG="@rollup/rollup-linux-x64-gnu" ;;
+            darwin-arm64)  PKG="@rollup/rollup-darwin-arm64" ;;
+            darwin-x64)    PKG="@rollup/rollup-darwin-x64" ;;
+            win32-x64)     PKG="@rollup/rollup-win32-x64-msvc" ;;
+            *) echo "Unsupported: $PLATFORM"; exit 1 ;;
           esac
           echo "Installing $PKG@$ROLLUP_VER"
-          yarn add $PKG@$ROLLUP_VER --dev --ignore-optional --non-interactive --no-lockfile
+          yarn add -D "$PKG@$ROLLUP_VER" --ignore-engines --non-interactive --no-lockfile
         shell: bash
 
       - name: Build Electron app (electron-vite)
