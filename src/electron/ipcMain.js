@@ -133,6 +133,17 @@ function parseSourceStringToList(executor, sourceString) {
     });
 }
 
+const isRecord = value =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const isNonEmptyString = value => typeof value === 'string' && value.length > 0;
+
+const isValidProxyConfig = config =>
+  isRecord(config) &&
+  ['http', 'https', 'socks4', 'socks5'].includes(config.protocol) &&
+  isNonEmptyString(config.server) &&
+  (typeof config.port === 'number' || isNonEmptyString(config.port));
+
 export function initIpcMain(win, store, trayEventEmitter) {
   // WIP: Do not enable logging as it has some issues in non-blocking I/O environment.
   // UNM.enableLogging(UNM.LoggingType.ConsoleEnv);
@@ -148,6 +159,7 @@ export function initIpcMain(win, store, trayEventEmitter) {
      * @param {UNM.Context} context
      */
     async (_, sourceListString, ncmTrack, context) => {
+      if (!isRecord(ncmTrack)) return null;
       // Formt the track input
       // FIXME: Figure out the structure of Track
       const song = {
@@ -171,16 +183,20 @@ export function initIpcMain(win, store, trayEventEmitter) {
           ? parseSourceStringToList(unmExecutor, sourceListString)
           : ['ytdl', 'bilibili', 'pyncm', 'kugou'];
       log(`[UNM] using source: ${sourceList.join(', ')}`);
-      log(`[UNM] using configuration: ${JSON.stringify(context)}`);
+      const unmContext = isRecord(context) ? context : {};
+      log(`[UNM] using configuration: ${JSON.stringify(unmContext)}`);
 
       try {
         // TODO: tell users to install yt-dlp.
         const matchedAudio = await unmExecutor.search(
           sourceList,
           song,
-          context
+          unmContext
         );
-        const retrievedSong = await unmExecutor.retrieve(matchedAudio, context);
+        const retrievedSong = await unmExecutor.retrieve(
+          matchedAudio,
+          unmContext
+        );
 
         // bilibili's audio file needs some special treatment
         if (retrievedSong.url.includes('bilivideo.com')) {
@@ -225,7 +241,16 @@ export function initIpcMain(win, store, trayEventEmitter) {
     win.isMaximized() ? win.unmaximize() : win.maximize();
   });
 
+  ipcMain.on('showNativeAlert', (_, message) => {
+    if (typeof message !== 'string') return;
+    dialog.showMessageBoxSync(win, {
+      type: 'warning',
+      message,
+    });
+  });
+
   ipcMain.on('settings', (event, options) => {
+    if (!isRecord(options)) return;
     store.set('settings', options);
     if (options.enableGlobalShortcut) {
       registerGlobalShortcut(win, store);
@@ -236,6 +261,9 @@ export function initIpcMain(win, store, trayEventEmitter) {
   });
 
   ipcMain.on('playDiscordPresence', (event, track) => {
+    if (!isRecord(track) || !Array.isArray(track.ar) || !isRecord(track.al)) {
+      return;
+    }
     client.updatePresence({
       details: track.name + ' - ' + track.ar.map(ar => ar.name).join(','),
       state: track.al.name,
@@ -249,6 +277,9 @@ export function initIpcMain(win, store, trayEventEmitter) {
   });
 
   ipcMain.on('pauseDiscordPresence', (event, track) => {
+    if (!isRecord(track) || !Array.isArray(track.ar) || !isRecord(track.al)) {
+      return;
+    }
     client.updatePresence({
       details: track.name + ' - ' + track.ar.map(ar => ar.name).join(','),
       state: track.al.name,
@@ -261,6 +292,7 @@ export function initIpcMain(win, store, trayEventEmitter) {
   });
 
   ipcMain.on('setProxy', (event, config) => {
+    if (!isValidProxyConfig(config)) return;
     const proxyRules = `${config.protocol}://${config.server}:${config.port}`;
     store.set('proxy', proxyRules);
     win.webContents.session.setProxy(
@@ -280,6 +312,7 @@ export function initIpcMain(win, store, trayEventEmitter) {
   });
 
   ipcMain.on('switchGlobalShortcutStatusTemporary', (e, status) => {
+    if (!['enable', 'disable'].includes(status)) return;
     log('switchGlobalShortcutStatusTemporary');
     if (status === 'disable') {
       globalShortcut.unregisterAll();
@@ -288,10 +321,14 @@ export function initIpcMain(win, store, trayEventEmitter) {
     }
   });
 
-  ipcMain.on('updateShortcut', (e, { id, type, shortcut }) => {
+  ipcMain.on('updateShortcut', (e, payload) => {
+    if (!isRecord(payload)) return;
+    const { id, type, shortcut } = payload;
+    if (!isNonEmptyString(id) || !isNonEmptyString(type)) return;
     log('updateShortcut');
     let shortcuts = store.get('settings.shortcuts');
     let newShortcut = shortcuts.find(s => s.id === id);
+    if (!newShortcut) return;
     newShortcut[type] = shortcut;
     store.set('settings.shortcuts', shortcuts);
 

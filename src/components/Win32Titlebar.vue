@@ -28,10 +28,7 @@ import '@vscode/codicons/dist/codicon.css';
 
 import { mapState } from 'vuex';
 
-const electron =
-  process.env.IS_ELECTRON === true ? window.require('electron') : null;
-const ipcRenderer =
-  process.env.IS_ELECTRON === true ? electron.ipcRenderer : null;
+const electronWindow = window.electronAPI?.window;
 
 export default {
   name: 'Win32Titlebar',
@@ -45,20 +42,23 @@ export default {
   },
   created() {
     if (process.env.IS_ELECTRON === true) {
-      ipcRenderer.on('isMaximized', (_, value) => {
+      this.removeIsMaximizedListener = electronWindow?.onIsMaximized(value => {
         this.isMaximized = value;
       });
     }
   },
+  beforeDestroy() {
+    this.removeIsMaximizedListener?.();
+  },
   methods: {
     windowMinimize() {
-      ipcRenderer.send('minimize');
+      electronWindow?.minimize();
     },
     windowMaxRestore() {
-      ipcRenderer.send('maximizeOrUnmaximize');
+      electronWindow?.maximizeOrUnmaximize();
     },
     windowClose() {
-      ipcRenderer.send('close');
+      electronWindow?.close();
     },
   },
 };

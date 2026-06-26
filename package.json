@@ -196,6 +196,7 @@
     "@babel/core": "^7.28.5",
     "@babel/eslint-parser": "^7.28.5",
     "@babel/helper-compilation-targets": "^7.29.7",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.0",
     "@vitejs/plugin-vue2": "2.3.4",
     "@vue/cli-plugin-babel": "~5.0.9",
@@ -210,6 +211,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "eslint-plugin-vue": "^10.9.2",
+    "globals": "^17.7.0",
     "husky": "^9.1.7",
     "prettier": "3.8.4",
     "sass": "^1.101.0",
@@ -217,36 +219,13 @@
     "vite": "7.3.6",
     "vite-plugin-svg-icons": "^2.0.1",
     "vue-cli-plugin-electron-builder": "~2.1.1",
+    "vue-eslint-parser": "^10.4.1",
     "webpack": "^5.107.2"
   },
   "resolutions": {
     "@babel/core": "7.28.5",
     "@babel/helper-compilation-targets": "^7.29.7",
     "**/@achrinza/node-ipc": "9.2.10"
-  },
-  "eslintConfig": {
-    "root": true,
-    "env": {
-      "node": true,
-      "browser": true
-    },
-    "extends": [
-      "plugin:vue/essential",
-      "plugin:vue/recommended",
-      "plugin:prettier/recommended",
-      "eslint:recommended"
-    ],
-    "parserOptions": {
-      "parser": "@babel/eslint-parser",
-      "requireConfigFile": false
-    },
-    "globals": {
-      "ipcRenderer": "off"
-    },
-    "rules": {
-      "vue/component-definition-name-casing": "off",
-      "vue/multi-word-component-names": "off"
-    }
   },
   "browserslist": [
     "> 1%",

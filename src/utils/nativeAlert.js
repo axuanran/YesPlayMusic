@@ -13,16 +13,13 @@
  */
 const nativeAlert = (() => {
   if (process.env.IS_ELECTRON === true) {
-    const { dialog } = require('electron');
-    if (dialog) {
-      return message => {
-        var options = {
-          type: 'warning',
-          message,
-        };
-        dialog.showMessageBoxSync(null, options);
-      };
-    }
+    return message => {
+      if (window.electronAPI?.app?.showNativeAlert) {
+        window.electronAPI.app.showNativeAlert(message);
+      } else {
+        alert(message);
+      }
+    };
   }
   return alert;
 })();

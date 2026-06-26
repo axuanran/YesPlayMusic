@@ -207,10 +207,11 @@ class Background {
       title: 'YesPlayMusic',
       show: false,
       webPreferences: {
-        webSecurity: false,
-        nodeIntegration: true,
-        enableRemoteModule: true,
-        contextIsolation: false,
+        preload: path.join(__dirname, '../preload/index.js'),
+        webSecurity: true,
+        nodeIntegration: false,
+        enableRemoteModule: false,
+        contextIsolation: true,
       },
       backgroundColor:
         ((appearance === undefined || appearance === 'auto') &&
@@ -268,9 +269,7 @@ class Background {
     if (devServerUrl) {
       // Load the url of the dev server if in development mode
       this.window.loadURL(
-        showLibraryDefault
-          ? `${devServerUrl}/#/library`
-          : devServerUrl
+        showLibraryDefault ? `${devServerUrl}/#/library` : devServerUrl
       );
       if (!process.env.IS_TEST) this.window.webContents.openDevTools();
     } else {
@@ -371,10 +370,10 @@ class Background {
           titleBarStyle: 'default',
           title: 'YesPlayMusic',
           webPreferences: {
-            webSecurity: false,
-            nodeIntegration: true,
-            enableRemoteModule: true,
-            contextIsolation: false,
+            webSecurity: true,
+            nodeIntegration: false,
+            enableRemoteModule: false,
+            contextIsolation: true,
           },
         });
         newWindow.loadURL(url);
