@@ -128,7 +128,10 @@ class Background {
     if (!app.requestSingleInstanceLock()) return app.quit();
 
     // start netease music api
-    this.neteaseMusicAPI = startNeteaseMusicApi();
+    this.neteaseMusicAPI = startNeteaseMusicApi().catch(err => {
+      log(`Failed to start NetEase API: ${err.message}`);
+      console.error(err);
+    });
 
     // create Express app
     this.createExpressApp();
@@ -241,6 +244,7 @@ class Background {
         nodeIntegration: false,
         enableRemoteModule: false,
         contextIsolation: true,
+        zoomFactor: 1,
       },
       backgroundColor:
         ((appearance === undefined || appearance === 'auto') &&
@@ -403,6 +407,7 @@ class Background {
             nodeIntegration: false,
             enableRemoteModule: false,
             contextIsolation: true,
+            zoomFactor: 1,
           },
         });
         newWindow.loadURL(url);

@@ -85,7 +85,7 @@ export default defineConfig(({ mode }) => ({
       port: Number(process.env.DEV_SERVER_PORT || 20201),
       proxy: {
         '/api': {
-          target: 'http://localhost:3000',
+          target: 'http://localhost:10754',
           changeOrigin: true,
           rewrite: value => value.replace(/^\/api/, ''),
         },

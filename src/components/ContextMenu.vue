@@ -134,7 +134,7 @@ export default {
     transform: scale(0.95);
   }
 
-  .svg-icon {
+  :deep(.svg-icon) {
     height: 16px;
     width: 16px;
     margin-right: 5px;

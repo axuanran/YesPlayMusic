@@ -8,7 +8,9 @@
       @scroll="handleScroll"
     >
       <router-view v-slot="{ Component }">
-        <component :is="Component" />
+        <keep-alive :include="keepAliveComponents">
+          <component :is="Component" />
+        </keep-alive>
       </router-view>
     </main>
     <transition name="slide-up">
@@ -50,6 +52,8 @@ export default {
     return {
       isElectron: process.env.IS_ELECTRON, // true || undefined
       userSelectNone: false,
+      // keep-alive :include matches component name (PascalCase), not route name
+      keepAliveComponents: ['Home', 'Artist', 'ArtistMV', 'Next', 'Search', 'Explore', 'Library'],
     };
   },
   computed: {
