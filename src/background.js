@@ -26,14 +26,34 @@ import { createTouchBar } from './electron/touchBar';
 import { createDockMenu } from './electron/dockMenu';
 import { registerGlobalShortcut } from './electron/globalShortcut';
 import { autoUpdater } from 'electron-updater';
-import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer';
+import * as devtoolsInstaller from 'electron-devtools-installer';
 import { EventEmitter } from 'events';
 import express from 'express';
 import expressProxy from 'express-http-proxy';
-import Store from 'electron-store';
+import StoreModule from 'electron-store';
 import { createMpris, createDbus } from '@/electron/mpris';
 import { spawn } from 'child_process';
 const clc = require('cli-color');
+const Store = StoreModule.default || StoreModule;
+const installExtension =
+  devtoolsInstaller.installExtension || devtoolsInstaller.default;
+const { VUEJS_DEVTOOLS } = devtoolsInstaller;
+const legacyWebPreferences = {
+  webSecurity: true,
+  nodeIntegration: false,
+  enableRemoteModule: false,
+  contextIsolation: true,
+};
+
+const ignoreBrokenPipe = error => {
+  if (error.code !== 'EPIPE') {
+    throw error;
+  }
+};
+
+process.stdout.on('error', ignoreBrokenPipe);
+process.stderr.on('error', ignoreBrokenPipe);
+
 const log = text => {
   console.log(`${clc.blueBright('[background.js]')} ${text}`);
 };
@@ -188,12 +208,7 @@ class Background {
       ),
       title: 'YesPlayMusic',
       show: false,
-      webPreferences: {
-        webSecurity: false,
-        nodeIntegration: true,
-        enableRemoteModule: true,
-        contextIsolation: false,
-      },
+      webPreferences: legacyWebPreferences,
       backgroundColor:
         ((appearance === undefined || appearance === 'auto') &&
           nativeTheme.shouldUseDarkColors) ||
@@ -352,12 +367,7 @@ class Background {
           height: 600,
           titleBarStyle: 'default',
           title: 'YesPlayMusic',
-          webPreferences: {
-            webSecurity: false,
-            nodeIntegration: true,
-            enableRemoteModule: true,
-            contextIsolation: false,
-          },
+          webPreferences: legacyWebPreferences,
         });
         newWindow.loadURL(url);
         return;

@@ -141,7 +141,7 @@ main::-webkit-scrollbar {
 .slide-up-leave-active {
   transition: transform 0.4s;
 }
-.slide-up-enter,
+.slide-up-enter-from,
 .slide-up-leave-to {
   transform: translateY(100%);
 }

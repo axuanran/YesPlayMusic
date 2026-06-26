@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
-import vue from '@vitejs/plugin-vue2';
+import vue from '@vitejs/plugin-vue';
 import { createSvgIconsPlugin } from 'vite-plugin-svg-icons';
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url));
@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => ({
     'process.env': JSON.stringify(createProcessEnv(mode)),
   },
   server: {
-    host: '0.0.0.0',
+    host: process.env.DEV_SERVER_HOST || '127.0.0.1',
     port: Number(process.env.DEV_SERVER_PORT || 20201),
     proxy: {
       '/api': {

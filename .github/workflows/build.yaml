@@ -1,7 +1,7 @@
 name: Release
 
 env:
-  YARN_INSTALL_NOPT: yarn add --ignore-platform --ignore-optional
+  YARN_INSTALL_NOPT: yarn add --ignore-platform --ignore-optional --non-interactive --no-lockfile --exact
 
 on:
   push:
@@ -23,15 +23,21 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: 'recursive'
 
       - name: Install Node.js, NPM and Yarn
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 24
           cache: 'yarn'
+          cache-dependency-path: yarn.lock
+
+      - name: Enable pinned Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
 
       - name: Install RPM & Pacman (on Ubuntu)
         if: runner.os == 'Linux'
@@ -48,9 +54,9 @@ jobs:
       - id: get_unm_version
         name: Get the installed UNM version
         run: |
-          yarn --ignore-optional
+          yarn install --frozen-lockfile --ignore-optional --non-interactive
           unm_version=$(node -e "console.log(require('./node_modules/@unblockneteasemusic/rust-napi/package.json').version)")
-          echo "::set-output name=unmver::${unm_version}"
+          echo "unmver=${unm_version}" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Install UNM dependencies for Windows
@@ -83,34 +89,34 @@ jobs:
         env:
           VUE_APP_NETEASE_API_URL: /api
           VUE_APP_ELECTRON_API_URL: /api
-          VUE_APP_ELECTRON_API_URL_DEV: http://127.0.0.1:10754
-          VUE_APP_LASTFM_API_KEY: 09c55292403d961aa517ff7f5e8a3d9c
-          VUE_APP_LASTFM_API_SHARED_SECRET: 307c9fda32b3904e53654baff215cb67
+          VUE_APP_ELECTRON_API_URL_DEV: ${{ vars.VUE_APP_ELECTRON_API_URL_DEV || 'http://127.0.0.1:10754' }}
+          VUE_APP_LASTFM_API_KEY: ${{ vars.VUE_APP_LASTFM_API_KEY }}
+          VUE_APP_LASTFM_API_SHARED_SECRET: ${{ secrets.VUE_APP_LASTFM_API_SHARED_SECRET }}
         with:
           # GitHub token, automatically provided to the action
           # (No need to define this secret in the repo settings)
-          github_token: ${{ secrets.github_token }}
+          github_token: ${{ github.token }}
 
           # If the commit is tagged with a version (e.g. "v1.0.0"),
           # release the app after building
           release: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
-          use_vue_cli: true
+          use_vue_cli: false
 
       - uses: actions/upload-artifact@v4
         with:
           name: YesPlayMusic-mac
           path: dist_electron/*-universal.dmg
-          if-no-files-found: ignore
+          if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
           name: YesPlayMusic-win
           path: dist_electron/*Setup*.exe
-          if-no-files-found: ignore
+          if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
           name: YesPlayMusic-linux
           path: dist_electron/*.AppImage
-          if-no-files-found: ignore
+          if-no-files-found: error

@@ -203,8 +203,8 @@ cd /home/runner/${REPL_SLUG}/music && yarn install && yarn run build
 
 如果在 Release 页面没有找到适合你的设备的安装包的话，你可以根据下面的步骤来打包自己的客户端。
 
-1. 打包 Electron 需要用到 Node.js 和 Yarn。可前往 [Node.js 官网](https://nodejs.org/zh-cn/) 下载安装包。安装 Node.js
-   后可在终端里执行 `npm install -g yarn` 来安装 Yarn。
+1. 打包 Electron 需要用到 Node.js 和 Yarn。本仓库当前要求 Node.js `>=22 <26`，并使用 Yarn `1.22.x`。可前往 [Node.js 官网](https://nodejs.org/zh-cn/) 下载安装包。安装 Node.js
+   后可在终端里执行 `corepack enable` 或 `npm install -g yarn@1.22.22` 来安装 Yarn。
 
 2. 使用 `git clone --recursive https://github.com/qier222/YesPlayMusic.git` 克隆本仓库到本地。
 
@@ -214,12 +214,12 @@ cd /home/runner/${REPL_SLUG}/music && yarn install && yarn run build
 
 5. 选择下列表格的命令来打包适合的你的安装包，打包出来的文件在 `/dist_electron` 目录下。了解更多信息可访问 [electron-builder 文档](https://www.electron.build/cli)
 
-| 命令                                      | 说明                      |
-| ----------------------------------------- | ------------------------- |
-| `yarn electron:build-win --ia32`          | Windows 32 位             |
-| `yarn electron:build-win --arm64`         | Windows ARM               |
+| 命令                                       | 说明                      |
+| ------------------------------------------ | ------------------------- |
+| `yarn electron:build-win --ia32`           | Windows 32 位             |
+| `yarn electron:build-win --arm64`          | Windows ARM               |
 | `yarn electron:build-linux --armv7l --deb` | Debian armv7l（树莓派等） |
-| `yarn electron:build-mac --arm64 --dir`   | macOS ARM                 |
+| `yarn electron:build-mac --arm64 --dir`    | macOS ARM                 |
 
 ## :computer: 配置开发环境
 
@@ -237,7 +237,7 @@ cp .env.example .env
 # 运行（网页端）
 yarn dev
 
-# 运行（electron）
+# 运行（Electron 桌面端，兼容命令；实际入口为 yarn desktop:dev）
 yarn electron:serve
 ```
 

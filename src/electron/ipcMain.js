@@ -73,6 +73,20 @@ const exitAskWithoutMac = (e, win) => {
 
 const client = require('discord-rich-presence')('818936529484906596');
 
+client.on('error', err => {
+  const errorMessage = err instanceof Error ? err.message : `${err}`;
+  log(`discord rich presence unavailable: ${errorMessage}`);
+});
+
+const updateDiscordPresence = presence => {
+  try {
+    client.updatePresence(presence);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : `${err}`;
+    log(`discord rich presence unavailable: ${errorMessage}`);
+  }
+};
+
 /**
  * Make data a Buffer.
  *
@@ -264,7 +278,7 @@ export function initIpcMain(win, store, trayEventEmitter) {
     if (!isRecord(track) || !Array.isArray(track.ar) || !isRecord(track.al)) {
       return;
     }
-    client.updatePresence({
+    updateDiscordPresence({
       details: track.name + ' - ' + track.ar.map(ar => ar.name).join(','),
       state: track.al.name,
       endTimestamp: Date.now() + track.dt,
@@ -280,7 +294,7 @@ export function initIpcMain(win, store, trayEventEmitter) {
     if (!isRecord(track) || !Array.isArray(track.ar) || !isRecord(track.al)) {
       return;
     }
-    client.updatePresence({
+    updateDiscordPresence({
       details: track.name + ' - ' + track.ar.map(ar => ar.name).join(','),
       state: track.al.name,
       largeImageKey: track.al.picUrl,

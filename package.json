@@ -4,6 +4,7 @@
   "private": true,
   "description": "A third party music player for Netease Music",
   "author": "qier222<qier222@outlook.com>",
+  "packageManager": "yarn@1.22.22",
   "scripts": {
     "dev": "vite",
     "serve": "yarn dev",
@@ -145,6 +146,7 @@
     "@neteasecloudmusicapienhanced/api": "^4.36.1",
     "@unblockneteasemusic/rust-napi": "^0.4.0",
     "@vscode/codicons": "^0.0.45",
+    "@vue/compat": "^3.5.0",
     "axios": "^1.18.1",
     "change-case": "^5.4.4",
     "cli-color": "^2.0.4",
@@ -183,13 +185,9 @@
     "register-service-worker": "^1.7.2",
     "svg-sprite-loader": "^6.0.11",
     "tunnel": "^0.0.6",
-    "vue": "2.7.16",
     "vue-clipboard2": "^0.3.1",
-    "vue-gtag": "1.16.1",
-    "vue-i18n": "8",
-    "vue-router": "3",
+    "vue-gtag-next": "^1.14.0",
     "vue-slider-component": "^3.2.5",
-    "vuex": "3",
     "x11": "^2.3.0"
   },
   "devDependencies": {
@@ -198,7 +196,6 @@
     "@babel/helper-compilation-targets": "^7.29.7",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.0",
-    "@vitejs/plugin-vue2": "2.3.4",
     "@vue/cli-plugin-babel": "~5.0.9",
     "@vue/cli-plugin-eslint": "~5.0.9",
     "@vue/cli-plugin-pwa": "~5.0.9",

@@ -8,7 +8,7 @@ module.exports = {
   // 生产环境打包不输出 map
   productionSourceMap: false,
   devServer: {
-    disableHostCheck: true,
+    host: '127.0.0.1',
     port: process.env.DEV_SERVER_PORT || 8080,
     proxy: {
       '^/api': {
@@ -70,7 +70,7 @@ module.exports = {
       .end()
       .use('esbuild-loader')
       .loader('esbuild-loader')
-      .options({ target: 'es2015', format: "cjs" })
+      .options({ target: 'es2015', format: 'cjs' })
       .end();
 
     // LimitChunkCountPlugin 可以通过合并块来对块进行后期处理。用以解决 chunk 包太多的问题
@@ -84,7 +84,9 @@ module.exports = {
   pluginOptions: {
     // electron-builder的配置文件
     electronBuilder: {
-      nodeIntegration: true,
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false,
       externals: ['@unblockneteasemusic/rust-napi'],
       builderOptions: {
         productName: 'YesPlayMusic',
@@ -186,7 +188,7 @@ module.exports = {
           .end()
           .use('esbuild-loader')
           .loader('esbuild-loader')
-          .options({ target: 'es2015', format: "cjs" })
+          .options({ target: 'es2015', format: 'cjs' })
           .end();
       },
       // 渲染线程的配置文件

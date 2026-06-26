@@ -27,14 +27,27 @@ import { createTouchBar } from '../electron/touchBar';
 import { createDockMenu } from '../electron/dockMenu';
 import { registerGlobalShortcut } from '../electron/globalShortcut';
 import { autoUpdater } from 'electron-updater';
-import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer';
+import * as devtoolsInstaller from 'electron-devtools-installer';
 import { EventEmitter } from 'events';
 import express from 'express';
 import expressProxy from 'express-http-proxy';
-import Store from 'electron-store';
+import StoreModule from 'electron-store';
 import { createMpris, createDbus } from '@/electron/mpris';
 import { spawn } from 'child_process';
 import clc from 'cli-color';
+const Store = StoreModule.default || StoreModule;
+const installExtension =
+  devtoolsInstaller.installExtension || devtoolsInstaller.default;
+const { VUEJS_DEVTOOLS } = devtoolsInstaller;
+
+const ignoreBrokenPipe = error => {
+  if (error.code !== 'EPIPE') {
+    throw error;
+  }
+};
+
+process.stdout.on('error', ignoreBrokenPipe);
+process.stderr.on('error', ignoreBrokenPipe);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

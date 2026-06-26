@@ -1,21 +1,23 @@
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
-import { fileURLToPath, URL } from 'node:url'
-import path from 'node:path'
-import vue from '@vitejs/plugin-vue2'
-import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
+import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
+import { fileURLToPath, URL } from 'node:url';
+import path from 'node:path';
+import vue from '@vitejs/plugin-vue';
+import { createSvgIconsPlugin } from 'vite-plugin-svg-icons';
 
-const r = p => fileURLToPath(new URL(p, import.meta.url))
+const r = p => fileURLToPath(new URL(p, import.meta.url));
 
 function createProcessEnv(mode) {
-  const env = process.env
+  const env = process.env;
   return {
     ...Object.fromEntries(
-      Object.entries(env).filter(([k]) => k.startsWith('VITE_') || k.startsWith('VUE_APP_'))
+      Object.entries(env).filter(
+        ([k]) => k.startsWith('VITE_') || k.startsWith('VUE_APP_')
+      )
     ),
     BASE_URL: '/',
     IS_ELECTRON: true,
     NODE_ENV: mode === 'production' ? 'production' : 'development',
-  }
+  };
 }
 
 export default defineConfig(({ mode }) => ({
@@ -52,6 +54,7 @@ export default defineConfig(({ mode }) => ({
   },
 
   renderer: {
+    root: r('.'),
     publicDir: r('./public'),
     plugins: [
       vue(),
@@ -66,7 +69,7 @@ export default defineConfig(({ mode }) => ({
         '~@': r('./src'),
         vue: path.resolve(
           path.dirname(fileURLToPath(import.meta.url)),
-          'node_modules/vue/dist/vue.runtime.esm.js'
+          'node_modules/vue/dist/vue.runtime.esm-bundler.js'
         ),
       },
     },
@@ -74,7 +77,7 @@ export default defineConfig(({ mode }) => ({
       'process.env': JSON.stringify(createProcessEnv(mode)),
     },
     server: {
-      host: '0.0.0.0',
+      host: process.env.DEV_SERVER_HOST || '127.0.0.1',
       port: Number(process.env.DEV_SERVER_PORT || 20201),
       proxy: {
         '/api': {
@@ -97,4 +100,4 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-}))
+}));

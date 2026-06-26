@@ -1,4 +1,4 @@
-import Vue from 'vue';
+import { createApp } from 'vue';
 import VueGtag from 'vue-gtag';
 import App from './App.vue';
 import router from './router';
@@ -28,21 +28,17 @@ console.log(
   'background:unset;color:unset;'
 );
 
-Vue.use(
-  VueGtag,
-  {
-    config: { id: 'G-KMJJCFZDKF' },
-  },
-  router
-);
-Vue.config.productionTip = false;
-
 NProgress.configure({ showSpinner: false, trickleSpeed: 100 });
 dailyTask();
 
-new Vue({
-  i18n,
-  store,
+const app = createApp(App);
+
+app.use(store);
+app.use(router);
+app.use(i18n);
+app.use(VueGtag, {
+  config: { id: 'G-KMJJCFZDKF' },
   router,
-  render: h => h(App),
-}).$mount('#app');
+});
+
+app.mount('#app');
