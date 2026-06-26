@@ -17,7 +17,6 @@ import {
   isLinux,
   isDevelopment,
   isCreateTray,
-  isCreateMpris,
 } from '@/utils/platform';
 import { startNeteaseMusicApi } from '../electron/services';
 import { initIpcMain } from '../electron/ipcMain.js';
@@ -32,7 +31,6 @@ import { EventEmitter } from 'events';
 import express from 'express';
 import expressProxy from 'express-http-proxy';
 import StoreModule from 'electron-store';
-import { createMpris, createDbus } from '@/electron/mpris';
 import { spawn } from 'child_process';
 import clc from 'cli-color';
 const Store = StoreModule.default || StoreModule;
@@ -143,14 +141,6 @@ class Background {
 
     // handle app events
     this.handleAppEvents();
-
-    // disable chromium mpris
-    if (isCreateMpris) {
-      app.commandLine.appendSwitch(
-        'disable-features',
-        'HardwareMediaKeyHandling,MediaSessionService'
-      );
-    }
   }
 
   async initDevtools() {
@@ -475,7 +465,6 @@ class Background {
 
       // try to start osdlyrics process on start
       if (this.store.get('settings.enableOsdlyricsSupport')) {
-        await createDbus(this.window);
         log('try to start osdlyrics process');
         const osdlyricsProcess = spawn('osdlyrics');
 
@@ -488,10 +477,6 @@ class Background {
         });
       }
 
-      // create mpris
-      if (isCreateMpris) {
-        createMpris(this.window);
-      }
     });
 
     app.on('activate', () => {
