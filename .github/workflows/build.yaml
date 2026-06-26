@@ -96,6 +96,13 @@ jobs:
             @unblockneteasemusic/rust-napi-darwin-arm64@${{steps.get_unm_version.outputs.unmver}}
         shell: bash
 
+      - name: Install esbuild native binary for macOS x64
+        if: runner.os == 'macOS'
+        run: |
+          ${{ env.YARN_INSTALL_NOPT }} \
+            @esbuild/darwin-x64
+        shell: bash
+
 
       - name: Verify Rollup
         run: |
