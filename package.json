@@ -23,7 +23,7 @@
   },
   "main": "background.js",
   "engines": {
-    "node": "14 || 16"
+    "node": "18"
   },
   "dependencies": {
     "@neteasecloudmusicapienhanced/api": "^4.36.1",
