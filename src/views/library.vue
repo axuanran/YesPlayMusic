@@ -3,7 +3,7 @@
     <h1>
       <img
         class="avatar"
-        :src="data.user.avatarUrl | resizeImage"
+        :src="$filters.resizeImage(data.user.avatarUrl)"
         loading="lazy"
       />{{ data.user.nickname }}{{ $t('library.sLibrary') }}
     </h1>

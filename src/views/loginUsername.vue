@@ -33,7 +33,7 @@
           >
             <img
               class="head"
-              :src="user.avatarUrl | resizeImage"
+              :src="$filters.resizeImage(user.avatarUrl)"
               loading="lazy"
             />
             <div class="nickname">
@@ -44,7 +44,7 @@
       </div>
       <ButtonTwoTone
         v-show="activeUser.nickname !== undefined"
-        @click.native="confirm"
+        @click="confirm"
       >
         {{ $t('login.confirm') }}
       </ButtonTwoTone>

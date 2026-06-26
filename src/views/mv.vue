@@ -12,17 +12,17 @@
           -
           {{ mv.data.name }}
           <div class="buttons">
-            <button-icon class="button" @click.native="likeMV">
+            <button-icon class="button" @click="likeMV">
               <svg-icon v-if="mv.subed" icon-class="heart-solid"></svg-icon>
               <svg-icon v-else icon-class="heart"></svg-icon>
             </button-icon>
-            <button-icon class="button" @click.native="openMenu">
+            <button-icon class="button" @click="openMenu">
               <svg-icon icon-class="more"></svg-icon>
             </button-icon>
           </div>
         </div>
         <div class="info">
-          {{ mv.data.playCount | formatPlayCount }} Views ·
+          {{ $filters.formatPlayCount(mv.data.playCount) }} Views ·
           {{ mv.data.publishTime }}
         </div>
       </div>

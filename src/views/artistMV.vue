@@ -3,13 +3,13 @@
     <h1>
       <img
         class="avatar"
-        :src="artist.img1v1Url | resizeImage(1024)"
+        :src="$filters.resizeImage(artist.img1v1Url, 1024)"
         loading="lazy"
       />{{ artist.name }}'s Music Videos
     </h1>
     <MvRow :mvs="mvs" subtitle="publishTime" />
     <div class="load-more">
-      <ButtonTwoTone v-show="hasMore" color="grey" @click.native="loadMVs">{{
+      <ButtonTwoTone v-show="hasMore" color="grey" @click="loadMVs">{{
         $t('explore.loadMore')
       }}</ButtonTwoTone>
     </div>

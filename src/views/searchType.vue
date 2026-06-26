@@ -32,7 +32,7 @@
     </div>
 
     <div class="load-more">
-      <ButtonTwoTone v-show="hasMore" color="grey" @click.native="fetchData">{{
+      <ButtonTwoTone v-show="hasMore" color="grey" @click="fetchData">{{
         $t('explore.loadMore')
       }}</ButtonTwoTone>
     </div>

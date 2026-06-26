@@ -3,7 +3,7 @@
     <ContextMenu ref="menu">
       <div v-show="type !== 'cloudDisk'" class="item-info">
         <img
-          :src="rightClickedTrackComputed.al.picUrl | resizeImage(224)"
+          :src="$filters.resizeImage(rightClickedTrackComputed.al.picUrl, 224)"
           loading="lazy"
         />
         <div class="info">
@@ -67,8 +67,8 @@
         :track-prop="track"
         :track-no="index + 1"
         :highlight-playing-track="highlightPlayingTrack"
-        @dblclick.native="playThisList(track.id || track.songId)"
-        @click.right.native="openMenu($event, track, index)"
+        @dblclick="playThisList(track.id || track.songId)"
+        @click.right="openMenu($event, track, index)"
       />
     </div>
   </div>
