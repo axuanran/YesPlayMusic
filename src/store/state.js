@@ -49,6 +49,7 @@ export default {
   dailyTracks: [],
   lastfm: JSON.parse(localStorage.getItem('lastfm')) || {},
   player: JSON.parse(localStorage.getItem('player')),
+  playerVersion: 0,
   settings: JSON.parse(localStorage.getItem('settings')),
   data: JSON.parse(localStorage.getItem('data')),
 };

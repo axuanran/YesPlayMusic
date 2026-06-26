@@ -80,6 +80,7 @@ export default class {
     this._currentAudioSource = ''; // 当前播放音频地址，用于展示来源信息
     this._audioToken = 0; // 防止旧音频回调污染新的播放源
     this._reactiveSelf = this; // Vuex Proxy 创建后会回绑，用于音频事件触发响应式更新
+    this._progressFrame = null;
     this._playNextList = []; // 当这个list不为空时，会优先播放这个list的歌
     this._isPersonalFM = false; // 是否是私人FM模式
     this._personalFMTrack = { id: 0 }; // 私人FM当前歌曲
@@ -115,6 +116,9 @@ export default class {
       enumerable: false,
     });
     Object.defineProperty(this, '_reactiveSelf', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_progressFrame', {
       enumerable: false,
     });
 
@@ -275,13 +279,36 @@ export default class {
       electronPlayer?.updateTrayPlayState(this._playing);
     }
   }
+  _setCurrentTrack(track) {
+    this._currentTrack = track;
+    store.commit('bumpPlayerVersion');
+  }
   _syncProgress() {
     if (!this._audio) return;
-    this._progress = this._audio.currentTime();
+    const duration = this.currentTrackDuration;
+    this._progress = Math.min(this._audio.currentTime(), duration);
     localStorage.setItem('playerCurrentTrackTime', this._progress);
     if (isCreateMpris) {
       electronPlayer?.playerCurrentTrackTime(this._progress);
     }
+  }
+  _startProgressLoop() {
+    if (this._progressFrame !== null) return;
+    const tick = () => {
+      const player = this._getReactiveSelf();
+      player._syncProgress();
+      if (player.playing) {
+        player._progressFrame = requestAnimationFrame(tick);
+      } else {
+        player._progressFrame = null;
+      }
+    };
+    this._progressFrame = requestAnimationFrame(tick);
+  }
+  _stopProgressLoop() {
+    if (this._progressFrame === null) return;
+    cancelAnimationFrame(this._progressFrame);
+    this._progressFrame = null;
   }
   _handleAudioError(error) {
     const errorCode = error?.code;
@@ -515,7 +542,7 @@ export default class {
     }
     return getTrackDetail(id).then(data => {
       const track = data.songs[0];
-      this._currentTrack = track;
+      this._setCurrentTrack(track);
       this._updateMediaSessionMetaData(track);
       return this._replaceCurrentTrackAudio(
         track,
@@ -679,11 +706,12 @@ export default class {
     }
   }
   _nextTrackCallback() {
-    this._scrobble(this._currentTrack, 0, true);
-    if (!this.isPersonalFM && this.repeatMode === 'one') {
-      this._replaceCurrentTrack(this.currentTrackID);
+    const player = this._getReactiveSelf();
+    player._scrobble(player._currentTrack, 0, true);
+    if (!player.isPersonalFM && player.repeatMode === 'one') {
+      player._replaceCurrentTrack(player.currentTrackID);
     } else {
-      this._playNextTrack(this.isPersonalFM);
+      player._playNextTrack(player.isPersonalFM);
     }
   }
   _loadPersonalFMNextTrack() {
@@ -826,6 +854,7 @@ export default class {
     this._audio?.fade(this.volume, 0, PLAY_PAUSE_FADE_DURATION).then(() => {
       this._audio?.pause();
       this._setPlaying(false);
+      this._stopProgressLoop();
       setTitle(null);
       this._pauseDiscordPresence(this._currentTrack);
     });
@@ -841,6 +870,7 @@ export default class {
       .then(() => this._audio?.fade(0, this.volume, PLAY_PAUSE_FADE_DURATION))
       .then(() => {
         this._setPlaying(true);
+        this._startProgressLoop();
         if (this._currentTrack.name) {
           setTitle(this._currentTrack);
         }

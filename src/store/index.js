@@ -55,7 +55,9 @@ player = new Proxy(player, {
   set(target, prop, val) {
     // console.log({ prop, val });
     target[prop] = val;
-    if (prop === '_audio' || prop === '_reactiveSelf') return true;
+    if (['_audio', '_reactiveSelf', '_progressFrame'].includes(prop)) {
+      return true;
+    }
     target.saveSelfToLocalStorage();
     target.sendSelfToIpcMain();
     return true;

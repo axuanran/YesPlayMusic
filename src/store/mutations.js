@@ -75,4 +75,7 @@ export default {
   updateTitle(state, title) {
     state.title = title;
   },
+  bumpPlayerVersion(state) {
+    state.playerVersion += 1;
+  },
 };

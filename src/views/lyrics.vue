@@ -335,8 +335,10 @@ export default {
     };
   },
   computed: {
-    ...mapState(['player', 'settings', 'showLyrics']),
+    ...mapState(['player', 'playerVersion', 'settings', 'showLyrics']),
     currentTrack() {
+      const version = this.playerVersion;
+      if (version < 0) return this.player.currentTrack;
       return this.player.currentTrack;
     },
     volume: {

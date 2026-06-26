@@ -201,8 +201,10 @@ export default {
     };
   },
   computed: {
-    ...mapState(['player', 'settings', 'data']),
+    ...mapState(['player', 'playerVersion', 'settings', 'data']),
     currentTrack() {
+      const version = this.playerVersion;
+      if (version < 0) return this.player.currentTrack;
       return this.player.currentTrack;
     },
     volume: {

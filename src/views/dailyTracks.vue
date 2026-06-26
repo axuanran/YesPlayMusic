@@ -42,7 +42,10 @@ export default {
     } else {
       this.show = true;
     }
-    this.$parent.$refs.main.scrollTo(0, 0);
+  },
+  mounted() {
+    const main = this.$root?.$refs?.main || document.querySelector('main');
+    if (main?.scrollTo) main.scrollTo(0, 0);
   },
   methods: {
     ...mapMutations(['updateDailyTracks']),
