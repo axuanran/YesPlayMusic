@@ -53,7 +53,15 @@ export default {
       isElectron: process.env.IS_ELECTRON, // true || undefined
       userSelectNone: false,
       // keep-alive :include matches component name (PascalCase), not route name
-      keepAliveComponents: ['Home', 'Artist', 'ArtistMV', 'Next', 'Search', 'Explore', 'Library'],
+      keepAliveComponents: [
+        'Home',
+        'Artist',
+        'ArtistMV',
+        'Next',
+        'Search',
+        'Explore',
+        'Library',
+      ],
     };
   },
   computed: {

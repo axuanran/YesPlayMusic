@@ -476,7 +476,6 @@ class Background {
           log(`osdlyrics process exited with code ${code}, signal ${signal}`);
         });
       }
-
     });
 
     app.on('activate', () => {
