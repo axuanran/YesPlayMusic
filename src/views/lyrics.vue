@@ -350,10 +350,10 @@ export default {
       },
     },
     imageUrl() {
-      return this.player.currentTrack?.al?.picUrl + '?param=1024y1024';
+      return this.currentTrack?.al?.picUrl + '?param=1024y1024';
     },
     bgImageUrl() {
-      return this.player.currentTrack?.al?.picUrl + '?param=512y512';
+      return this.currentTrack?.al?.picUrl + '?param=512y512';
     },
     isShowLyricTypeSwitch() {
       return this.romalyric.length > 0 && this.tlyric.length > 0;
