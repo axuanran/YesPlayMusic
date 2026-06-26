@@ -30,9 +30,7 @@ jobs:
       - name: Install Node.js, NPM and Yarn
         uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: 'yarn'
-          cache-dependency-path: yarn.lock
+          node-version: 22
 
       - name: Enable pinned Yarn
         run: |
@@ -50,6 +48,12 @@ jobs:
       - name: Install Snapcraft (on Ubuntu)
         uses: samuelmeuli/action-snapcraft@v3
         if: startsWith(matrix.os, 'ubuntu')
+
+      - name: Clean broken install state
+        run: |
+          rm -rf node_modules
+          rm -f package-lock.json
+        shell: bash
 
       - id: get_unm_version
         name: Get the installed UNM version
@@ -85,7 +89,19 @@ jobs:
 
       - name: Verify Rollup
         run: |
-          node -e "console.log('node', process.version, process.platform, process.arch)"
+          node -e "
+            const plat = process.platform + '-' + process.arch;
+            console.log('node', process.version, plat);
+            const map = {
+              'linux-x64':    '@rollup/rollup-linux-x64-gnu',
+              'darwin-arm64': '@rollup/rollup-darwin-arm64',
+              'darwin-x64':   '@rollup/rollup-darwin-x64',
+              'win32-x64':    '@rollup/rollup-win32-x64-msvc',
+            };
+            const pkg = map[plat];
+            if (pkg) console.log(require.resolve(pkg + '/package.json'));
+            else console.log('no native rollup needed for ' + plat);
+          "
           node -e "require('rollup'); console.log('rollup ok')"
         shell: bash
 
