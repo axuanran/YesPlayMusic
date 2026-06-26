@@ -19,7 +19,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-22.04]
+        os: [windows-latest, ubuntu-22.04]
 
     steps:
       - name: Check out Git repository
@@ -114,12 +114,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EP_PRELEASE: true
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: YesPlayMusic-mac
-          path: dist_electron/*-universal.dmg
-          if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
