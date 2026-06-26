@@ -55,12 +55,13 @@ player = new Proxy(player, {
   set(target, prop, val) {
     // console.log({ prop, val });
     target[prop] = val;
-    if (prop === '_howler') return true;
+    if (prop === '_audio' || prop === '_reactiveSelf') return true;
     target.saveSelfToLocalStorage();
     target.sendSelfToIpcMain();
     return true;
   },
 });
+player.bindReactiveSelf(player);
 store.state.player = player;
 
 export default store;

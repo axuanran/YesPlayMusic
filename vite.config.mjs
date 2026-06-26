@@ -60,7 +60,7 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks: {
           vue: ['vue', 'vue-router', 'vuex', 'vue-i18n'],
-          player: ['howler', 'plyr'],
+          player: ['plyr'],
           vendor: ['axios', 'lodash', 'dayjs', 'dexie'],
         },
       },

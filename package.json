@@ -167,7 +167,6 @@
     "express-fileupload": "^1.5.2",
     "express-http-proxy": "^2.1.2",
     "extract-zip": "^2.0.1",
-    "howler": "^2.2.4",
     "js-cookie": "^3.0.8",
     "jsbi": "^4.3.2",
     "lodash": "^4.18.1",

@@ -217,7 +217,7 @@ export default {
       return this.player.playing;
     },
     audioSource() {
-      return this.player._howler?._src.includes('kuwo.cn')
+      return this.player.currentAudioSource?.includes('kuwo.cn')
         ? '音源来自酷我音乐'
         : '';
     },
