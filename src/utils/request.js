@@ -56,11 +56,21 @@ service.interceptors.request.use(function (config) {
   return config;
 });
 
-service.interceptors.response.use(
-  response => {
-    const res = response.data;
-    return res;
-  },
+ service.interceptors.response.use(
+   response => {
+     const res = response.data;
+     if (res?.code === 301 && res?.msg === '需要登录') {
+       console.warn('Token has expired. Logout now!');
+       doLogout();
+       if (env.IS_ELECTRON === true) {
+         router.push({ name: 'loginAccount' });
+       } else {
+         router.push({ name: 'login' });
+       }
+       return Promise.reject(res);
+     }
+     return res;
+   },
   async error => {
     /** @type {import('axios').AxiosResponse | null} */
     let response;
