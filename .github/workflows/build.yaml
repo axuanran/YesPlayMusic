@@ -133,13 +133,37 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EP_PRELEASE: true
 
-      - name: List dist_electron
-        shell: bash
-        run: |
-          echo "dist_electron contents:"
-          find dist_electron -maxdepth 2 -type f -print || true
+     - name: List dist_electron
+       shell: bash
+       run: |
+         echo "dist_electron contents:"
+         find dist_electron -maxdepth 2 -type f -print || true
 
-      - name: Upload Windows artifact
+     - name: Collect Linux release files
+       if: runner.os == 'Linux'
+       shell: bash
+       run: |
+         set -euo pipefail
+         echo "All files in dist_electron:"
+         find dist_electron -maxdepth 2 -type f -print | sort
+         mkdir -p release_linux
+         find dist_electron -maxdepth 1 -type f \( \
+           -name "*.AppImage" -o \
+           -name "*.deb" -o \
+           -name "*.rpm" -o \
+           -name "*.tar.gz" -o \
+           -name "*.snap" -o \
+           -name "*.pacman" -o \
+           -name "*.blockmap" -o \
+           -name "*.yml" -o \
+           -name "*.yaml" -o \
+           -name "*.zsync" \
+         \) -print -exec cp -v {} release_linux/ \;
+         echo "Collected Linux release files:"
+         find release_linux -maxdepth 1 -type f -print | sort
+         test "$(find release_linux -maxdepth 1 -type f | wc -l)" -gt 0
+
+     - name: Upload Windows artifact
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
@@ -150,18 +174,13 @@ jobs:
             dist_electron/latest*.yml
           if-no-files-found: error
 
-      - name: Upload Linux artifact
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: YesPlayMusic-linux
-          path: |
-            dist_electron/*.AppImage
-            dist_electron/*.deb
-            dist_electron/*.rpm
-            dist_electron/*.tar.gz
-            dist_electron/latest*.yml
-          if-no-files-found: error
+     - name: Upload Linux artifact
+       if: runner.os == 'Linux'
+       uses: actions/upload-artifact@v4
+       with:
+         name: YesPlayMusic-linux
+         path: release_linux/*
+         if-no-files-found: error
 
       - name: Upload macOS artifact
         if: runner.os == 'macOS'
