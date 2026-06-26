@@ -6,7 +6,7 @@ env:
 on:
   push:
     branches:
-      - master
+      - dev
     tags:
       - v*
   workflow_dispatch:
@@ -84,24 +84,20 @@ jobs:
             @unblockneteasemusic/rust-napi-linux-arm-gnueabihf@${{steps.get_unm_version.outputs.unmver}}
         shell: bash
 
-      - name: Build/release Electron app
-        uses: samuelmeuli/action-electron-builder@v1.6.0
+      - name: Build Electron app (electron-vite)
+        run: yarn electron-vite build
         env:
           VUE_APP_NETEASE_API_URL: /api
           VUE_APP_ELECTRON_API_URL: /api
           VUE_APP_ELECTRON_API_URL_DEV: ${{ vars.VUE_APP_ELECTRON_API_URL_DEV || 'http://127.0.0.1:10754' }}
           VUE_APP_LASTFM_API_KEY: ${{ vars.VUE_APP_LASTFM_API_KEY }}
           VUE_APP_LASTFM_API_SHARED_SECRET: ${{ secrets.VUE_APP_LASTFM_API_SHARED_SECRET }}
-        with:
-          # GitHub token, automatically provided to the action
-          # (No need to define this secret in the repo settings)
-          github_token: ${{ github.token }}
 
-          # If the commit is tagged with a version (e.g. "v1.0.0"),
-          # release the app after building
-          release: ${{ startsWith(github.ref, 'refs/tags/v') }}
-
-          use_vue_cli: false
+      - name: Package / release Electron app
+        run: npx electron-builder --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EP_PRELEASE: true
 
       - uses: actions/upload-artifact@v4
         with:

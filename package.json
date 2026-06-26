@@ -40,9 +40,9 @@
     ],
     "publish": [
       {
-        "provider": "github",
-        "owner": "qier222",
-        "repo": "YesPlayMusic",
+      "provider": "github",
+      "owner": "axuanran",
+      "repo": "YesPlayMusic",
         "vPrefixedTagName": true,
         "releaseType": "draft"
       }
