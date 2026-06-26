@@ -33,7 +33,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-22.04]
+        os: [windows-latest, ubuntu-22.04, macos-latest]
 
     steps:
       - name: Check out Git repository
@@ -89,6 +89,14 @@ jobs:
             @unblockneteasemusic/rust-napi-linux-x64-gnu@${{steps.get_unm_version.outputs.unmver}} \
             @unblockneteasemusic/rust-napi-linux-arm64-gnu@${{steps.get_unm_version.outputs.unmver}}
         shell: bash
+      - name: Install UNM dependencies for macOS
+        if: runner.os == 'macOS'
+        run: |
+          ${{ env.YARN_INSTALL_NOPT }} \
+            @unblockneteasemusic/rust-napi-darwin-x64@${{steps.get_unm_version.outputs.unmver}} \
+            @unblockneteasemusic/rust-napi-darwin-arm64@${{steps.get_unm_version.outputs.unmver}}
+        shell: bash
+
 
       - name: Verify Rollup
         run: |
@@ -98,6 +106,8 @@ jobs:
             const map = {
               'linux-x64': '@rollup/rollup-linux-x64-gnu',
               'win32-x64': '@rollup/rollup-win32-x64-msvc',
+              'darwin-x64': '@rollup/rollup-darwin-x64',
+              'darwin-arm64': '@rollup/rollup-darwin-arm64',
             };
             const pkg = map[plat];
             if (pkg) console.log(require.resolve(pkg + '/package.json'));
@@ -188,6 +198,25 @@ jobs:
           generate_release_notes: true
           files: dist_electron/*.AppImage
 
+      - name: Upload macOS prerelease
+        if: steps.publish_mode.outputs.mode == 'prerelease' && runner.os == 'macOS'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_label.outputs.label }}
+          name: prerelease / ${{ github.ref_name }} / ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Run: ${{ github.run_id }}
+            Commit: ${{ steps.commit_sha.outputs.sha }}
+            Workflow: ${{ github.run_id }}
+            Mode: prerelease
+          prerelease: true
+          draft: false
+          make_latest: false
+          overwrite_files: true
+          generate_release_notes: true
+          files: dist_electron/*.dmg
+
       - name: Upload Windows draft
         if: steps.publish_mode.outputs.mode == 'draft' && runner.os == 'Windows'
         uses: softprops/action-gh-release@v2
@@ -228,6 +257,26 @@ jobs:
           generate_release_notes: true
           files: dist_electron/*.AppImage
 
+      - name: Upload macOS draft
+        if: steps.publish_mode.outputs.mode == 'draft' && runner.os == 'macOS'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_label.outputs.label }}
+          name: draft / ${{ github.ref_name }} / ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Run: ${{ github.run_id }}
+            Commit: ${{ steps.commit_sha.outputs.sha }}
+            Workflow: ${{ github.run_id }}
+            Status: draft
+            Mode: draft
+          prerelease: false
+          draft: true
+          make_latest: false
+          overwrite_files: true
+          generate_release_notes: true
+          files: dist_electron/*.dmg
+
       - name: Upload Windows release
         if: steps.publish_mode.outputs.mode == 'release' && runner.os == 'Windows'
         uses: softprops/action-gh-release@v2
@@ -265,6 +314,25 @@ jobs:
           overwrite_files: true
           generate_release_notes: true
           files: dist_electron/*.AppImage
+
+      - name: Upload macOS release
+        if: steps.publish_mode.outputs.mode == 'release' && runner.os == 'macOS'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_label.outputs.label }}
+          name: release / ${{ github.ref_name }} / ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Run: ${{ github.run_id }}
+            Commit: ${{ steps.commit_sha.outputs.sha }}
+            Workflow: ${{ github.run_id }}
+            Mode: release
+          prerelease: false
+          draft: false
+          make_latest: true
+          overwrite_files: true
+          generate_release_notes: true
+          files: dist_electron/*.dmg
 
   cleanup-dev-prereleases:
     name: Cleanup old dev prereleases
