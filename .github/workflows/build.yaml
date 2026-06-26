@@ -97,12 +97,12 @@ jobs:
         env:
           VUE_APP_NETEASE_API_URL: /api
           VUE_APP_ELECTRON_API_URL: /api
-          VUE_APP_ELECTRON_API_URL_DEV: ${{ vars.VUE_APP_ELECTRON_API_URL_DEV || "http://127.0.0.1:10754" }}
+          VUE_APP_ELECTRON_API_URL_DEV: ${{ vars.VUE_APP_ELECTRON_API_URL_DEV || 'http://127.0.0.1:10754' }}
           VUE_APP_LASTFM_API_KEY: ${{ vars.VUE_APP_LASTFM_API_KEY }}
           VUE_APP_LASTFM_API_SHARED_SECRET: ${{ secrets.VUE_APP_LASTFM_API_SHARED_SECRET }}
 
       - name: Package / release Electron app
-        run: npx electron-builder --publish ${{ startsWith(github.ref, "refs/tags/v") && "always" || "never" }}
+        run: npx electron-builder --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ github.token }}
           EP_PRELEASE: true
