@@ -40,10 +40,19 @@ jobs:
         with:
           submodules: 'recursive'
 
+      - name: Cache electron-builder
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: electron-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
       - name: Install Node.js, NPM and Yarn
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'yarn'
 
       - name: Enable pinned Yarn
         run: |
@@ -132,7 +141,7 @@ jobs:
           VUE_APP_LASTFM_API_SHARED_SECRET: ${{ secrets.VUE_APP_LASTFM_API_SHARED_SECRET }}
 
       - name: Package / release Electron app
-        run: npx electron-builder
+        run: npx electron-builder --publish never
         env:
           GH_TOKEN: ${{ github.token }}
           EP_PRELEASE: true
