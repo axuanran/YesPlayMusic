@@ -919,17 +919,7 @@ export default {
         this.$store.commit('changeLang', lang);
       },
     },
-    musicLanguage: {
-      get() {
-        return this.settings.musicLanguage ?? 'all';
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'musicLanguage',
-          value,
-        });
-      },
-    },
+    musicLanguage: this.setting('musicLanguage', 'all'),
     appearance: {
       get() {
         if (this.settings.appearance === undefined) return 'auto';
@@ -1030,30 +1020,8 @@ export default {
         });
       },
     },
-    showPlaylistsByAppleMusic: {
-      get() {
-        if (this.settings.showPlaylistsByAppleMusic === undefined) return true;
-        return this.settings.showPlaylistsByAppleMusic;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'showPlaylistsByAppleMusic',
-          value,
-        });
-      },
-    },
-    nyancatStyle: {
-      get() {
-        if (this.settings.nyancatStyle === undefined) return false;
-        return this.settings.nyancatStyle;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'nyancatStyle',
-          value,
-        });
-      },
-    },
+    showPlaylistsByAppleMusic: this.setting('showPlaylistsByAppleMusic', true),
+    nyancatStyle: this.setting('nyancatStyle', false),
     automaticallyCacheSongs: {
       get() {
         if (this.settings.automaticallyCacheSongs === undefined) return false;
@@ -1069,83 +1037,13 @@ export default {
         }
       },
     },
-    showLyricsTranslation: {
-      get() {
-        return this.settings.showLyricsTranslation;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'showLyricsTranslation',
-          value,
-        });
-      },
-    },
-    lyricsBackground: {
-      get() {
-        return this.settings.lyricsBackground || false;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'lyricsBackground',
-          value,
-        });
-      },
-    },
-    showLyricsTime: {
-      get() {
-        return this.settings.showLyricsTime;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'showLyricsTime',
-          value,
-        });
-      },
-    },
-    enableOsdlyricsSupport: {
-      get() {
-        return this.settings.enableOsdlyricsSupport;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'enableOsdlyricsSupport',
-          value,
-        });
-      },
-    },
-    closeAppOption: {
-      get() {
-        return this.settings.closeAppOption;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'closeAppOption',
-          value,
-        });
-      },
-    },
-    enableDiscordRichPresence: {
-      get() {
-        return this.settings.enableDiscordRichPresence;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'enableDiscordRichPresence',
-          value,
-        });
-      },
-    },
-    subTitleDefault: {
-      get() {
-        return this.settings.subTitleDefault;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'subTitleDefault',
-          value,
-        });
-      },
-    },
+    showLyricsTranslation: this.setting('showLyricsTranslation'),
+    lyricsBackground: this.setting('lyricsBackground', false),
+    showLyricsTime: this.setting('showLyricsTime'),
+    enableOsdlyricsSupport: this.setting('enableOsdlyricsSupport'),
+    closeAppOption: this.setting('closeAppOption'),
+    enableDiscordRichPresence: this.setting('enableDiscordRichPresence'),
+    subTitleDefault: this.setting('subTitleDefault'),
     enableReversedMode: {
       get() {
         if (this.settings.enableReversedMode === undefined) return false;
@@ -1161,39 +1059,9 @@ export default {
         }
       },
     },
-    enableGlobalShortcut: {
-      get() {
-        return this.settings.enableGlobalShortcut;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'enableGlobalShortcut',
-          value,
-        });
-      },
-    },
-    showLibraryDefault: {
-      get() {
-        return this.settings.showLibraryDefault || false;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'showLibraryDefault',
-          value,
-        });
-      },
-    },
-    cacheLimit: {
-      get() {
-        return this.settings.cacheLimit || false;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'cacheLimit',
-          value,
-        });
-      },
-    },
+    enableGlobalShortcut: this.setting('enableGlobalShortcut'),
+    showLibraryDefault: this.setting('showLibraryDefault', false),
+    cacheLimit: this.setting('cacheLimit', false),
     proxyProtocol: {
       get() {
         return this.settings.proxyConfig?.protocol || 'noProxy';
@@ -1224,28 +1092,8 @@ export default {
         });
       },
     },
-    enableRealIP: {
-      get() {
-        return this.settings.enableRealIP || false;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'enableRealIP',
-          value: value,
-        });
-      },
-    },
-    realIP: {
-      get() {
-        return this.settings.realIP || '';
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'realIP',
-          value: value,
-        });
-      },
-    },
+    enableRealIP: this.setting('enableRealIP', false),
+    realIP: this.setting('realIP', ''),
     proxyPort: {
       get() {
         return this.settings.proxyConfig?.port || '';
@@ -1274,28 +1122,8 @@ export default {
         });
       },
     },
-    unmSearchMode: {
-      get() {
-        return this.settings.unmSearchMode || 'fast-first';
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'unmSearchMode',
-          value: value,
-        });
-      },
-    },
-    unmEnableFlac: {
-      get() {
-        return this.settings.unmEnableFlac || false;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'unmEnableFlac',
-          value: value || false,
-        });
-      },
-    },
+    unmSearchMode: this.setting('unmSearchMode', 'fast-first'),
+    unmEnableFlac: this.setting('unmEnableFlac', false),
     unmProxyUri: {
       get() {
         return this.settings.unmProxyUri || '';
@@ -1365,6 +1193,17 @@ export default {
   },
   methods: {
     ...mapActions(['showToast']),
+    setting(key, defaults) {
+      return {
+        get() {
+          const val = this.settings[key];
+          return val === undefined && defaults !== undefined ? defaults : val;
+        },
+        set(value) {
+          this.$store.commit('updateSettings', { key, value });
+        },
+      };
+    },
     getAllOutputDevices() {
       navigator.mediaDevices.enumerateDevices().then(devices => {
         this.allOutputDevices = devices.filter(device => {

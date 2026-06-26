@@ -39,7 +39,7 @@
           <span v-if="isAlbum" class="featured">
             <ArtistsInLine
               :artists="track.ar"
-              :exclude="$parent.albumObject.artist.name"
+              :exclude="albumObject.artist.name"
               prefix="-"
           /></span>
           <span
@@ -104,6 +104,22 @@ export default {
       type: Boolean,
       default: true,
     },
+    listType: {
+      type: String,
+      default: "tracklist",
+    },
+    likedSongIds: {
+      type: Array,
+      default: () => [],
+    },
+    rightClickedTrackId: {
+      type: Number,
+      default: 0,
+    },
+    albumObject: {
+      type: Object,
+      default: () => ({ artist: { name: "" } }),
+    },
   },
 
   data() {
@@ -153,7 +169,7 @@ export default {
       }
     },
     type() {
-      return this.$parent.type;
+      return this.listType;
     },
     isAlbum() {
       return this.type === 'album';
@@ -169,7 +185,7 @@ export default {
       return this.type === 'playlist';
     },
     isLiked() {
-      return this.$parent.liked.songs.includes(this.track?.id);
+      return this.likedSongIds.includes(this.track?.id);
     },
     isPlaying() {
       return this.$store.state.player.currentTrack.id === this.track?.id;
@@ -184,11 +200,11 @@ export default {
       return trackClass;
     },
     isMenuOpened() {
-      return this.$parent.rightClickedTrack.id === this.track.id ? true : false;
+      return this.rightClickedTrackId === this.track.id;
     },
     focus() {
       return (
-        (this.hover && this.$parent.rightClickedTrack.id === 0) ||
+        (this.hover && this.rightClickedTrackId === 0) ||
         this.isMenuOpened
       );
     },
@@ -217,10 +233,10 @@ export default {
       this.$router.push({ path: '/album/' + this.track.al.id });
     },
     playTrack() {
-      this.$parent.playThisList(this.track.id);
+      this.$emit("play-track", this.track.id);
     },
     likeThisSong() {
-      this.$parent.likeATrack(this.track.id);
+      this.$emit("like-track", this.track.id);
     },
   },
 };

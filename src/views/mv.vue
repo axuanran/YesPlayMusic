@@ -97,7 +97,6 @@ export default {
       this.$store.state.player.pause();
     });
     this.getData(this.$route.params.id);
-    console.log('网易云你这mv音频码率也太糊了吧🙄');
   },
   methods: {
     ...mapActions(['showToast']),

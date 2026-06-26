@@ -143,18 +143,19 @@ export default class {
     return this._repeatMode;
   }
   set repeatMode(mode) {
-    if (this._isPersonalFM) return;
+    if (this._guardNotPersonalFM()) return;
     if (!['off', 'on', 'one'].includes(mode)) {
       console.warn("repeatMode: invalid args, must be 'on' | 'off' | 'one'");
       return;
     }
     this._repeatMode = mode;
+    this.persist();
   }
   get shuffle() {
     return this._shuffle;
   }
   set shuffle(shuffle) {
-    if (this._isPersonalFM) return;
+    if (this._guardNotPersonalFM()) return;
     if (shuffle !== true && shuffle !== false) {
       console.warn('shuffle: invalid args, must be Boolean');
       return;
@@ -165,18 +166,19 @@ export default class {
     }
     // 同步当前歌曲在列表中的下标
     this.current = this.list.indexOf(this.currentTrackID);
+    this.persist();
   }
   get reversed() {
     return this._reversed;
   }
   set reversed(reversed) {
-    if (this._isPersonalFM) return;
+    if (this._guardNotPersonalFM()) return;
     if (reversed !== true && reversed !== false) {
       console.warn('reversed: invalid args, must be Boolean');
       return;
     }
-    console.log('changing reversed to:', reversed);
     this._reversed = reversed;
+    this.persist();
   }
   get volume() {
     return this._volume;
@@ -184,6 +186,7 @@ export default class {
   set volume(volume) {
     this._volume = volume;
     this._audio?.volume(volume);
+    this.persist();
   }
   get list() {
     return this.shuffle ? this._shuffledList : this._list;
@@ -249,6 +252,19 @@ export default class {
     return store.state.liked.songs.includes(this.currentTrack.id);
   }
 
+  persist() {
+    this.saveSelfToLocalStorage();
+    this.sendSelfToIpcMain();
+  }
+
+  _guardNotPersonalFM() {
+    return this._isPersonalFM;
+  }
+
+  _canDiscordPresence() {
+    return isElectron && store.state.settings.enableDiscordRichPresence !== false;
+  }
+
   _init() {
     this._loadSelfFromLocalStorage();
     this._audio?.volume(this.volume);
@@ -276,12 +292,14 @@ export default class {
   }
   _setPlaying(isPlaying) {
     this._playing = isPlaying;
+    this.persist();
     if (isCreateTray) {
       electronPlayer?.updateTrayPlayState(this._playing);
     }
   }
   _setCurrentTrack(track) {
     this._currentTrack = track;
+    this.persist();
     store.commit('bumpPlayerVersion');
   }
   _syncProgress() {
@@ -331,43 +349,20 @@ export default class {
       );
     }
   }
-  _getNextTrack() {
-    const next = this._reversed ? this.current - 1 : this.current + 1;
+  _getSiblingTrack(forward) {
+    const dir = forward ? 1 : -1;
+    const next = this._reversed ? this.current - dir : this.current + dir;
 
-    if (this._playNextList.length > 0) {
-      let trackID = this._playNextList[0];
-      return [trackID, INDEX_IN_PLAY_NEXT];
-    }
-
-    // 循环模式开启，则重新播放当前模式下的相对的下一首
     if (this.repeatMode === 'on') {
-      if (this._reversed && this.current === 0) {
-        // 倒序模式，当前歌曲是第一首，则重新播放列表最后一首
-        return [this.list[this.list.length - 1], this.list.length - 1];
-      } else if (this.list.length === this.current + 1) {
-        // 正序模式，当前歌曲是最后一首，则重新播放第一首
-        return [this.list[0], 0];
+      const atBoundary = this._reversed
+        ? this.current === 0
+        : this.current + 1 === this.list.length;
+      if (atBoundary) {
+        const wrapTo = (forward !== this._reversed) ? 0 : this.list.length - 1;
+        return [this.list[wrapTo], wrapTo];
       }
     }
 
-    // 返回 [trackID, index]
-    return [this.list[next], next];
-  }
-  _getPrevTrack() {
-    const next = this._reversed ? this.current + 1 : this.current - 1;
-
-    // 循环模式开启，则重新播放当前模式下的相对的下一首
-    if (this.repeatMode === 'on') {
-      if (this._reversed && this.current === 0) {
-        // 倒序模式，当前歌曲是最后一首，则重新播放列表第一首
-        return [this.list[0], 0];
-      } else if (this.list.length === this.current + 1) {
-        // 正序模式，当前歌曲是第一首，则重新播放列表最后一首
-        return [this.list[this.list.length - 1], this.list.length - 1];
-      }
-    }
-
-    // 返回 [trackID, index]
     return [this.list[next], next];
   }
   async _shuffleTheList(firstTrackID = this.currentTrackID) {
@@ -596,7 +591,7 @@ export default class {
   _cacheNextTrack() {
     let nextTrackID = this._isPersonalFM
       ? (this._personalFMNextTrack?.id ?? 0)
-      : this._getNextTrack()[0];
+      : this._getSiblingTrack(true)[0];
     if (!nextTrackID) return;
     if (this._personalFMTrack.id == nextTrackID) return;
     getTrackDetail(nextTrackID).then(data => {
@@ -738,23 +733,13 @@ export default class {
       });
   }
   _playDiscordPresence(track, seekTime = 0) {
-    if (
-      !isElectron ||
-      store.state.settings.enableDiscordRichPresence === false
-    ) {
-      return null;
-    }
+    if (!this._canDiscordPresence()) return null;
     let copyTrack = { ...track };
     copyTrack.dt -= seekTime * 1000;
     electronPlayer?.playDiscordPresence(copyTrack);
   }
   _pauseDiscordPresence(track) {
-    if (
-      !isElectron ||
-      store.state.settings.enableDiscordRichPresence === false
-    ) {
-      return null;
-    }
+    if (!this._canDiscordPresence()) return null;
     electronPlayer?.pauseDiscordPresence(track);
   }
   _playNextTrack(isPersonal) {
@@ -770,18 +755,18 @@ export default class {
   }
   playNextTrack() {
     // TODO: 切换歌曲时增加加载中的状态
-    const [trackID, index] = this._getNextTrack();
+    if (this._playNextList.length > 0) {
+      const trackID = this._playNextList.shift();
+      this._replaceCurrentTrack(trackID);
+      return true;
+    }
+    const [trackID, index] = this._getSiblingTrack(true);
     if (trackID === undefined) {
       this._audio?.stop();
       this._setPlaying(false);
       return false;
     }
-    let next = index;
-    if (index === INDEX_IN_PLAY_NEXT) {
-      this._playNextList.shift();
-      next = this.current;
-    }
-    this.current = next;
+    this.current = index;
     this._replaceCurrentTrack(trackID);
     return true;
   }
@@ -831,7 +816,7 @@ export default class {
     return true;
   }
   playPrevTrack() {
-    const [trackID, index] = this._getPrevTrack();
+    const [trackID, index] = this._getSiblingTrack(false);
     if (trackID === undefined) return false;
     this.current = index;
     this._replaceCurrentTrack(

@@ -2,7 +2,6 @@ import { playlistCategories } from '@/utils/staticData';
 import shortcuts from '@/utils/shortcuts';
 import { isElectron } from '@/utils/env';
 
-console.debug('[debug][initLocalStorage.js]');
 const enabledPlaylistCategories = playlistCategories
   .filter(c => c.enable)
   .map(c => c.name);

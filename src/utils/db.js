@@ -58,13 +58,8 @@ async function initTracksCacheBytes() {
       (sum, t) => sum + (t?.source?.byteLength || 0),
       0
     );
-    console.debug(
-      '[debug][db.js] initTracksCacheBytes, total bytes:',
-      tracksCacheBytes
-    );
     deleteExcessCache();
   } catch (err) {
-    console.debug('[debug][db.js] initTracksCacheBytes failed', err);
   }
 }
 
@@ -81,12 +76,8 @@ async function deleteExcessCache() {
     const delCache = await db.trackSources.orderBy('createTime').first();
     await db.trackSources.delete(delCache.id);
     tracksCacheBytes -= delCache.source.byteLength;
-    console.debug(
-      `[debug][db.js] deleteExcessCacheSucces, track: ${delCache.name}, size: ${delCache.source.byteLength}, cacheSize:${tracksCacheBytes}`
-    );
     deleteExcessCache();
   } catch (error) {
-    console.debug('[debug][db.js] deleteExcessCacheFailed', error);
   }
 }
 
@@ -118,7 +109,6 @@ export function cacheTrackSource(trackInfo, url, bitRate, from = 'netease') {
         artist,
         createTime: new Date().getTime(),
       });
-      console.debug(`[debug][db.js] cached track 👉 ${name} by ${artist}`);
       tracksCacheBytes += response.data.byteLength;
       deleteExcessCache();
       return { trackID: trackInfo.id, source: response.data, bitRate };
@@ -128,9 +118,6 @@ export function cacheTrackSource(trackInfo, url, bitRate, from = 'netease') {
 export function getTrackSource(id) {
   return db.trackSources.get(Number(id)).then(track => {
     if (!track) return null;
-    console.debug(
-      `[debug][db.js] get track from cache 👉 ${track.name} by ${track.artist}`
-    );
     return track;
   });
 }
@@ -206,9 +193,6 @@ export function countDBSize() {
         length: trackSizes.length,
       };
       tracksCacheBytes = res.bytes;
-      console.debug(
-        `[debug][db.js] load tracksCacheBytes: ${tracksCacheBytes}`
-      );
       return res;
     });
 }

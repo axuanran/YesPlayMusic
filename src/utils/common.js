@@ -181,9 +181,7 @@ export function dailyTask() {
     isAccountLoggedIn() &&
     (lastDate === undefined || lastDate !== dayjs().date())
   ) {
-    console.debug('[debug][common.js] execute dailyTask');
     refreshCookie().then(() => {
-      console.debug('[debug][common.js] 刷新cookie');
       store.commit('updateData', {
         key: 'lastRefreshCookieDate',
         value: dayjs().date(),

@@ -67,8 +67,14 @@
         :track-prop="track"
         :track-no="index + 1"
         :highlight-playing-track="highlightPlayingTrack"
+        :list-type="type"
+        :liked-song-ids="liked.songs"
+        :right-clicked-track-id="rightClickedTrack.id"
+        :album-object="albumObject"
         @dblclick="playThisList(track.id || track.songId)"
         @click.right="openMenu($event, track, index)"
+        @play-track="playThisList"
+        @like-track="likeATrack"
       />
     </div>
   </div>
