@@ -84,6 +84,22 @@ jobs:
             @unblockneteasemusic/rust-napi-linux-arm-gnueabihf@${{steps.get_unm_version.outputs.unmver}}
         shell: bash
 
+      - name: Install rollup native binary (for electron-vite)
+        if: runner.os != 'Windows'
+        run: |
+          ROLLUP_VER=$(node -e "console.log(JSON.parse(require('fs').readFileSync('node_modules/rollup/package.json','utf8')).version)")
+          case "$(uname -s)" in
+            Linux)   PKG="@rollup/rollup-linux-x64-gnu" ;;
+            Darwin)
+              case "$(uname -m)" in
+                arm64) PKG="@rollup/rollup-darwin-arm64" ;;
+                *)     PKG="@rollup/rollup-darwin-x64" ;;
+              esac ;;
+          esac
+          echo "Installing $PKG@$ROLLUP_VER"
+          yarn add $PKG@$ROLLUP_VER --dev --ignore-optional --non-interactive --no-lockfile
+        shell: bash
+
       - name: Build Electron app (electron-vite)
         run: yarn electron-vite build
         env:
