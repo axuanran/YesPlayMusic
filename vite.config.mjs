@@ -19,7 +19,15 @@ function createProcessEnv(mode) {
 
 export default defineConfig(({ mode }) => ({
   plugins: [
-    vue(),
+    vue({
+      template: {
+        compilerOptions: {
+          compatConfig: {
+            MODE: 2,
+          },
+        },
+      },
+    }),
     createSvgIconsPlugin({
       iconDirs: [path.resolve(rootDir, 'src/assets/icons')],
       symbolId: 'icon-[name]',
@@ -29,7 +37,11 @@ export default defineConfig(({ mode }) => ({
     alias: {
       '@': path.resolve(rootDir, 'src'),
       '~@': path.resolve(rootDir, 'src'),
+      vue: '@vue/compat',
     },
+  },
+  optimizeDeps: {
+    exclude: ['@vue/compat'],
   },
   define: {
     'process.env': JSON.stringify(createProcessEnv(mode)),

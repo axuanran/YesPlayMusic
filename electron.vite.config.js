@@ -57,7 +57,15 @@ export default defineConfig(({ mode }) => ({
     root: r('.'),
     publicDir: r('./public'),
     plugins: [
-      vue(),
+      vue({
+        template: {
+          compilerOptions: {
+            compatConfig: {
+              MODE: 2,
+            },
+          },
+        },
+      }),
       createSvgIconsPlugin({
         iconDirs: [path.resolve(r('.'), 'src/assets/icons')],
         symbolId: 'icon-[name]',
@@ -67,11 +75,11 @@ export default defineConfig(({ mode }) => ({
       alias: {
         '@': r('./src'),
         '~@': r('./src'),
-        vue: path.resolve(
-          path.dirname(fileURLToPath(import.meta.url)),
-          'node_modules/vue/dist/vue.runtime.esm-bundler.js'
-        ),
+        vue: '@vue/compat',
       },
+    },
+    optimizeDeps: {
+      exclude: ['@vue/compat'],
     },
     define: {
       'process.env': JSON.stringify(createProcessEnv(mode)),

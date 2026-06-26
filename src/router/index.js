@@ -1,8 +1,10 @@
-import Vue from 'vue';
-import VueRouter from 'vue-router';
+import {
+  createRouter,
+  createWebHashHistory,
+  createWebHistory,
+} from 'vue-router';
 import { isLooseLoggedIn, isAccountLoggedIn } from '@/utils/auth';
 
-Vue.use(VueRouter);
 const routes = [
   {
     path: '/',
@@ -134,15 +136,12 @@ const routes = [
   },
 ];
 
-const router = new VueRouter({
-  mode: process.env.IS_ELECTRON ? 'hash' : 'history',
+const router = createRouter({
+  history: process.env.IS_ELECTRON
+    ? createWebHashHistory()
+    : createWebHistory(),
   routes,
 });
-
-const originalPush = VueRouter.prototype.push;
-VueRouter.prototype.push = function push(location) {
-  return originalPush.call(this, location).catch(err => err);
-};
 
 router.beforeEach((to, from, next) => {
   // 需要登录的逻辑
