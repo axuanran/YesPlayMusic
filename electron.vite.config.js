@@ -83,14 +83,7 @@ export default defineConfig(({ mode }) => ({
     },
     define: {
       __APP_ENV__: JSON.stringify(createProcessEnv(mode)),
-      __APP_P
-
-
-
-
-
-
-LATFORM__: JSON.stringify(process.platform),
+      __APP_PLATFORM__: JSON.stringify(process.platform),
     },
     server: {
       host: process.env.DEV_SERVER_HOST || '127.0.0.1',
