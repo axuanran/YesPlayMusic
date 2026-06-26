@@ -54,7 +54,7 @@ jobs:
       - id: get_unm_version
         name: Get the installed UNM version
         run: |
-          yarn install --frozen-lockfile --non-interactive
+          yarn install --frozen-lockfile --ignore-engines --non-interactive --ignore-scripts
           unm_version=$(node -e "console.log(require('./node_modules/@unblockneteasemusic/rust-napi/package.json').version)")
           echo "unmver=${unm_version}" >> "$GITHUB_OUTPUT"
         shell: bash
@@ -80,24 +80,13 @@ jobs:
         run: |
           ${{ env.YARN_INSTALL_NOPT }} \
             @unblockneteasemusic/rust-napi-linux-x64-gnu@${{steps.get_unm_version.outputs.unmver}} \
-            @unblockneteasemusic/rust-napi-linux-arm64-gnu@${{steps.get_unm_version.outputs.unmver}} \
-            @unblockneteasemusic/rust-napi-linux-arm-gnueabihf@${{steps.get_unm_version.outputs.unmver}}
+            @unblockneteasemusic/rust-napi-linux-arm64-gnu@${{steps.get_unm_version.outputs.unmver}}
         shell: bash
 
-      - name: Install rollup native binary (for electron-vite)
-        if: runner.os != 'Windows'
+      - name: Verify Rollup
         run: |
-          ROLLUP_VER=$(node -e "console.log(JSON.parse(require('fs').readFileSync('node_modules/vite/node_modules/rollup/package.json','utf8')).version)")
-          PLATFORM=$(node -p "process.platform + '-' + process.arch")
-          case "$PLATFORM" in
-            linux-x64)     PKG="@rollup/rollup-linux-x64-gnu" ;;
-            darwin-arm64)  PKG="@rollup/rollup-darwin-arm64" ;;
-            darwin-x64)    PKG="@rollup/rollup-darwin-x64" ;;
-            win32-x64)     PKG="@rollup/rollup-win32-x64-msvc" ;;
-            *) echo "Unsupported: $PLATFORM"; exit 1 ;;
-          esac
-          echo "Installing $PKG@$ROLLUP_VER"
-          yarn add -D "$PKG@$ROLLUP_VER" --ignore-engines --non-interactive --no-lockfile
+          node -e "console.log('node', process.version, process.platform, process.arch)"
+          node -e "require('rollup'); console.log('rollup ok')"
         shell: bash
 
       - name: Build Electron app (electron-vite)
