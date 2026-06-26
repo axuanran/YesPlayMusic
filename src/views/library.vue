@@ -3,7 +3,7 @@
     <h1>
       <img
         class="avatar"
-        :src="$filters.resizeImage(data.user.avatarUrl)"
+        :src="resizeImage(data.user.avatarUrl)"
         loading="lazy"
       />{{ data.user.nickname }}{{ $t('library.sLibrary') }}
     </h1>
@@ -308,7 +308,7 @@ export default {
     this.loadData();
   },
   activated() {
-    this.$parent.$refs.scrollbar.restorePosition();
+    this.$parent?.$refs?.scrollbar?.restorePosition?.();
     this.loadData();
     dailyTask();
   },

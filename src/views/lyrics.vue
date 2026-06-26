@@ -472,12 +472,12 @@ export default {
       this.isFullscreen = !!document.fullscreenElement;
     });
   },
-  beforeDestroy: function () {
+  beforeUnmount: function () {
     if (this.timer) {
       clearInterval(this.timer);
     }
   },
-  destroyed() {
+  unmounted() {
     clearInterval(this.lyricsInterval);
   },
   methods: {

@@ -3,7 +3,7 @@
     <h1>
       <img
         class="avatar"
-        :src="$filters.resizeImage(artist.img1v1Url, 1024)"
+        :src="resizeImage(artist.img1v1Url, 1024)"
         loading="lazy"
       />{{ artist.name }}'s Music Videos
     </h1>

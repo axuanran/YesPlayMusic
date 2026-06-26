@@ -15,9 +15,7 @@
       <div class="text">
         <div v-if="showPlayCount" class="info">
           <span class="play-count"
-            ><svg-icon icon-class="play" />{{
-              $filters.formatPlayCount(item.playCount)
-            }}
+            ><svg-icon icon-class="play" />{{ formatPlayCount(item.playCount) }}
           </span>
         </div>
         <div class="title" :style="{ fontSize: subTextFontSize }">

@@ -2,10 +2,7 @@
   <div v-show="show" class="artist-page">
     <div class="artist-info">
       <div class="head">
-        <img
-          :src="$filters.resizeImage(artist.img1v1Url, 1024)"
-          loading="lazy"
-        />
+        <img :src="resizeImage(artist.img1v1Url, 1024)" loading="lazy" />
       </div>
       <div>
         <div class="name">{{ artist.name }}</div>
@@ -51,7 +48,7 @@
         <div class="container">
           <Cover
             :id="latestRelease.id"
-            :image-url="$filters.resizeImage(latestRelease.picUrl)"
+            :image-url="resizeImage(latestRelease.picUrl)"
             type="album"
             :fixed-size="128"
             :play-button-size="30"
@@ -63,10 +60,10 @@
               }}</router-link>
             </div>
             <div class="date">
-              {{ $filters.formatDate(latestRelease.publishTime) }}
+              {{ formatDate(latestRelease.publishTime) }}
             </div>
             <div class="type">
-              {{ $filters.formatAlbumType(latestRelease.type, latestRelease) }}
+              {{ formatAlbumType(latestRelease.type, latestRelease) }}
               · {{ latestRelease.size }} {{ $t('common.songs') }}
             </div>
           </div>
@@ -96,7 +93,7 @@
               }}</router-link>
             </div>
             <div class="date">
-              {{ $filters.formatDate(latestMV.publishTime) }}
+              {{ formatDate(latestMV.publishTime) }}
             </div>
             <div class="type">{{ $t('artist.latestMV') }}</div>
           </div>
@@ -268,7 +265,7 @@ export default {
     if (this.artist?.id?.toString() !== this.$route.params.id) {
       this.loadData(this.$route.params.id);
     } else {
-      this.$parent.$refs.scrollbar.restorePosition();
+      this.$parent?.$refs?.scrollbar?.restorePosition?.();
     }
   },
   methods: {

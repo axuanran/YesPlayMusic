@@ -175,6 +175,21 @@ class Background {
     const expressApp = express();
     expressApp.use('/', express.static(__dirname + '/'));
     expressApp.use('/api', expressProxy('http://127.0.0.1:10754'));
+    if (isDevelopment) {
+      expressApp.use(
+        '/dev/error',
+        express.text({ type: '*/*', limit: '64kb' })
+      );
+      expressApp.post('/dev/error', (req, res) => {
+        try {
+          const payload = JSON.parse(req.body || '{}');
+          console.error('[renderer-error]', JSON.stringify(payload, null, 2));
+        } catch {
+          console.error('[renderer-error]', req.body);
+        }
+        res.sendStatus(204);
+      });
+    }
     expressApp.use('/player', (req, res) => {
       this.window.webContents
         .executeJavaScript('window.yesplaymusic.player')

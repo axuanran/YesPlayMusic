@@ -3,7 +3,7 @@
     <div class="playlist-info">
       <Cover
         :id="album.id"
-        :image-url="$filters.resizeImage(album.picUrl, 1024)"
+        :image-url="resizeImage(album.picUrl, 1024)"
         :show-play-button="true"
         :always-show-shadow="true"
         :click-cover-to-play="true"
@@ -20,7 +20,7 @@
         }}</div>
         <div class="artist">
           <span v-if="album.artist.id !== 104700">
-            <span>{{ $filters.formatAlbumType(album.type, album) }} by </span
+            <span>{{ formatAlbumType(album.type, album) }} by </span
             ><router-link :to="`/artist/${album.artist.id}`">{{
               album.artist.name
             }}</router-link></span
@@ -33,12 +33,12 @@
             class="explicit-symbol"
             ><ExplicitSymbol
           /></span>
-          <span :title="$filters.formatDate(album.publishTime)">{{
+          <span :title="formatDate(album.publishTime)">{{
             new Date(album.publishTime).getFullYear()
           }}</span>
           <span> · {{ album.size }} {{ $t('common.songs') }}</span
           >,
-          {{ $filters.formatTime(albumTime, 'Human') }}
+          {{ formatTime(albumTime, 'Human') }}
         </div>
         <div class="description" @click="toggleFullDescription">
           {{ album.description }}
@@ -93,7 +93,7 @@
       <div class="album-time"></div>
       <div class="release-date">
         {{ $t('album.released') }}
-        {{ $filters.formatDate(album.publishTime, 'MMMM D, YYYY') }}
+        {{ formatDate(album.publishTime, 'MMMM D, YYYY') }}
       </div>
       <div v-if="album.company" class="copyright"> © {{ album.company }} </div>
     </div>

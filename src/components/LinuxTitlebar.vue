@@ -50,7 +50,7 @@ export default {
       });
     }
   },
-  beforeDestroy() {
+  beforeUnmount() {
     this.removeIsMaximizedListener?.();
   },
   methods: {

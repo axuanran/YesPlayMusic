@@ -119,5 +119,8 @@ export const filters = {
 export default {
   install(app) {
     app.config.globalProperties.$filters = filters;
+    app.mixin({
+      methods: filters,
+    });
   },
 };

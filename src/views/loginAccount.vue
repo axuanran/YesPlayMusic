@@ -177,7 +177,7 @@ export default {
     }
     if (this.mode === 'qrCode') this.getQrCodeKey();
   },
-  beforeDestroy() {
+  beforeUnmount() {
     clearInterval(this.qrCodeCheckInterval);
   },
   methods: {

@@ -33,7 +33,7 @@
           >
             <img
               class="head"
-              :src="$filters.resizeImage(user.avatarUrl)"
+              :src="resizeImage(user.avatarUrl)"
               loading="lazy"
             />
             <div class="nickname">

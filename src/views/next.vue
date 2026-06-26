@@ -83,7 +83,7 @@ export default {
   },
   activated() {
     this.loadTracks();
-    this.$parent.$refs.scrollbar.restorePosition();
+    this.$parent?.$refs?.scrollbar?.restorePosition?.();
   },
   methods: {
     ...mapActions(['playTrackOnListByID']),

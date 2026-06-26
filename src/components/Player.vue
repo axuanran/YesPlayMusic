@@ -26,12 +26,7 @@
       <div class="playing">
         <div class="container" @click.stop>
           <img
-            :src="
-              $filters.resizeImage(
-                currentTrack.al && currentTrack.al.picUrl,
-                224
-              )
-            "
+            :src="resizeImage(currentTrack.al && currentTrack.al.picUrl, 224)"
             loading="lazy"
             @click="goToAlbum"
           />
@@ -231,7 +226,7 @@ export default {
     this.setupMediaControls();
     window.addEventListener('keydown', this.handleKeydown);
   },
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
   },
   methods: {

@@ -8,6 +8,7 @@ import icons from '@/assets/icons';
 import filters from '@/utils/filters';
 import './registerServiceWorker';
 import { dailyTask } from '@/utils/common';
+import { installDevErrorReporter } from '@/utils/devErrorReporter';
 import '@/assets/css/global.scss';
 import NProgress from 'nprogress';
 import '@/assets/css/nprogress.css';
@@ -29,6 +30,7 @@ console.log(
 );
 
 NProgress.configure({ showSpinner: false, trickleSpeed: 100 });
+installDevErrorReporter();
 dailyTask();
 
 const app = createApp(App);

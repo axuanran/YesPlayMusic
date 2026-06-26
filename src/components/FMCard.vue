@@ -3,7 +3,7 @@
     <img :src="nextTrackCover" style="display: none" loading="lazy" />
     <img
       class="cover"
-      :src="$filters.resizeImage(track.album && track.album.picUrl, 512)"
+      :src="resizeImage(track.album && track.album.picUrl, 512)"
       loading="lazy"
       @click="goToAlbum"
     />

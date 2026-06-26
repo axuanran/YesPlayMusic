@@ -6,7 +6,7 @@
     >
       <Cover
         :id="playlist.id"
-        :image-url="$filters.resizeImage(playlist.coverImgUrl)(1024)"
+        :image-url="resizeImage(playlist.coverImgUrl, 1024)"
         :show-play-button="true"
         :always-show-shadow="true"
         :click-cover-to-play="true"
@@ -42,7 +42,7 @@
         </div>
         <div class="date-and-count">
           {{ $t('playlist.updatedAt') }}
-          {{ $filters.formatDate(playlist.updateTime) }} ·
+          {{ formatDate(playlist.updateTime) }} ·
           {{ playlist.trackCount }}
           {{ $t('common.songs') }}
         </div>
@@ -98,7 +98,7 @@
         :class="specialPlaylistInfo.gradient"
         @click.right="openMenu"
       >
-        <!-- <img :src="$filters.resizeImage(playlist.coverImgUrl)" /> -->
+        <!-- <img :src="resizeImage(playlist.coverImgUrl)" /> -->
         {{ specialPlaylistInfo.name }}
       </div>
       <div class="subtitle"
@@ -142,7 +142,7 @@
       <h1>
         <img
           class="avatar"
-          :src="$filters.resizeImage(data.user.avatarUrl)"
+          :src="resizeImage(data.user.avatarUrl)"
           loading="lazy"
         />
         {{ data.user.nickname }}{{ $t('library.sLikedSongs') }}

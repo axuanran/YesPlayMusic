@@ -79,7 +79,7 @@
       </button>
     </div>
     <div v-if="showTrackTime" class="time">
-      {{ $filters.formatTime(track.dt) }}
+      {{ formatTime(track.dt) }}
     </div>
 
     <div v-if="track.playCount" class="count"> {{ track.playCount }}</div>

@@ -147,23 +147,23 @@ router.beforeEach((to, from, next) => {
   // 需要登录的逻辑
   if (to.meta.requireAccountLogin) {
     if (isAccountLoggedIn()) {
-      next();
+      return next();
     } else {
-      next({ path: '/login/account' });
+      return next({ path: '/login/account' });
     }
   }
   if (to.meta.requireLogin) {
     if (isLooseLoggedIn()) {
-      next();
+      return next();
     } else {
       if (process.env.IS_ELECTRON === true) {
-        next({ path: '/login/account' });
+        return next({ path: '/login/account' });
       } else {
-        next({ path: '/login' });
+        return next({ path: '/login' });
       }
     }
   } else {
-    next();
+    return next();
   }
 });
 

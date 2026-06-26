@@ -37,11 +37,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       '@': path.resolve(rootDir, 'src'),
       '~@': path.resolve(rootDir, 'src'),
-      vue: '@vue/compat',
     },
-  },
-  optimizeDeps: {
-    exclude: ['@vue/compat'],
   },
   define: {
     'process.env': JSON.stringify(createProcessEnv(mode)),

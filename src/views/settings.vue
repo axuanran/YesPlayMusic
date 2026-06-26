@@ -151,7 +151,7 @@
               :value="device.deviceId"
               :selected="device.deviceId == outputDevice"
             >
-              {{ $t(device.label) }}
+              {{ device.label }}
             </option>
           </select>
         </div>

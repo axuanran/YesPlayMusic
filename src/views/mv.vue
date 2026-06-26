@@ -22,7 +22,7 @@
           </div>
         </div>
         <div class="info">
-          {{ $filters.formatPlayCount(mv.data.playCount) }} Views ·
+          {{ formatPlayCount(mv.data.playCount) }} Views ·
           {{ mv.data.publishTime }}
         </div>
       </div>
