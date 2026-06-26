@@ -2,6 +2,10 @@ name: Release
 
 env:
   YARN_INSTALL_NOPT: yarn add --ignore-platform --ignore-engines --non-interactive --no-lockfile --exact
+  KEEP_RELEASES: 5
+
+permissions:
+  contents: write
 
 on:
   push:
@@ -10,6 +14,16 @@ on:
     tags:
       - v*
   workflow_dispatch:
+    inputs:
+      release_mode:
+        description: Release mode for manual runs
+        required: true
+        default: prerelease
+        type: choice
+        options:
+          - draft
+          - prerelease
+          - release
 
 jobs:
   release:
@@ -102,21 +116,188 @@ jobs:
           VUE_APP_LASTFM_API_SHARED_SECRET: ${{ secrets.VUE_APP_LASTFM_API_SHARED_SECRET }}
 
       - name: Package / release Electron app
-        run: npx electron-builder --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        run: npx electron-builder
         env:
           GH_TOKEN: ${{ github.token }}
           EP_PRELEASE: true
 
-      - uses: actions/upload-artifact@v4
-        if: runner.os == 'Windows'
-        with:
-          name: YesPlayMusic-win
-          path: dist_electron/*Setup*.exe
-          if-no-files-found: error
+      - name: Decide publish mode
+        id: publish_mode
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            mode="${{ inputs.release_mode }}"
+          elif [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            mode="prerelease"
+          else
+            mode="release"
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@v4
-        if: runner.os == 'Linux'
+      - name: Build release label
+        id: release_label
+        shell: bash
+        run: |
+          ts=$(date -u +'%Y%m%d-%H%M')
+          branch="${GITHUB_REF_NAME//\//-}"
+          mode="${{ steps.publish_mode.outputs.mode }}"
+          label="${mode}-${branch}-${ts}-run${GITHUB_RUN_NUMBER}"
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+
+      - name: Capture commit sha
+        id: commit_sha
+        shell: bash
+        run: |
+          echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Windows prerelease
+        if: steps.publish_mode.outputs.mode == 'prerelease' && runner.os == 'Windows'
+        uses: softprops/action-gh-release@v2
         with:
-          name: YesPlayMusic-linux
-          path: dist_electron/*.AppImage
-          if-no-files-found: error
+          tag_name: ${{ steps.release_label.outputs.label }}
+          name: prerelease / ${{ github.ref_name }} / ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Run: ${{ github.run_id }}
+            Commit: ${{ steps.commit_sha.outputs.sha }}
+            Workflow: ${{ github.run_id }}
+            Mode: prerelease
+          prerelease: true
+          draft: false
+          make_latest: false
+          overwrite_files: true
+          generate_release_notes: true
+          files: dist_electron/*Setup*.exe
+
+      - name: Upload Linux prerelease
+        if: steps.publish_mode.outputs.mode == 'prerelease' && runner.os == 'Linux'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_label.outputs.label }}
+          name: prerelease / ${{ github.ref_name }} / ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Run: ${{ github.run_id }}
+            Commit: ${{ steps.commit_sha.outputs.sha }}
+            Workflow: ${{ github.run_id }}
+            Mode: prerelease
+          prerelease: true
+          draft: false
+          make_latest: false
+          overwrite_files: true
+          generate_release_notes: true
+          files: dist_electron/*.AppImage
+
+      - name: Upload Windows draft
+        if: steps.publish_mode.outputs.mode == 'draft' && runner.os == 'Windows'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_label.outputs.label }}
+          name: draft / ${{ github.ref_name }} / ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Run: ${{ github.run_id }}
+            Commit: ${{ steps.commit_sha.outputs.sha }}
+            Workflow: ${{ github.run_id }}
+            Status: draft
+            Mode: draft
+          prerelease: false
+          draft: true
+          make_latest: false
+          overwrite_files: true
+          generate_release_notes: true
+          files: dist_electron/*Setup*.exe
+
+      - name: Upload Linux draft
+        if: steps.publish_mode.outputs.mode == 'draft' && runner.os == 'Linux'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_label.outputs.label }}
+          name: draft / ${{ github.ref_name }} / ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Run: ${{ github.run_id }}
+            Commit: ${{ steps.commit_sha.outputs.sha }}
+            Workflow: ${{ github.run_id }}
+            Status: draft
+            Mode: draft
+          prerelease: false
+          draft: true
+          make_latest: false
+          overwrite_files: true
+          generate_release_notes: true
+          files: dist_electron/*.AppImage
+
+      - name: Upload Windows release
+        if: steps.publish_mode.outputs.mode == 'release' && runner.os == 'Windows'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_label.outputs.label }}
+          name: release / ${{ github.ref_name }} / ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Run: ${{ github.run_id }}
+            Commit: ${{ steps.commit_sha.outputs.sha }}
+            Workflow: ${{ github.run_id }}
+            Mode: release
+          prerelease: false
+          draft: false
+          make_latest: true
+          overwrite_files: true
+          generate_release_notes: true
+          files: dist_electron/*Setup*.exe
+
+      - name: Upload Linux release
+        if: steps.publish_mode.outputs.mode == 'release' && runner.os == 'Linux'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_label.outputs.label }}
+          name: release / ${{ github.ref_name }} / ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Run: ${{ github.run_id }}
+            Commit: ${{ steps.commit_sha.outputs.sha }}
+            Workflow: ${{ github.run_id }}
+            Mode: release
+          prerelease: false
+          draft: false
+          make_latest: true
+          overwrite_files: true
+          generate_release_notes: true
+          files: dist_electron/*.AppImage
+
+  cleanup-dev-prereleases:
+    name: Cleanup old dev prereleases
+    runs-on: ubuntu-latest
+    needs: release
+    if: github.ref == 'refs/heads/dev'
+
+    steps:
+      - name: Keep only last dev prereleases
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const keep = Number(process.env.KEEP_RELEASES || '5');
+            const { owner, repo } = context.repo;
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              owner,
+              repo,
+              per_page: 100,
+            });
+
+            const devReleases = releases
+              .filter((release) => release.prerelease)
+              .filter((release) => release.tag_name?.startsWith('prerelease-dev-'))
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            const stale = devReleases.slice(keep);
+            core.info(`Found ${devReleases.length} dev prereleases, deleting ${stale.length} old ones.`);
+
+            for (const release of stale) {
+              core.info(`Deleting ${release.tag_name} (${release.id})`);
+              await github.rest.repos.deleteRelease({
+                owner,
+                repo,
+                release_id: release.id,
+              });
+            }

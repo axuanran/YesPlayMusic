@@ -51,7 +51,7 @@
             </div>
           </div>
         </div>
-        <div v-show="mode !== 'qrCode'" class="input-box">
+        <div v-show="mode !== 'qrCode' && mode !== 'cookie'" class="input-box">
           <div class="container" :class="{ active: inputFocus === 'password' }">
             <svg-icon icon-class="lock" />
             <div class="inputs">
@@ -79,14 +79,20 @@
           </div>
         </div>
         <div v-show="mode === 'cookie'" class="cookie-login">
+          <button class="web-login-button" @click="loginWithWeb">
+            {{ $t('login.openWebLogin') }}
+          </button>
+          <div class="cookie-tip">
+            {{ $t('login.webLoginTip') }}
+          </div>
           <textarea
             v-model="cookieText"
-            placeholder="粘贴 MUSIC_U=...; __csrf=... 等网易云 Cookie"
+            :placeholder="$t('login.cookiePlaceholder')"
             @focus="inputFocus = 'cookie'"
             @blur="inputFocus = ''"
           ></textarea>
           <div class="cookie-tip">
-            至少需要 MUSIC_U。Cookie 只会保存在本机浏览器和 localStorage。
+            {{ $t('login.cookieTip') }}
           </div>
           <div v-show="cookieError" class="cookie-error">
             {{ cookieError }}
@@ -117,7 +123,7 @@
         </a>
         <span v-show="mode !== 'cookie'">|</span>
         <a v-show="mode !== 'cookie'" @click="changeMode('cookie')">
-          Cookie 登录
+          {{ $t('login.webLogin') }}
         </a>
       </div>
       <div
@@ -296,6 +302,30 @@ export default {
           this.updateData({ key: 'loginMode', value: null });
           removeCookie('MUSIC_U');
           removeCookie('__csrf');
+        });
+    },
+    loginWithWeb() {
+      if (!this.isElectron || !window.electronAPI?.app?.openNeteaseWebLogin) {
+        window.open('https://music.163.com/#/login', '_blank', 'noopener');
+        return;
+      }
+
+      this.processing = true;
+      this.cookieError = '';
+      window.electronAPI.app
+        .openNeteaseWebLogin()
+        .then(cookie => {
+          if (!cookie) {
+            this.processing = false;
+            return;
+          }
+
+          this.cookieText = cookie;
+          this.loginWithCookie();
+        })
+        .catch(error => {
+          this.processing = false;
+          this.cookieError = error.message ?? `网页登录失败：${error}`;
         });
     },
     getQrCodeKey() {
@@ -560,6 +590,26 @@ button.loading {
 
 .cookie-login {
   width: 300px;
+
+  .web-login-button {
+    width: 100%;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+    font-size: 14px;
+    font-weight: 600;
+    transition: 0.2s;
+
+    &:hover {
+      transform: scale(1.03);
+    }
+
+    &:active {
+      transform: scale(0.97);
+    }
+  }
 
   textarea {
     width: 100%;

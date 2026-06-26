@@ -341,5 +341,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   app: {
     showNativeAlert: message =>
       sendString('showNativeAlert', message, { minLength: 1, maxLength: 1024 }),
+    openNeteaseWebLogin: () => ipcRenderer.invoke('open-netease-web-login'),
   },
 });
