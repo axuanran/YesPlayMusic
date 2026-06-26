@@ -1,7 +1,8 @@
-import router from '@/router';
-import { doLogout, getCookieString } from '@/utils/auth';
-import { env } from '@/utils/env';
-import axios from 'axios';
+ import router from '@/router';
+ import { doLogout, getCookieString } from '@/utils/auth';
+ import { refreshCookie } from '@/api/auth';
+ import { env } from '@/utils/env';
+ import axios from 'axios';
 
 let baseURL = '';
 // Web 和 Electron 跑在不同端口避免同时启动时冲突
@@ -56,17 +57,28 @@ service.interceptors.request.use(function (config) {
   return config;
 });
 
+ const handleTokenExpired = async () => {
+   console.warn('Token expired, trying refresh...');
+   try {
+     await refreshCookie();
+     console.log('Token refreshed successfully');
+     return;
+   } catch {
+     console.warn('Token refresh failed, logging out');
+     doLogout();
+     if (env.IS_ELECTRON) {
+       router.push({ name: 'loginAccount' });
+     } else {
+       router.push({ name: 'login' });
+     }
+   }
+ };
+
  service.interceptors.response.use(
    response => {
      const res = response.data;
      if (res?.code === 301 && res?.msg === '需要登录') {
-       console.warn('Token has expired. Logout now!');
-       doLogout();
-       if (env.IS_ELECTRON === true) {
-         router.push({ name: 'loginAccount' });
-       } else {
-         router.push({ name: 'login' });
-       }
+       handleTokenExpired();
        return Promise.reject(res);
      }
      return res;
@@ -84,24 +96,14 @@ service.interceptors.request.use(function (config) {
       data = response.data;
     }
 
-    if (
-      response &&
-      typeof data === 'object' &&
-      data.code === 301 &&
-      data.msg === '需要登录'
-    ) {
-      console.warn('Token has expired. Logout now!');
-
-      // 登出帳戶
-      doLogout();
-
-      // 導向登入頁面
-      if (env.IS_ELECTRON === true) {
-        router.push({ name: 'loginAccount' });
-      } else {
-        router.push({ name: 'login' });
-      }
-    }
+   if (
+     response &&
+     typeof data === 'object' &&
+     data.code === 301 &&
+     data.msg === '需要登录'
+   ) {
+     handleTokenExpired();
+   }
 
     return Promise.reject(data ?? error);
   }

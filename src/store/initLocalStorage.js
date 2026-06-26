@@ -42,12 +42,12 @@ let localStorage = {
     realIP: null,
     shortcuts: shortcuts,
   },
-  data: {
-    user: {},
-    likedSongPlaylistID: 0,
-    lastRefreshCookieDate: 0,
-    loginMode: null,
-  },
+   data: {
+     user: {},
+     likedSongPlaylistID: 0,
+     lastRefreshCookieTime: 0,
+     loginMode: null,
+   },
 };
 
 if (isElectron) {

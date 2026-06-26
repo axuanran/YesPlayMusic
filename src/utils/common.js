@@ -175,20 +175,22 @@ export function updateHttps(url) {
   return url.replace(/^http:/, 'https:');
 }
 
-export function dailyTask() {
-  let lastDate = store.state.data.lastRefreshCookieDate;
-  if (
-    isAccountLoggedIn() &&
-    (lastDate === undefined || lastDate !== dayjs().date())
-  ) {
-    refreshCookie().then(() => {
-      store.commit('updateData', {
-        key: 'lastRefreshCookieDate',
-        value: dayjs().date(),
-      });
-    });
-  }
-}
+ export function dailyTask() {
+   const now = Date.now();
+   const last = store.state.data.lastRefreshCookieTime;
+   const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
+   if (
+     isAccountLoggedIn() &&
+     (last === undefined || now - last > REFRESH_INTERVAL)
+   ) {
+     refreshCookie().then(() => {
+       store.commit('updateData', {
+         key: 'lastRefreshCookieTime',
+         value: now,
+       });
+     });
+   }
+ }
 
 export function changeAppearance(appearance) {
   if (appearance === 'auto' || appearance === undefined) {
