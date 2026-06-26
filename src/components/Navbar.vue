@@ -153,9 +153,9 @@ export default {
       doLogout();
       this.$router.push({ name: 'home' });
     },
-    toSettings() {
-      this.$router.push({ name: 'settings' });
-    },
+   toSettings() {
+     this.$router.push({ name: 'settings' });
+   },
     toGitHub() {
       window.open('https://github.com/qier222/YesPlayMusic');
     },

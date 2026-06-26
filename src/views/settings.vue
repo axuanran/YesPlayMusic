@@ -823,9 +823,20 @@ import { isLinux, isMac } from '@/utils/platform';
 
 const electronSettings = window.electronAPI?.settings;
 
-const validShortcutCodes = ['=', '-', '~', '[', ']', ';', "'", ',', '.', '/'];
+ const validShortcutCodes = ['=', '-', '~', '[', ']', ';', "'", ',', '.', '/'];
 
-export default {
+ // module-level helper — used in computed section where `this` is unavailable
+ const setting = (key, defaults) => ({
+   get() {
+     const val = this.settings[key];
+     return val === undefined && defaults !== undefined ? defaults : val;
+   },
+   set(value) {
+     this.$store.commit('updateSettings', { key, value });
+   },
+ });
+
+ export default {
   name: 'Settings',
   data() {
     return {
@@ -919,7 +930,7 @@ export default {
         this.$store.commit('changeLang', lang);
       },
     },
-    musicLanguage: this.setting('musicLanguage', 'all'),
+    musicLanguage: setting('musicLanguage', 'all'),
     appearance: {
       get() {
         if (this.settings.appearance === undefined) return 'auto';
@@ -1020,8 +1031,8 @@ export default {
         });
       },
     },
-    showPlaylistsByAppleMusic: this.setting('showPlaylistsByAppleMusic', true),
-    nyancatStyle: this.setting('nyancatStyle', false),
+    showPlaylistsByAppleMusic: setting('showPlaylistsByAppleMusic', true),
+    nyancatStyle: setting('nyancatStyle', false),
     automaticallyCacheSongs: {
       get() {
         if (this.settings.automaticallyCacheSongs === undefined) return false;
@@ -1037,13 +1048,13 @@ export default {
         }
       },
     },
-    showLyricsTranslation: this.setting('showLyricsTranslation'),
-    lyricsBackground: this.setting('lyricsBackground', false),
-    showLyricsTime: this.setting('showLyricsTime'),
-    enableOsdlyricsSupport: this.setting('enableOsdlyricsSupport'),
-    closeAppOption: this.setting('closeAppOption'),
-    enableDiscordRichPresence: this.setting('enableDiscordRichPresence'),
-    subTitleDefault: this.setting('subTitleDefault'),
+    showLyricsTranslation: setting('showLyricsTranslation'),
+    lyricsBackground: setting('lyricsBackground', false),
+    showLyricsTime: setting('showLyricsTime'),
+    enableOsdlyricsSupport: setting('enableOsdlyricsSupport'),
+    closeAppOption: setting('closeAppOption'),
+    enableDiscordRichPresence: setting('enableDiscordRichPresence'),
+    subTitleDefault: setting('subTitleDefault'),
     enableReversedMode: {
       get() {
         if (this.settings.enableReversedMode === undefined) return false;
@@ -1059,9 +1070,9 @@ export default {
         }
       },
     },
-    enableGlobalShortcut: this.setting('enableGlobalShortcut'),
-    showLibraryDefault: this.setting('showLibraryDefault', false),
-    cacheLimit: this.setting('cacheLimit', false),
+    enableGlobalShortcut: setting('enableGlobalShortcut'),
+    showLibraryDefault: setting('showLibraryDefault', false),
+    cacheLimit: setting('cacheLimit', false),
     proxyProtocol: {
       get() {
         return this.settings.proxyConfig?.protocol || 'noProxy';
@@ -1092,8 +1103,8 @@ export default {
         });
       },
     },
-    enableRealIP: this.setting('enableRealIP', false),
-    realIP: this.setting('realIP', ''),
+    enableRealIP: setting('enableRealIP', false),
+    realIP: setting('realIP', ''),
     proxyPort: {
       get() {
         return this.settings.proxyConfig?.port || '';
@@ -1122,8 +1133,8 @@ export default {
         });
       },
     },
-    unmSearchMode: this.setting('unmSearchMode', 'fast-first'),
-    unmEnableFlac: this.setting('unmEnableFlac', false),
+    unmSearchMode: setting('unmSearchMode', 'fast-first'),
+    unmEnableFlac: setting('unmEnableFlac', false),
     unmProxyUri: {
       get() {
         return this.settings.unmProxyUri || '';
@@ -1183,28 +1194,17 @@ export default {
       return this.lastfm.key !== undefined;
     },
   },
-  created() {
-    this.countDBSize('tracks');
-    if (isElectron) this.getAllOutputDevices();
-  },
+ created() {
+   this.countDBSize('tracks');
+   if (isElectron) this.getAllOutputDevices();
+ },
   activated() {
     this.countDBSize('tracks');
     if (isElectron) this.getAllOutputDevices();
   },
   methods: {
-    ...mapActions(['showToast']),
-    setting(key, defaults) {
-      return {
-        get() {
-          const val = this.settings[key];
-          return val === undefined && defaults !== undefined ? defaults : val;
-        },
-        set(value) {
-          this.$store.commit('updateSettings', { key, value });
-        },
-      };
-    },
-    getAllOutputDevices() {
+   ...mapActions(['showToast']),
+   getAllOutputDevices() {
       navigator.mediaDevices.enumerateDevices().then(devices => {
         this.allOutputDevices = devices.filter(device => {
           return device.kind == 'audiooutput';
