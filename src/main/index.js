@@ -19,6 +19,9 @@ import {
   isCreateTray,
 } from '@/utils/platform';
 import { startNeteaseMusicApi } from '../electron/services';
+import { registerProvider } from '../../server/resolver/providerManager.js';
+import * as neteaseProvider from '../../server/providers/netease.js';
+import * as fallbackProvider from '../../server/providers/fallback.js';
 import { initIpcMain } from '../electron/ipcMain.js';
 import { createMenu } from '../electron/menu';
 import { createTray } from '@/electron/tray';
@@ -30,6 +33,8 @@ import * as devtoolsInstaller from 'electron-devtools-installer';
 import { EventEmitter } from 'events';
 import express from 'express';
 import expressProxy from 'express-http-proxy';
+import audioRoutes from '../../server/routes/audio.js';
+import adminRoutes from '../../server/routes/admin.js';
 import StoreModule from 'electron-store';
 import { spawn } from 'child_process';
 import clc from 'cli-color';
@@ -131,6 +136,11 @@ class Background {
       console.error(err);
     });
 
+    // Register audio resolver providers
+    registerProvider(neteaseProvider);
+    registerProvider(fallbackProvider);
+    log('audio resolver providers registered');
+
     // create Express app
     this.createExpressApp();
 
@@ -170,11 +180,24 @@ class Background {
 
     const expressApp = express();
 
+    // JSON body parser for resolver API
+    expressApp.use(express.json());
+
     // In production, serve the built renderer static files
     if (!isDevelopment) {
       const rendererDist = path.join(__dirname, '../renderer');
       expressApp.use('/', express.static(rendererDist));
     }
+
+    // Audio resolver routes (health, resolve, stream) - must be before the /api proxy
+    expressApp.use('/api', audioRoutes);
+
+    // Admin API routes - must be before the /api proxy
+    expressApp.use('/api/admin', adminRoutes);
+
+    // Serve admin panel static files
+    const adminDir = path.join(__dirname, '../../admin');
+    expressApp.use('/admin', express.static(adminDir));
 
     expressApp.use('/api', expressProxy('http://127.0.0.1:10754'));
 

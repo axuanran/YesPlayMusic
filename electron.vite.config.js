@@ -94,6 +94,11 @@ export default defineConfig(({ mode }) => ({
           changeOrigin: true,
           rewrite: value => value.replace(/^\/api/, ''),
         },
+        '/resolver-api': {
+          target: 'http://127.0.0.1:27232',
+          changeOrigin: true,
+          rewrite: value => value.replace(/^\/resolver-api/, ''),
+        },
       },
     },
     build: {

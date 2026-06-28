@@ -1,0 +1,23 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 27232
+  },
+  "security": {
+    "adminToken": "",
+    "allowOrigins": [
+      "http://localhost:27232",
+      "http://127.0.0.1:27232"
+    ]
+  },
+  "audio": {
+    "proxyStream": true,
+    "defaultQuality": "standard",
+    "cacheTtl": 1800,
+    "providerOrder": [
+      "netease",
+      "fallback"
+    ],
+    "fallbackToLegacy": true
+  }
+}

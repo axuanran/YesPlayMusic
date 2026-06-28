@@ -12,6 +12,8 @@ import { isCreateTray } from '@/utils/platform';
 import { isElectron } from '@/utils/env';
 import shuffle from 'lodash/shuffle';
 import { decode as base642Buffer } from '@/utils/base64';
+import { resolveTrackSource } from '@/utils/resolveAudioSource';
+import { getOuterAudioUrl } from '@/utils/resolveAudioSource';
 // MPRIS disabled during Electron 42 migration
 const isCreateMpris = false;
 
@@ -445,11 +447,11 @@ export default class {
           cacheTrackSource(track, source, result.data[0].br);
         }
         return source;
+      }).catch(() => {
+        return getOuterAudioUrl(track.id);
       });
     } else {
-      return new Promise(resolve => {
-        resolve(`https://music.163.com/song/media/outer/url?id=${track.id}`);
-      });
+      return Promise.resolve(getOuterAudioUrl(track.id));
     }
   }
   async _getAudioSourceFromUnblockMusic(track) {
@@ -520,6 +522,14 @@ export default class {
     return this._getAudioSourceBlobURL(buffer);
   }
   _getAudioSource(track) {
+    // Stage 1: Try resolver backend first
+    return resolveTrackSource(track.id)
+      .catch(() => {
+        // Stage 2: Fall back to full legacy chain
+        return this._getAudioSourceLegacy(track);
+      });
+  }
+  _getAudioSourceLegacy(track) {
     return this._getAudioSourceFromCache(String(track.id))
       .then(source => {
         return source ?? this._getAudioSourceFromNetease(track);
@@ -872,6 +882,8 @@ export default class {
         }
       })
       .catch(error => {
+        // AbortError: play() interrupted by pause()/load() during track switch. Normal, not a failure.
+        if (error?.name === 'AbortError') return;
         console.error('Failed to play audio', error);
         store.dispatch('showToast', `播放失败`);
       });

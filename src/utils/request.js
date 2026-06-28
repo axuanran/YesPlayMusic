@@ -1,8 +1,59 @@
- import router from '@/router';
- import { doLogout, getCookieString } from '@/utils/auth';
- import { refreshCookie } from '@/api/auth';
- import { env } from '@/utils/env';
- import axios from 'axios';
+import router from '@/router';
+import { doLogout, getCookieString, setCookies, syncCookiesFromDocument } from '@/utils/auth';
+import { refreshCookie } from '@/api/auth';
+import { env } from '@/utils/env';
+import store from '@/store';
+import axios from 'axios';
+
+// Token refresh state: prevents concurrent refreshes.
+let refreshPromise = null;
+
+function refreshRequestCookies(config) {
+  if (!config.params) config.params = {};
+  if (!config.url.includes('/login')) {
+    const cookie = getCookieString();
+    if (cookie) {
+      config.params.cookie = cookie;
+    } else {
+      delete config.params.cookie;
+    }
+  }
+  return config;
+}
+
+function runTokenRefresh() {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      console.warn('[refresh] Token expired, trying refresh...');
+      const result = await refreshCookie();
+      // If refresh itself returns 302, the session is gone — cannot refresh.
+      if (result?.code === 302) {
+        throw new Error('Refresh returned 302: session invalid');
+      }
+      // Some API versions return cookie string in response body.
+      // Sync both ways: from Set-Cookie headers (document.cookie) and from body.
+      if (result?.cookie && typeof result.cookie === 'string') {
+        setCookies(result.cookie);
+      }
+      syncCookiesFromDocument();
+      console.log('[refresh] Token refreshed successfully');
+    } catch (error) {
+      console.warn('[refresh] Token refresh failed, logging out', error);
+      store.dispatch('showToast', '登录已过期，请重新登录');
+      doLogout();
+      if (env.IS_ELECTRON) {
+        router.push({ name: 'loginAccount' });
+      } else {
+        router.push({ name: 'login' });
+      }
+      throw error;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
+}
 
 let baseURL = '';
 // Web 和 Electron 跑在不同端口避免同时启动时冲突
@@ -57,32 +108,20 @@ service.interceptors.request.use(function (config) {
   return config;
 });
 
- const handleTokenExpired = async () => {
-   console.warn('Token expired, trying refresh...');
-   try {
-     await refreshCookie();
-     console.log('Token refreshed successfully');
-     return;
-   } catch {
-     console.warn('Token refresh failed, logging out');
-     doLogout();
-     if (env.IS_ELECTRON) {
-       router.push({ name: 'loginAccount' });
-     } else {
-       router.push({ name: 'login' });
-     }
-   }
- };
-
- service.interceptors.response.use(
-   response => {
-     const res = response.data;
-     if (res?.code === 301 && res?.msg === '需要登录') {
-       handleTokenExpired();
-       return Promise.reject(res);
-     }
-     return res;
-   },
+service.interceptors.response.use(
+  async response => {
+    const res = response.data;
+    if (res?.code === 301 && res?.msg === '需要登录' && response.config.url !== '/logout' && !response.config._retried) {
+      try {
+        await runTokenRefresh();
+        response.config._retried = true;
+        return service(refreshRequestCookies(response.config));
+      } catch {
+        return Promise.reject(res);
+      }
+    }
+    return res;
+  },
   async error => {
     /** @type {import('axios').AxiosResponse | null} */
     let response;
@@ -96,14 +135,22 @@ service.interceptors.request.use(function (config) {
       data = response.data;
     }
 
-   if (
-     response &&
-     typeof data === 'object' &&
-     data.code === 301 &&
-     data.msg === '需要登录'
-   ) {
-     handleTokenExpired();
-   }
+    if (
+      response &&
+      typeof data === 'object' &&
+      data.code === 301 &&
+      data.msg === '需要登录' &&
+      response.config?.url !== '/logout' &&
+      !response.config?._retried
+    ) {
+      try {
+        await runTokenRefresh();
+        response.config._retried = true;
+        return service(refreshRequestCookies(response.config));
+      } catch {
+        return Promise.reject(data ?? error);
+      }
+    }
 
     return Promise.reject(data ?? error);
   }

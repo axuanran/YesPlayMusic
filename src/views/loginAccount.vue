@@ -140,7 +140,7 @@ import QRCode from 'qrcode';
 import md5 from 'crypto-js/md5';
 import NProgress from 'nprogress';
 import { mapMutations } from 'vuex';
-import { normalizeCookieString, removeCookie, setCookies } from '@/utils/auth';
+import { normalizeCookieString, removeCookie, setCookies, getCookieString } from '@/utils/auth';
 import { userAccountWithCookie } from '@/api/user';
 import nativeAlert from '@/utils/nativeAlert';
 import { isElectron } from '@/utils/env';
@@ -150,6 +150,7 @@ import {
   loginQrCodeKey,
   loginQrCodeCheck,
 } from '@/api/auth';
+import { syncCookieToResolver } from '@/api/audioResolver';
 
 export default {
   name: 'Login',
@@ -254,6 +255,9 @@ export default {
       if (data.code === 200) {
         setCookies(data.cookie);
         this.updateData({ key: 'loginMode', value: 'account' });
+        // Sync cookie to resolver backend for persistence
+        const cookie = getCookieString();
+        if (cookie) syncCookieToResolver(cookie);
         this.$store.dispatch('fetchUserProfile').then(() => {
           this.$store.dispatch('fetchLikedPlaylist').then(() => {
             this.$router.push({ path: '/library' });
@@ -288,6 +292,9 @@ export default {
           this.updateData({ key: 'loginMode', value: 'account' });
           this.updateData({ key: 'user', value: result.profile });
           this.processing = false;
+          // Sync cookie to resolver backend for persistence
+          const cookieStr = getCookieString();
+          if (cookieStr) syncCookieToResolver(cookieStr);
           this.$router.push({ path: '/library' });
           this.$store.dispatch('fetchLikedPlaylist').catch(error => {
             console.warn(

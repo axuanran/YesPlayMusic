@@ -22,8 +22,26 @@ export default class AudioEngine {
   load(source, token = this.token + 1) {
     this.token = token;
     this.audio.pause();
-    this.audio.src = source;
+    this.audio.src = this._rewriteOuterUrl(source);
     this.audio.load();
+  }
+
+  /**
+   * In web dev mode, rewrite music.163.com outer URLs to local proxy path
+   * to avoid CORS blocking. Does nothing in Electron or production.
+   */
+  _rewriteOuterUrl(url) {
+    if (typeof url !== 'string') return url;
+    const match = url.match(
+      /^https:\/\/music\.163\.com\/song\/media\/outer\/url\?id=(\d+)/
+    );
+    if (!match) return url;
+    // Only proxy on local dev server; Electron runs its own Express proxy.
+    const host = typeof window !== 'undefined' ? window.location?.hostname : '';
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return '/__audio_proxy/' + match[1];
+    }
+    return url;
   }
 
   play() {

@@ -1,6 +1,7 @@
 import Cookies from 'js-cookie';
 import { logout } from '@/api/auth';
 import store from '@/store';
+import { clearCookieFromResolver } from '@/api/audioResolver';
 
 const cookieAttributes = new Set([
   'domain',
@@ -91,10 +92,46 @@ export function doLogout() {
   logout();
   removeCookie('MUSIC_U');
   removeCookie('__csrf');
+  // Clear cookie from resolver backend
+  clearCookieFromResolver();
   // 更新状态仓库中的用户信息
   store.commit('updateData', { key: 'user', value: {} });
   // 更新状态仓库中的登录状态
   store.commit('updateData', { key: 'loginMode', value: null });
   // 更新状态仓库中的喜欢列表
   store.commit('updateData', { key: 'likedSongPlaylistID', value: undefined });
+}
+
+/**
+ * Sync cookies from document.cookie to localStorage after token refresh.
+ * The browser receives updated cookies via Set-Cookie headers,
+ * but getCookieString() reads from localStorage which is stale.
+ */
+export function syncCookiesFromDocument() {
+  const pairs = document.cookie.split(';');
+  for (const pair of pairs) {
+    const [rawKey, ...rawValue] = pair.trim().split('=');
+    const key = rawKey?.trim();
+    const value = rawValue.join('=').trim();
+    if (!key || !value) continue;
+    // MUSIC_U and __csrf are the auth cookies we care about
+    if (key === 'MUSIC_U' || key === '__csrf') {
+      localStorage.setItem(`cookie-${key}`, value);
+    }
+  }
+}
+
+/**
+ * Restore auth cookies from localStorage into document.cookie on app start.
+ * Electron requests rely on the browser cookie jar, while we persist copies in localStorage.
+ */
+export function hydrateCookiesToDocument() {
+  Object.keys(localStorage)
+    .filter(key => key.startsWith('cookie-'))
+    .forEach(key => {
+      const cookieKey = key.replace('cookie-', '');
+      const value = localStorage.getItem(key);
+      if (!cookieKey || !value) return;
+      document.cookie = `${cookieKey}=${value}; path=/`;
+    });
 }

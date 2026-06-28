@@ -5,6 +5,7 @@ import actions from "./actions";
 import { changeAppearance, changeThemeColor } from "@/utils/common";
 import Player from "@/utils/Player";
 import { isElectron } from "@/utils/env";
+import { getCookie } from "@/utils/auth";
 // vuex 自定义插件
 import saveToLocalStorage from "./plugins/localStorage";
 import { getSendSettingsPlugin } from "./plugins/sendSettings";
@@ -22,6 +23,13 @@ const options = {
 };
 
 const store = createStore(options);
+
+// Restore loginMode from cookie on page load.
+// loginMode is null by default, so after refresh the app appears logged out
+// even when MUSIC_U cookie still exists.
+if (getCookie('MUSIC_U') && !store.state.data.loginMode) {
+  store.commit('updateData', { key: 'loginMode', value: 'account' });
+}
 
 if ([undefined, null].includes(store.state.settings.lang)) {
   const defaultLang = "en";
