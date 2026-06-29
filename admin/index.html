@@ -67,10 +67,11 @@
 </div>
 
 <script>
-const { createApp, ref, reactive, onMounted, onBeforeUnmount, computed, provide, inject } = Vue;
+const { createApp, ref, reactive, onMounted, onBeforeUnmount, computed, provide, inject, watch } = Vue;
 const { createRouter, createWebHashHistory } = VueRouter;
 
 const API_BASE = '/api/admin';
+const LOG_FIELD_STORAGE_KEY = 'resolver-panel-log-fields';
 
 function formatBytes(bytes) {
   if (bytes === null || bytes === undefined || bytes === '') return '';
@@ -396,12 +397,22 @@ const Logs = {
   `,
   setup() {
     const logs = ref([]);
-    const showFields = reactive({
+    const defaultShowFields = {
       requestedQuality: true,
       source: true,
       provider: true,
-      extraMeta: false,
+      extraMeta: true,
       note: true,
+    };
+    let savedShowFields = {};
+    try {
+      savedShowFields = JSON.parse(localStorage.getItem(LOG_FIELD_STORAGE_KEY) || '{}') || {};
+    } catch (e) {
+      savedShowFields = {};
+    }
+    const showFields = reactive({
+      ...defaultShowFields,
+      ...savedShowFields,
     });
     const api = inject('api');
     const toast = inject('toast');
@@ -421,6 +432,14 @@ const Logs = {
         toast('Logs cleared');
       } catch (e) { toast('Failed to clear logs', 'err'); }
     }
+
+    watch(
+      showFields,
+      value => {
+        localStorage.setItem(LOG_FIELD_STORAGE_KEY, JSON.stringify(value));
+      },
+      { deep: true }
+    );
 
     onMounted(refresh);
     return { logs, refresh, clear, showFields, formatBytes };
