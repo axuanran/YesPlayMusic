@@ -4,6 +4,7 @@ import {
   dialog,
   globalShortcut,
   ipcMain,
+  shell,
   session,
 } from 'electron';
 import UNM from '@unblockneteasemusic/rust-napi';
@@ -17,6 +18,8 @@ const clc = require('cli-color');
 const log = text => {
   console.log(`${clc.blueBright('[ipcMain.js]')} ${text}`);
 };
+
+let resolverAdminWindow = null;
 
 const exitAsk = (e, win) => {
   e.preventDefault(); //阻止默认行为
@@ -310,6 +313,56 @@ export function initIpcMain(win, store, trayEventEmitter) {
       loginWindow.on('closed', handleClosed);
       loginWindow.loadURL('https://music.163.com/#/login').catch(fail);
     });
+  });
+
+  ipcMain.handle('open-external-url', async (_, url) => {
+    if (typeof url !== 'string') {
+      return false;
+    }
+
+    const normalizedUrl = url.trim();
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      return false;
+    }
+
+    await shell.openExternal(normalizedUrl);
+    return true;
+  });
+
+  ipcMain.handle('open-resolver-admin-panel', async (_, url) => {
+    if (typeof url !== 'string') {
+      return false;
+    }
+
+    const normalizedUrl = url.trim();
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      return false;
+    }
+
+    if (resolverAdminWindow && !resolverAdminWindow.isDestroyed()) {
+      resolverAdminWindow.loadURL(normalizedUrl);
+      resolverAdminWindow.focus();
+      return true;
+    }
+
+    resolverAdminWindow = new BrowserWindow({
+      width: 1200,
+      height: 800,
+      parent: win,
+      title: 'Resolver 管理面板',
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    resolverAdminWindow.on('closed', () => {
+      resolverAdminWindow = null;
+    });
+
+    resolverAdminWindow.loadURL(normalizedUrl);
+    resolverAdminWindow.focus();
+    return true;
   });
 
   ipcMain.on('close', e => {

@@ -234,6 +234,14 @@
               placeholder="http://127.0.0.1:27232"
               style="width: 320px"
             />
+            <button
+              class="secondary"
+              title="左键用默认浏览器打开，右键用内置浏览器打开"
+              @click="openResolverAdminPanel"
+              @contextmenu.prevent="openResolverAdminPanelInApp"
+            >
+              打开管理面板
+            </button>
             <button @click="syncFrontendCookieToResolver">从前端获取Cookie</button>
             <button @click="clearResolverBackendCache">清后端缓存</button>
           </div>
@@ -1351,6 +1359,24 @@ async function syncResolverDefaultQuality(level) {
       } catch (error) {
         this.showToast(`同步 Cookie 失败：${error.message || error}`);
       }
+    },
+    openResolverAdminPanel() {
+      const base = (this.audioResolverUrl || 'http://127.0.0.1:27232').replace(/\/+$/, '');
+      const url = `${base}/admin/#/`;
+      if (window.electronAPI?.app?.openExternalUrl) {
+        window.electronAPI.app.openExternalUrl(url);
+        return;
+      }
+      window.open(url, '_blank', 'noopener');
+    },
+    async openResolverAdminPanelInApp() {
+      const base = (this.audioResolverUrl || 'http://127.0.0.1:27232').replace(/\/+$/, '');
+      const url = `${base}/admin/#/`;
+      if (window.electronAPI?.app?.openResolverAdminPanel) {
+        await window.electronAPI.app.openResolverAdminPanel(url);
+        return;
+      }
+      window.open(url, '_blank', 'noopener');
     },
     lastfmConnect() {
       lastfmAuth();
