@@ -1,10 +1,7 @@
 import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { ensureStorageDir, getStoragePath } from './storagePaths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORAGE_DIR = path.join(__dirname, 'storage');
-const CONFIG_PATH = path.join(STORAGE_DIR, 'config.json');
+const CONFIG_PATH = getStoragePath('config.json');
 
 const DEFAULT_CONFIG = {
   server: {
@@ -35,12 +32,6 @@ const DEFAULT_CONFIG = {
 };
 
 let _config = null;
-
-function ensureStorageDir() {
-  if (!fs.existsSync(STORAGE_DIR)) {
-    fs.mkdirSync(STORAGE_DIR, { recursive: true });
-  }
-}
 
 export function loadConfig() {
   if (_config) return _config;

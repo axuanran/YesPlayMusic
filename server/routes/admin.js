@@ -100,6 +100,48 @@ router.post('/cache/clear', (_req, res) => {
   res.json({ ok: true, message: '缓存已清理' });
 });
 
+// DELETE /api/admin/cache
+router.delete('/cache', (_req, res) => {
+  clearCache();
+  res.json({ ok: true, message: '缓存已清理' });
+});
+
+// GET /api/admin/providers
+router.get('/providers', (_req, res) => {
+  const config = getConfig();
+  res.json({
+    ok: true,
+    providers: providerManager.list(),
+    providerOrder: config.audio?.providerOrder || [],
+  });
+});
+
+// POST /api/admin/providers
+router.post('/providers', (req, res) => {
+  try {
+    const { providerOrder } = req.body;
+    if (!Array.isArray(providerOrder)) {
+      return res.status(400).json({ ok: false, message: 'Invalid providerOrder' });
+    }
+    const config = getConfig();
+    const nextConfig = {
+      ...config,
+      audio: {
+        ...config.audio,
+        providerOrder,
+      },
+    };
+    saveConfig(nextConfig);
+    res.json({
+      ok: true,
+      providers: providerManager.list(),
+      providerOrder: nextConfig.audio.providerOrder,
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
 // GET /api/admin/stats
 router.get('/stats', (_req, res) => {
   const logs = getLogs(1000);

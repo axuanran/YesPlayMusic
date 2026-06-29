@@ -33,11 +33,13 @@
     "productName": "YesPlayMusic",
     "copyright": "Copyright © YesPlayMusic",
     "asar": true,
-    "files": [
-      "out/**",
-      "node_modules/**",
-      "package.json"
-    ],
+      "files": [
+        "out/**",
+        "server/**",
+        "admin/**",
+        "node_modules/**",
+        "package.json"
+      ],
     "publish": [
       {
         "provider": "github",

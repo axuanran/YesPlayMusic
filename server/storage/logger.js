@@ -1,9 +1,7 @@
 import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { getStoragePath } from '../storagePaths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const LOG_PATH = path.join(__dirname, 'logs.jsonl');
+const LOG_PATH = getStoragePath('logs.jsonl');
 const MAX_LOG_LINES = 2000;
 
 export function logEntry(entry) {

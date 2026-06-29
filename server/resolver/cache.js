@@ -4,11 +4,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { getConfig } from '../config.js';
+import { getStoragePath } from '../storagePaths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CACHE_PATH = path.join(__dirname, '..', 'storage', 'cache.json');
+const CACHE_PATH = getStoragePath('cache.json');
 
 function readCache() {
   try {
