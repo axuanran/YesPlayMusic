@@ -243,6 +243,7 @@
           <h2>Audio Resolver</h2>
           <router-link to="/">Dashboard</router-link>
           <router-link to="/settings">Settings</router-link>
+          <router-link to="/providers">Providers</router-link>
           <router-link to="/test">Test Resolve</router-link>
           <router-link to="/logs">Logs</router-link>
         </nav>
@@ -279,6 +280,55 @@
         if (size < 1024) return `${size} B`;
         if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
         return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+      }
+
+      const DEFAULT_UNBLOCK_CONFIG = {
+        enabled: true,
+        source: 'ytdl, bilibili, pyncm, kugou',
+        enableFlac: false,
+        proxyUri: '',
+        searchMode: 'fast-first',
+        jooxCookie: '',
+        qqCookie: '',
+        ytDlExe: '',
+      };
+
+      function createDefaultConfig() {
+        return {
+          server: { host: '127.0.0.1', port: 27232 },
+          security: { adminToken: '' },
+          audio: {
+            proxyStream: true,
+            defaultQuality: 'standard',
+            cacheTtl: 1800,
+            providerOrder: ['netease', 'unblock', 'fallback'],
+            fallbackToLegacy: true,
+            useCookie: true,
+            unblock: { ...DEFAULT_UNBLOCK_CONFIG },
+          },
+        };
+      }
+
+      function normalizeConfig(config) {
+        const nextConfig = createDefaultConfig();
+        Object.assign(nextConfig, config || {});
+        nextConfig.server = {
+          ...nextConfig.server,
+          ...(config?.server || {}),
+        };
+        nextConfig.security = {
+          ...nextConfig.security,
+          ...(config?.security || {}),
+        };
+        nextConfig.audio = {
+          ...nextConfig.audio,
+          ...(config?.audio || {}),
+          unblock: {
+            ...DEFAULT_UNBLOCK_CONFIG,
+            ...(config?.audio?.unblock || {}),
+          },
+        };
+        return nextConfig;
       }
 
       const app = createApp({
@@ -429,6 +479,7 @@
         template: `
     <div>
       <h1>Settings</h1>
+      <div class="subtle">Core resolver runtime settings. Provider order and provider-specific options live on the Providers page.</div>
       <div class="card">
         <h3>Server</h3>
         <label>Host</label><input v-model="cfg.server.host">
@@ -449,7 +500,6 @@
           <option value="lossless">Lossless</option>
         </select>
         <label>Cache TTL (seconds)</label><input v-model.number="cfg.audio.cacheTtl" type="number">
-        <label>Provider Order (comma separated)</label><input v-model="providerOrderStr">
         <label>Fallback to Legacy</label>
         <select v-model="cfg.audio.fallbackToLegacy">
           <option :value="true">Enabled</option>
@@ -461,14 +511,67 @@
           <option :value="false">Disabled</option>
         </select>
       </div>
+      <div style="margin-top:12px">
+        <button @click="save">Save Config</button>
+        <button class="secondary" @click="load" style="margin-left:8px">Reload</button>
+      </div>
+    </div>
+  `,
+        setup() {
+          const cfg = reactive(createDefaultConfig());
+          const api = inject('api');
+          const toast = inject('toast');
+
+          async function load() {
+            try {
+              const r = await fetch(api + '/config');
+              const d = await r.json();
+              Object.assign(cfg, normalizeConfig(d.config));
+            } catch (e) {
+              toast('Failed to load config', 'err');
+            }
+          }
+
+          async function save() {
+            try {
+              await fetch(api + '/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(normalizeConfig(cfg)),
+              });
+              toast('Config saved');
+            } catch (e) {
+              toast('Failed to save', 'err');
+            }
+          }
+
+          onMounted(load);
+          return { cfg, save, load };
+        },
+      };
+
+      // ---- Providers ----
+      const Providers = {
+        template: `
+    <div>
+      <h1>Providers</h1>
+      <div class="subtle">Manage resolver provider order and provider-specific options. New providers can be added here without mixing them into core resolver settings.</div>
       <div class="card">
-        <h3>Providers</h3>
-        <label>UnblockNeteaseMusic</label>
+        <h3>Provider Chain</h3>
+        <label>Provider Order (comma separated)</label>
+        <input v-model="providerOrderStr" placeholder="netease, unblock, fallback">
+        <div style="margin-top:10px">
+          <span class="badge badge-info" v-for="p in providerOrder" :key="p" style="margin-right:8px">{{ p }}</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Unblock Provider</h3>
+        <label>Status</label>
         <select v-model="cfg.audio.unblock.enabled">
           <option :value="true">Enabled</option>
           <option :value="false">Disabled</option>
         </select>
-        <label>UNM Sources</label>
+        <label>Sources</label>
         <input v-model="cfg.audio.unblock.source" placeholder="ytdl, bilibili, pyncm, kugou">
         <label>Enable FLAC</label>
         <select v-model="cfg.audio.unblock.enableFlac">
@@ -489,78 +592,73 @@
         <label>yt-dlp Path</label>
         <input v-model="cfg.audio.unblock.ytDlExe" placeholder="yt-dlp">
       </div>
+      <div class="card">
+        <h3>Registered Providers</h3>
+        <div v-if="providers.length">
+          <span class="badge badge-info" v-for="p in providers" :key="p" style="margin-right:8px">{{ p }}</span>
+        </div>
+        <div v-else style="color:#8b949e">No provider stats loaded.</div>
+      </div>
       <div style="margin-top:12px">
-        <button @click="save">Save Config</button>
+        <button @click="save">Save Providers</button>
         <button class="secondary" @click="load" style="margin-left:8px">Reload</button>
       </div>
     </div>
   `,
         setup() {
-          const defaultUnblockConfig = {
-            enabled: true,
-            source: 'ytdl, bilibili, pyncm, kugou',
-            enableFlac: false,
-            proxyUri: '',
-            searchMode: 'fast-first',
-            jooxCookie: '',
-            qqCookie: '',
-            ytDlExe: '',
-          };
-          const cfg = reactive({
-            server: { host: '127.0.0.1', port: 27232 },
-            security: { adminToken: '' },
-            audio: {
-              proxyStream: true,
-              defaultQuality: 'standard',
-              cacheTtl: 1800,
-              providerOrder: [],
-              fallbackToLegacy: true,
-              useCookie: true,
-              unblock: { ...defaultUnblockConfig },
-            },
-          });
+          const cfg = reactive(createDefaultConfig());
           const providerOrderStr = ref('');
+          const providers = ref([]);
           const api = inject('api');
           const toast = inject('toast');
+          const providerOrder = computed(() =>
+            providerOrderStr.value
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean)
+          );
 
           async function load() {
             try {
-              const r = await fetch(api + '/config');
-              const d = await r.json();
-              Object.assign(cfg, d.config);
-              cfg.audio.unblock = {
-                ...defaultUnblockConfig,
-                ...(cfg.audio.unblock || {}),
-              };
+              const [configResponse, statsResponse] = await Promise.all([
+                fetch(api + '/config'),
+                fetch(api + '/stats'),
+              ]);
+              const configData = await configResponse.json();
+              Object.assign(cfg, normalizeConfig(configData.config));
               providerOrderStr.value = cfg.audio.providerOrder.join(', ');
+              if (statsResponse.ok) {
+                const statsData = await statsResponse.json();
+                providers.value = statsData.providers || [];
+              }
             } catch (e) {
-              toast('Failed to load config', 'err');
+              toast('Failed to load providers', 'err');
             }
           }
 
           async function save() {
             try {
-              cfg.audio.providerOrder = providerOrderStr.value
-                .split(',')
-                .map(s => s.trim())
-                .filter(Boolean);
-              cfg.audio.unblock = {
-                ...defaultUnblockConfig,
-                ...(cfg.audio.unblock || {}),
-              };
+              cfg.audio.providerOrder = providerOrder.value;
               await fetch(api + '/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cfg),
+                body: JSON.stringify(normalizeConfig(cfg)),
               });
-              toast('Config saved');
+              toast('Providers saved');
             } catch (e) {
-              toast('Failed to save', 'err');
+              toast('Failed to save providers', 'err');
             }
           }
 
           onMounted(load);
-          return { cfg, providerOrderStr, save, load };
+          return {
+            cfg,
+            providers,
+            providerOrderStr,
+            providerOrder,
+            save,
+            load,
+          };
         },
       };
 
@@ -755,6 +853,7 @@
       const routes = [
         { path: '/', component: Dashboard },
         { path: '/settings', component: Settings },
+        { path: '/providers', component: Providers },
         { path: '/test', component: TestResolve },
         { path: '/logs', component: Logs },
       ];
