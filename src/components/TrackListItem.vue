@@ -106,7 +106,7 @@ export default {
     },
     listType: {
       type: String,
-      default: "tracklist",
+      default: 'tracklist',
     },
     likedSongIds: {
       type: Array,
@@ -118,7 +118,7 @@ export default {
     },
     albumObject: {
       type: Object,
-      default: () => ({ artist: { name: "" } }),
+      default: () => ({ artist: { name: '' } }),
     },
   },
 
@@ -204,14 +204,11 @@ export default {
     },
     focus() {
       return (
-        (this.hover && this.rightClickedTrackId === 0) ||
-        this.isMenuOpened
+        (this.hover && this.rightClickedTrackId === 0) || this.isMenuOpened
       );
     },
     showUnavailableSongInGreyStyle() {
-      return isElectron
-        ? !this.$store.state.settings.enableUnblockNeteaseMusic
-        : true;
+      return isElectron ? !this.$store.state.settings.useAudioResolver : true;
     },
     showLikeButton() {
       return this.type !== 'tracklist' && this.type !== 'cloudDisk';
@@ -233,10 +230,10 @@ export default {
       this.$router.push({ path: '/album/' + this.track.al.id });
     },
     playTrack() {
-      this.$emit("play-track", this.track.id);
+      this.$emit('play-track', this.track.id);
     },
     likeThisSong() {
-      this.$emit("like-track", this.track.id);
+      this.$emit('like-track', this.track.id);
     },
   },
 };

@@ -16,8 +16,19 @@
     "cacheTtl": 1800,
     "providerOrder": [
       "netease",
+      "unblock",
       "fallback"
     ],
-    "fallbackToLegacy": true
+    "fallbackToLegacy": true,
+    "unblock": {
+      "enabled": true,
+      "source": "ytdl, bilibili, pyncm, kugou",
+      "enableFlac": false,
+      "proxyUri": "",
+      "searchMode": "fast-first",
+      "jooxCookie": "",
+      "qqCookie": "",
+      "ytDlExe": ""
+    }
   }
 }

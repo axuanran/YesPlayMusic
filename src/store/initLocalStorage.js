@@ -17,7 +17,6 @@ let localStorage = {
     lyricFontSize: 28,
     outputDevice: 'default',
     showPlaylistsByAppleMusic: true,
-    enableUnblockNeteaseMusic: true,
     automaticallyCacheSongs: true,
     cacheLimit: 8192,
     enableReversedMode: false,
@@ -44,12 +43,12 @@ let localStorage = {
     audioResolverUrl: 'http://127.0.0.1:27232',
     shortcuts: shortcuts,
   },
-   data: {
-     user: {},
-     likedSongPlaylistID: 0,
-     lastRefreshCookieTime: 0,
-     loginMode: null,
-   },
+  data: {
+    user: {},
+    likedSongPlaylistID: 0,
+    lastRefreshCookieTime: 0,
+    loginMode: null,
+  },
 };
 
 if (isElectron) {

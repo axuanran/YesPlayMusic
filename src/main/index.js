@@ -21,6 +21,7 @@ import {
 import { startNeteaseMusicApi } from '../electron/services';
 import { registerProvider } from '../../server/resolver/providerManager.js';
 import * as neteaseProvider from '../../server/providers/netease.js';
+import * as unblockProvider from '../../server/providers/unblock.js';
 import * as fallbackProvider from '../../server/providers/fallback.js';
 import { initIpcMain } from '../electron/ipcMain.js';
 import { createMenu } from '../electron/menu';
@@ -138,6 +139,7 @@ class Background {
 
     // Register audio resolver providers
     registerProvider(neteaseProvider);
+    registerProvider(unblockProvider);
     registerProvider(fallbackProvider);
     log('audio resolver providers registered');
 
@@ -321,9 +323,7 @@ class Background {
     } else {
       const rendererUrl = 'http://127.0.0.1:27232/src/renderer/';
       this.window.loadURL(
-        showLibraryDefault
-          ? `${rendererUrl}#/library`
-          : rendererUrl
+        showLibraryDefault ? `${rendererUrl}#/library` : rendererUrl
       );
     }
   }

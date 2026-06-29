@@ -16,7 +16,7 @@ router.get('/health', (_req, res) => {
 // POST /api/audio/resolve
 router.post('/audio/resolve', async (req, res) => {
   try {
-    const { trackId, quality } = req.body;
+    const { trackId, quality, track } = req.body;
 
     if (!trackId) {
       return res.status(400).json({
@@ -28,6 +28,7 @@ router.post('/audio/resolve', async (req, res) => {
 
     const result = await resolveTrack(Number(trackId), {
       quality: quality || 'standard',
+      track,
     });
 
     if (!result.ok) {
@@ -59,7 +60,7 @@ router.get('/audio/stream/:token', async (req, res) => {
     }
 
     await proxyStream(entry.url, req, res);
-  } catch (error) {
+  } catch {
     if (!res.headersSent) {
       res.status(502).json({
         ok: false,

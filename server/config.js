@@ -13,17 +13,24 @@ const DEFAULT_CONFIG = {
   },
   security: {
     adminToken: '',
-    allowOrigins: [
-      'http://localhost:27232',
-      'http://127.0.0.1:27232',
-    ],
+    allowOrigins: ['http://localhost:27232', 'http://127.0.0.1:27232'],
   },
   audio: {
     proxyStream: true,
     defaultQuality: 'standard',
     cacheTtl: 1800,
-    providerOrder: ['netease', 'fallback'],
+    providerOrder: ['netease', 'unblock', 'fallback'],
     fallbackToLegacy: true,
+    unblock: {
+      enabled: true,
+      source: 'ytdl, bilibili, pyncm, kugou',
+      enableFlac: false,
+      proxyUri: '',
+      searchMode: 'fast-first',
+      jooxCookie: '',
+      qqCookie: '',
+      ytDlExe: '',
+    },
   },
 };
 
@@ -66,7 +73,11 @@ export function reloadConfig() {
 function deepMerge(base, override) {
   const result = { ...base };
   for (const key of Object.keys(override)) {
-    if (override[key] && typeof override[key] === 'object' && !Array.isArray(override[key])) {
+    if (
+      override[key] &&
+      typeof override[key] === 'object' &&
+      !Array.isArray(override[key])
+    ) {
       result[key] = deepMerge(base[key] || {}, override[key]);
     } else {
       result[key] = override[key];

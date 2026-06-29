@@ -40,20 +40,30 @@ function getResolverQuality() {
  * Resolve audio source for a track.
  * If resolver is enabled in settings, try backend first, then fall back to legacy.
  *
- * @param {number} trackId
+ * @param {number|object} track
  * @returns {Promise<string>} playUrl
  */
-export async function resolveTrackSource(trackId) {
+export async function resolveTrackSource(track) {
+  const trackId = typeof track === 'object' ? track.id : track;
   if (isResolverEnabled()) {
     try {
-      const result = await resolveAudioByBackend(trackId, getResolverQuality());
+      const result = await resolveAudioByBackend(
+        trackId,
+        getResolverQuality(),
+        {
+          track: typeof track === 'object' ? track : undefined,
+        }
+      );
       return result.playUrl;
     } catch (error) {
-      console.warn('[resolver] backend failed, fallback to legacy:', error.message);
+      console.warn(
+        '[resolver] backend failed, fallback to legacy:',
+        error.message
+      );
     }
   }
 
-    return resolveFromLegacy(trackId);
+  return resolveFromLegacy(trackId);
 }
 
 /**
@@ -66,7 +76,8 @@ export function isWebDevMode() {
     // import.meta.env.DEV is injected by Vite: true in dev, false in prod.
     // Fallback: check hostname for local dev patterns.
     if (typeof __APP_ENV__ !== 'undefined') return false; // Electron
-    if (typeof import.meta !== 'undefined' && import.meta.env?.DEV === true) return true;
+    if (typeof import.meta !== 'undefined' && import.meta.env?.DEV === true)
+      return true;
     // Last resort: localhost dev server
     const host = window?.location?.hostname || '';
     return host === 'localhost' || host === '127.0.0.1';
@@ -83,7 +94,9 @@ export function isWebDevMode() {
  */
 export function getOuterAudioUrl(trackId) {
   if (isWebDevMode()) {
-    console.log("[resolver] web dev mode: proxying outer URL for track ".concat(trackId));
+    console.log(
+      '[resolver] web dev mode: proxying outer URL for track '.concat(trackId)
+    );
     return '/__audio_proxy/'.concat(trackId);
   }
   return 'https://music.163.com/song/media/outer/url?id='.concat(trackId);

@@ -35,11 +35,16 @@ function getResolverClient() {
  * @param {string} [quality='standard']
  * @returns {Promise<{ok: boolean, trackId: number, playUrl: string, mode: string, source: string, quality: string, expiresAt: number}>}
  */
-export async function resolveAudioByBackend(trackId, quality = 'standard') {
+export async function resolveAudioByBackend(
+  trackId,
+  quality = 'standard',
+  options = {}
+) {
   const client = getResolverClient();
   const { data } = await client.post('/api/audio/resolve', {
     trackId,
     quality,
+    track: options.track,
   });
 
   if (!data.ok) {
@@ -139,7 +144,10 @@ export async function clearCookieFromResolver() {
     await client.delete('/api/admin/cookie');
     console.log('[resolver] Cookie cleared from backend');
   } catch (error) {
-    console.warn('[resolver] Failed to clear cookie from backend:', error.message);
+    console.warn(
+      '[resolver] Failed to clear cookie from backend:',
+      error.message
+    );
   }
 }
 

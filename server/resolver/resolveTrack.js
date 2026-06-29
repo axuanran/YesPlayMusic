@@ -14,9 +14,16 @@ import { providerManager } from './providerManager.js';
  */
 export async function resolveTrack(trackId, context = {}) {
   const config = getConfig();
-  const requestedQuality = normalizeLevel(context.quality || config.audio?.defaultQuality || 'standard');
-  const useProxy = context.useProxy !== false && config.audio?.proxyStream !== false;
-  const providerOrder = config.audio?.providerOrder || ['netease', 'fallback'];
+  const requestedQuality = normalizeLevel(
+    context.quality || config.audio?.defaultQuality || 'standard'
+  );
+  const useProxy =
+    context.useProxy !== false && config.audio?.proxyStream !== false;
+  const providerOrder = config.audio?.providerOrder || [
+    'netease',
+    'unblock',
+    'fallback',
+  ];
   const qualityOrder = getQualityCandidates(requestedQuality);
 
   const startTime = Date.now();
@@ -37,7 +44,13 @@ export async function resolveTrack(trackId, context = {}) {
         });
         return {
           ...buildResponse(cached, useProxy),
-          tried: [{ provider: providerName, errorCode: 'CACHE_HIT', quality: currentQuality }],
+          tried: [
+            {
+              provider: providerName,
+              errorCode: 'CACHE_HIT',
+              quality: currentQuality,
+            },
+          ],
         };
       }
     }
@@ -46,13 +59,21 @@ export async function resolveTrack(trackId, context = {}) {
     for (const providerName of providerOrder) {
       const provider = providerManager.get(providerName);
       if (!provider) {
-        tried.push({ provider: providerName, errorCode: 'PROVIDER_NOT_FOUND', quality: currentQuality });
+        tried.push({
+          provider: providerName,
+          errorCode: 'PROVIDER_NOT_FOUND',
+          quality: currentQuality,
+        });
         continue;
       }
 
       const providerStart = Date.now();
       try {
-        const result = await provider.resolve(trackId, { quality: currentQuality });
+        const result = await provider.resolve(trackId, {
+          ...context,
+          quality: currentQuality,
+          unblock: config.audio?.unblock || {},
+        });
 
         if (result?.ok && result.url) {
           const durationMs = Date.now() - startTime;
@@ -137,7 +158,11 @@ export async function resolveTrack(trackId, context = {}) {
     code: errorCode,
     message: errorMessage,
     trackId,
-    tried: tried.map(t => ({ provider: t.provider, errorCode: t.errorCode, quality: t.quality })),
+    tried: tried.map(t => ({
+      provider: t.provider,
+      errorCode: t.errorCode,
+      quality: t.quality,
+    })),
     durationMs,
   };
 }
@@ -153,7 +178,15 @@ function getUrlExt(url) {
 }
 
 function getQualityCandidates(quality) {
-  const order = ['standard', 'exhigh', 'lossless', 'hires', 'jyeffect', 'sky', 'jymaster'];
+  const order = [
+    'standard',
+    'exhigh',
+    'lossless',
+    'hires',
+    'jyeffect',
+    'sky',
+    'jymaster',
+  ];
   const normalized = normalizeLevel(quality);
   const index = order.indexOf(normalized);
   return index === -1 ? ['standard'] : order.slice(0, index + 1).reverse();
@@ -161,7 +194,17 @@ function getQualityCandidates(quality) {
 
 function normalizeLevel(quality) {
   if (typeof quality === 'string') {
-    if (['standard', 'exhigh', 'lossless', 'hires', 'jyeffect', 'sky', 'jymaster'].includes(quality)) {
+    if (
+      [
+        'standard',
+        'exhigh',
+        'lossless',
+        'hires',
+        'jyeffect',
+        'sky',
+        'jymaster',
+      ].includes(quality)
+    ) {
       return quality;
     }
     if (quality === 'flac') return 'lossless';
@@ -175,16 +218,17 @@ function normalizeLevel(quality) {
 }
 
 function buildResponse(cacheEntry, useProxy) {
+  const canProxy = useProxy && !String(cacheEntry.url).startsWith('data:');
   const base = {
     ok: true,
     trackId: cacheEntry.trackId,
-    mode: useProxy ? 'proxy' : 'direct',
+    mode: canProxy ? 'proxy' : 'direct',
     source: cacheEntry.source,
     quality: cacheEntry.quality,
     expiresAt: cacheEntry.expiresAt,
   };
 
-  if (useProxy) {
+  if (canProxy) {
     const token = createStreamToken(cacheEntry.url, {
       mime: cacheEntry.mime,
       trackId: cacheEntry.trackId,

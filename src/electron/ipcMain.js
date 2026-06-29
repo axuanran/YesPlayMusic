@@ -7,7 +7,6 @@ import {
   shell,
   session,
 } from 'electron';
-import UNM from '@unblockneteasemusic/rust-napi';
 import { registerGlobalShortcut } from '@/electron/globalShortcut';
 import cloneDeep from 'lodash/cloneDeep';
 import shortcuts from '@/utils/shortcuts';
@@ -97,66 +96,6 @@ const updateDiscordPresence = presence => {
   }
 };
 
-/**
- * Make data a Buffer.
- *
- * @param {?} data The data to convert.
- * @returns {import("buffer").Buffer} The converted data.
- */
-function toBuffer(data) {
-  if (data instanceof Buffer) {
-    return data;
-  } else {
-    return Buffer.from(data);
-  }
-}
-
-/**
- * Get the file base64 data from bilivideo.
- *
- * @param {string} url The URL to fetch.
- * @returns {Promise<string>} The file base64 data.
- */
-async function getBiliVideoFile(url) {
-  const axios = await import('axios').then(m => m.default);
-  const response = await axios.get(url, {
-    headers: {
-      Referer: 'https://www.bilibili.com/',
-      'User-Agent': 'okhttp/3.4.1',
-    },
-    responseType: 'arraybuffer',
-  });
-
-  const buffer = toBuffer(response.data);
-  const encodedData = buffer.toString('base64');
-
-  return encodedData;
-}
-
-/**
- * Parse the source string (`a, b`) to source list `['a', 'b']`.
- *
- * @param {import("@unblockneteasemusic/rust-napi").Executor} executor
- * @param {string} sourceString The source string.
- * @returns {string[]} The source list.
- */
-function parseSourceStringToList(executor, sourceString) {
-  const availableSource = executor.list();
-
-  return sourceString
-    .split(',')
-    .map(s => s.trim().toLowerCase())
-    .filter(s => {
-      const isAvailable = availableSource.includes(s);
-
-      if (!isAvailable) {
-        log(`This source is not one of the supported source: ${s}`);
-      }
-
-      return isAvailable;
-    });
-}
-
 const isRecord = value =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -177,75 +116,6 @@ const getNeteaseCookieString = async loginSession => {
 };
 
 export function initIpcMain(win, store, trayEventEmitter) {
-  // WIP: Do not enable logging as it has some issues in non-blocking I/O environment.
-  // UNM.enableLogging(UNM.LoggingType.ConsoleEnv);
-  const unmExecutor = new UNM.Executor();
-
-  ipcMain.handle(
-    'unblock-music',
-    /**
-     *
-     * @param {*} _
-     * @param {string | null} sourceListString
-     * @param {Record<string, any>} ncmTrack
-     * @param {UNM.Context} context
-     */
-    async (_, sourceListString, ncmTrack, context) => {
-      if (!isRecord(ncmTrack)) return null;
-      // Formt the track input
-      // FIXME: Figure out the structure of Track
-      const song = {
-        id: ncmTrack.id && ncmTrack.id.toString(),
-        name: ncmTrack.name,
-        duration: ncmTrack.dt,
-        album: ncmTrack.al && {
-          id: ncmTrack.al.id && ncmTrack.al.id.toString(),
-          name: ncmTrack.al.name,
-        },
-        artists: ncmTrack.ar
-          ? ncmTrack.ar.map(({ id, name }) => ({
-              id: id && id.toString(),
-              name,
-            }))
-          : [],
-      };
-
-      const sourceList =
-        typeof sourceListString === 'string'
-          ? parseSourceStringToList(unmExecutor, sourceListString)
-          : ['ytdl', 'bilibili', 'pyncm', 'kugou'];
-      log(`[UNM] using source: ${sourceList.join(', ')}`);
-      const unmContext = isRecord(context) ? context : {};
-      log(`[UNM] using configuration: ${JSON.stringify(unmContext)}`);
-
-      try {
-        // TODO: tell users to install yt-dlp.
-        const matchedAudio = await unmExecutor.search(
-          sourceList,
-          song,
-          unmContext
-        );
-        const retrievedSong = await unmExecutor.retrieve(
-          matchedAudio,
-          unmContext
-        );
-
-        // bilibili's audio file needs some special treatment
-        if (retrievedSong.url.includes('bilivideo.com')) {
-          retrievedSong.url = await getBiliVideoFile(retrievedSong.url);
-        }
-
-        log(`respond with retrieve song…`);
-        log(JSON.stringify(matchedAudio));
-        return retrievedSong;
-      } catch (err) {
-        const errorMessage = err instanceof Error ? `${err.message}` : `${err}`;
-        log(`UnblockNeteaseMusic failed: ${errorMessage}`);
-        return null;
-      }
-    }
-  );
-
   ipcMain.handle('open-netease-web-login', async () => {
     const loginSession = session.fromPartition('persist:netease-web-login');
     const existingCookieString = await getNeteaseCookieString(loginSession);

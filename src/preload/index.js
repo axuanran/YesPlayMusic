@@ -112,174 +112,6 @@ const sendBoolean = (channel, value) => {
   if (typeof value === 'boolean') ipcRenderer.send(channel, value);
 };
 
-const normalizeSourceList = source => {
-  if (!isBoundedString(source, 1, 256)) return null;
-
-  const normalizedSource = source.trim();
-  if (
-    normalizedSource.length === 0 ||
-    /[^a-z0-9_,\-\s]/i.test(normalizedSource)
-  ) {
-    return null;
-  }
-
-  return normalizedSource;
-};
-
-const normalizeUnblockMusicConfig = config => {
-  if (!isPlainObject(config) || Object.keys(config).length > 3) return null;
-
-  const nextConfig = {};
-  for (const key of ['joox:cookie', 'qq:cookie', 'ytdl:exe']) {
-    if (!(key in config)) continue;
-
-    const value = config[key];
-    if (value !== null && !isBoundedString(value, 0, 4096)) return null;
-    nextConfig[key] = value;
-  }
-
-  return nextConfig;
-};
-
-const normalizeUnblockMusicContext = context => {
-  if (!isPlainObject(context) || Object.keys(context).length > 4) return null;
-
-  const nextContext = {};
-
-  if ('enableFlac' in context) {
-    if (
-      context.enableFlac !== null &&
-      typeof context.enableFlac !== 'boolean'
-    ) {
-      return null;
-    }
-    nextContext.enableFlac = context.enableFlac;
-  }
-
-  if ('proxyUri' in context) {
-    if (
-      context.proxyUri !== null &&
-      !isBoundedString(context.proxyUri, 1, 2048)
-    ) {
-      return null;
-    }
-    nextContext.proxyUri = context.proxyUri;
-  }
-
-  if ('searchMode' in context) {
-    if (!isFiniteNumberInRange(context.searchMode, 0, 1)) return null;
-    nextContext.searchMode = context.searchMode;
-  }
-
-  if ('config' in context) {
-    const config = normalizeUnblockMusicConfig(context.config);
-    if (config === null) return null;
-    nextContext.config = config;
-  }
-
-  return nextContext;
-};
-
-const normalizeUnblockMusicTrackArtist = artist => {
-  if (!isPlainObject(artist) || !isBoundedString(artist.name, 1, 256)) {
-    return null;
-  }
-
-  const nextArtist = {
-    name: artist.name,
-  };
-
-  if ('id' in artist) {
-    if (
-      artist.id !== null &&
-      !(
-        isFiniteNumberInRange(artist.id, 0) || isBoundedString(artist.id, 1, 64)
-      )
-    ) {
-      return null;
-    }
-    nextArtist.id = artist.id;
-  }
-
-  return nextArtist;
-};
-
-const normalizeUnblockMusicTrackAlbum = album => {
-  if (!isPlainObject(album) || !isBoundedString(album.name, 1, 256)) {
-    return null;
-  }
-
-  const nextAlbum = {
-    name: album.name,
-  };
-
-  if ('id' in album) {
-    if (
-      album.id !== null &&
-      !(isFiniteNumberInRange(album.id, 0) || isBoundedString(album.id, 1, 64))
-    ) {
-      return null;
-    }
-    nextAlbum.id = album.id;
-  }
-
-  return nextAlbum;
-};
-
-const normalizeUnblockMusicTrack = track => {
-  if (
-    !isPlainObject(track) ||
-    !(isFiniteNumberInRange(track.id, 0) || isBoundedString(track.id, 1, 64)) ||
-    !isBoundedString(track.name, 1, 256) ||
-    !isFiniteNumberInRange(track.dt, 0) ||
-    !Array.isArray(track.ar) ||
-    track.ar.length === 0 ||
-    track.ar.length > 32 ||
-    !isPlainObject(track.al)
-  ) {
-    return null;
-  }
-
-  const nextArtists = [];
-  for (const artist of track.ar) {
-    const normalizedArtist = normalizeUnblockMusicTrackArtist(artist);
-    if (normalizedArtist === null) return null;
-    nextArtists.push(normalizedArtist);
-  }
-
-  const album = normalizeUnblockMusicTrackAlbum(track.al);
-  if (album === null) return null;
-
-  return {
-    id: track.id,
-    name: track.name,
-    dt: track.dt,
-    ar: nextArtists,
-    al: album,
-  };
-};
-
-const invokeUnblockMusic = (source, track, options = {}) => {
-  const normalizedSource = normalizeSourceList(source);
-  const normalizedTrack = normalizeUnblockMusicTrack(track);
-  const normalizedContext = normalizeUnblockMusicContext(options);
-
-  if (
-    normalizedSource === null ||
-    normalizedTrack === null ||
-    normalizedContext === null
-  ) {
-    return Promise.reject(new TypeError('Invalid unblock music payload'));
-  }
-
-  return ipcRenderer.invoke(
-    'unblock-music',
-    normalizedSource,
-    normalizedTrack,
-    normalizedContext
-  );
-};
-
 contextBridge.exposeInMainWorld('electronAPI', {
   window: {
     minimize: () => ipcRenderer.send('minimize'),
@@ -318,7 +150,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
         allowedValues: ['off', 'on', 'one'],
       }),
     switchShuffle: shuffle => sendBoolean('switchShuffle', shuffle),
-    unblockMusic: invokeUnblockMusic,
     onSaveLyricFinished: callback => on('saveLyricFinished', callback),
   },
   appEvents: {
@@ -343,6 +174,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       sendString('showNativeAlert', message, { minLength: 1, maxLength: 1024 }),
     openExternalUrl: url => ipcRenderer.invoke('open-external-url', url),
     openNeteaseWebLogin: () => ipcRenderer.invoke('open-netease-web-login'),
-    openResolverAdminPanel: url => ipcRenderer.invoke('open-resolver-admin-panel', url),
+    openResolverAdminPanel: url =>
+      ipcRenderer.invoke('open-resolver-admin-panel', url),
   },
 });

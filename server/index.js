@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config.js';
 import { registerProvider } from './resolver/providerManager.js';
 import * as neteaseProvider from './providers/netease.js';
+import * as unblockProvider from './providers/unblock.js';
 import * as fallbackProvider from './providers/fallback.js';
 import audioRoutes from './routes/audio.js';
 import adminRoutes from './routes/admin.js';
@@ -12,6 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Register providers
 registerProvider(neteaseProvider);
+registerProvider(unblockProvider);
 registerProvider(fallbackProvider);
 
 const config = loadConfig();
@@ -53,7 +55,9 @@ const port = config.server?.port || 27232;
 app.listen(port, host, () => {
   console.log(`[resolver] listening on http://${host}:${port}`);
   console.log(`[resolver] admin panel at http://${host}:${port}/admin`);
-  console.log(`[resolver] providers: ${Array.from(new Set([neteaseProvider.providerName, fallbackProvider.providerName])).join(', ')}`);
+  console.log(
+    `[resolver] providers: ${Array.from(new Set([neteaseProvider.providerName, fallbackProvider.providerName])).join(', ')}`
+  );
 });
 
 export default app;

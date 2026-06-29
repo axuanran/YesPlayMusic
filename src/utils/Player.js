@@ -11,7 +11,6 @@ import { cacheTrackSource, getTrackSource } from '@/utils/db';
 import { isCreateTray } from '@/utils/platform';
 import { isElectron } from '@/utils/env';
 import shuffle from 'lodash/shuffle';
-import { decode as base642Buffer } from '@/utils/base64';
 import { resolveTrackSource } from '@/utils/resolveAudioSource';
 import { getOuterAudioUrl } from '@/utils/resolveAudioSource';
 // MPRIS disabled during Electron 42 migration
@@ -48,7 +47,10 @@ function formatTrackDebugLabel(track) {
   const name = track.name || 'unknown';
   const id = track.id || 0;
   const artists = Array.isArray(track.ar)
-    ? track.ar.map(a => a?.name).filter(Boolean).join(', ')
+    ? track.ar
+        .map(a => a?.name)
+        .filter(Boolean)
+        .join(', ')
     : '';
   return `${name}${artists ? ` by ${artists}` : ''} #${id}`;
 }
@@ -306,7 +308,9 @@ export default class {
   }
 
   _canDiscordPresence() {
-    return isElectron && store.state.settings.enableDiscordRichPresence !== false;
+    return (
+      isElectron && store.state.settings.enableDiscordRichPresence !== false
+    );
   }
 
   _init() {
@@ -342,7 +346,9 @@ export default class {
     }
   }
   _setCurrentTrack(track) {
-    console.debug(`[debug][Player.js] currentTrack => ${formatTrackDebugLabel(track)}`);
+    console.debug(
+      `[debug][Player.js] currentTrack => ${formatTrackDebugLabel(track)}`
+    );
     this._currentTrack = track;
     this.persist();
     store.commit('bumpPlayerVersion');
@@ -403,7 +409,7 @@ export default class {
         ? this.current === 0
         : this.current + 1 === this.list.length;
       if (atBoundary) {
-        const wrapTo = (forward !== this._reversed) ? 0 : this.list.length - 1;
+        const wrapTo = forward !== this._reversed ? 0 : this.list.length - 1;
         return [this.list[wrapTo], wrapTo];
       }
     }
@@ -484,105 +490,35 @@ export default class {
   }
   _getAudioSourceFromNetease(track) {
     if (isAccountLoggedIn()) {
-      return getMP3(track.id).then(result => {
-        if (!result.data[0]) return null;
-        if (!result.data[0].url) return null;
-        if (result.data[0].freeTrialInfo !== null) return null; // 跳过只能试听的歌曲
-        const source = result.data[0].url.replace(/^http:/, 'https:');
-        if (store.state.settings.automaticallyCacheSongs) {
-          cacheTrackSource(track, source, result.data[0].br);
-        }
-        return source;
-      }).catch(() => {
-        return getOuterAudioUrl(track.id);
-      });
+      return getMP3(track.id)
+        .then(result => {
+          if (!result.data[0]) return null;
+          if (!result.data[0].url) return null;
+          if (result.data[0].freeTrialInfo !== null) return null; // 跳过只能试听的歌曲
+          const source = result.data[0].url.replace(/^http:/, 'https:');
+          if (store.state.settings.automaticallyCacheSongs) {
+            cacheTrackSource(track, source, result.data[0].br);
+          }
+          return source;
+        })
+        .catch(() => {
+          return getOuterAudioUrl(track.id);
+        });
     } else {
       return Promise.resolve(getOuterAudioUrl(track.id));
     }
   }
-  async _getAudioSourceFromUnblockMusic(track) {
-    console.debug(`[debug][Player.js] _getAudioSourceFromUnblockMusic`);
-
-    if (
-      !isElectron ||
-      store.state.settings.enableUnblockNeteaseMusic === false
-    ) {
-      return null;
-    }
-
-    /**
-     *
-     * @param {string=} searchMode
-     * @returns {import("@unblockneteasemusic/rust-napi").SearchMode}
-     */
-    const determineSearchMode = searchMode => {
-      /**
-       * FastFirst = 0
-       * OrderFirst = 1
-       */
-      switch (searchMode) {
-        case 'fast-first':
-          return 0;
-        case 'order-first':
-          return 1;
-        default:
-          return 0;
-      }
-    };
-
-    const retrieveSongInfo = await electronPlayer?.unblockMusic(
-      store.state.settings.unmSource,
-      track,
-      {
-        enableFlac: store.state.settings.unmEnableFlac || null,
-        proxyUri: store.state.settings.unmProxyUri || null,
-        searchMode: determineSearchMode(store.state.settings.unmSearchMode),
-        config: {
-          'joox:cookie': store.state.settings.unmJooxCookie || null,
-          'qq:cookie': store.state.settings.unmQQCookie || null,
-          'ytdl:exe': store.state.settings.unmYtDlExe || null,
-        },
-      }
-    );
-
-    if (store.state.settings.automaticallyCacheSongs && retrieveSongInfo?.url) {
-      // 对于来自 bilibili 的音源
-      // retrieveSongInfo.url 是音频数据的base64编码
-      // 其他音源为实际url
-      const url =
-        retrieveSongInfo.source === 'bilibili'
-          ? `data:application/octet-stream;base64,${retrieveSongInfo.url}`
-          : retrieveSongInfo.url;
-      cacheTrackSource(track, url, 128000, `unm:${retrieveSongInfo.source}`);
-    }
-
-    if (!retrieveSongInfo) {
-      return null;
-    }
-
-    if (retrieveSongInfo.source !== 'bilibili') {
-      return retrieveSongInfo.url;
-    }
-
-    const buffer = base642Buffer(retrieveSongInfo.url);
-    return this._getAudioSourceBlobURL(buffer);
-  }
   _getAudioSource(track) {
     // Stage 1: Try resolver backend first
-    return resolveTrackSource(track.id)
-      .catch(() => {
-        // Stage 2: Fall back to full legacy chain
-        return this._getAudioSourceLegacy(track);
-      });
+    return resolveTrackSource(track).catch(() => {
+      // Stage 2: Fall back to full legacy chain
+      return this._getAudioSourceLegacy(track);
+    });
   }
   _getAudioSourceLegacy(track) {
-    return this._getAudioSourceFromCache(String(track.id))
-      .then(source => {
-        return source ?? this._getAudioSourceFromNetease(track);
-      })
-      .then(source => {
-        return source ?? this._getAudioSourceFromUnblockMusic(track);
-      });
+    return this._getAudioSourceFromCache(String(track.id)).then(source => {
+      return source ?? this._getAudioSourceFromNetease(track);
+    });
   }
   _replaceCurrentTrack(
     id,

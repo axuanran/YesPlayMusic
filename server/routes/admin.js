@@ -4,7 +4,7 @@ import { resolveTrack } from '../resolver/resolveTrack.js';
 import { clearCache, cacheSize } from '../resolver/cache.js';
 import { getLogs, clearLogs } from '../storage/logger.js';
 import { providerManager } from '../resolver/providerManager.js';
-import { loadCookie, saveCookie, clearCookie, hasCookie } from '../storage/cookieStore.js';
+import { saveCookie, clearCookie, hasCookie } from '../storage/cookieStore.js';
 
 const router = Router();
 
@@ -68,12 +68,13 @@ router.delete('/cookie', (_req, res) => {
 // POST /api/admin/test-resolve
 router.post('/test-resolve', async (req, res) => {
   try {
-    const { trackId, quality, trackName } = req.body;
+    const { trackId, quality, trackName, useProxy } = req.body;
     if (!trackId) {
       return res.status(400).json({ ok: false, message: '缺少 trackId' });
     }
     const result = await resolveTrack(Number(trackId), {
       quality: quality || 'standard',
+      useProxy,
     });
     res.json({ ...result, trackName: trackName || undefined });
   } catch (error) {
@@ -102,7 +103,9 @@ router.post('/cache/clear', (_req, res) => {
 // GET /api/admin/stats
 router.get('/stats', (_req, res) => {
   const logs = getLogs(1000);
-  const successCount = logs.filter(l => l.result === 'ok' || l.result === 'cache_hit').length;
+  const successCount = logs.filter(
+    l => l.result === 'ok' || l.result === 'cache_hit'
+  ).length;
   const failCount = logs.filter(l => l.result === 'fail').length;
   const recentErrors = logs.filter(l => l.result === 'fail').slice(0, 5);
   res.json({

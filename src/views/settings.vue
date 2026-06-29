@@ -227,7 +227,14 @@
           <div class="title">Resolver 地址</div>
         </div>
         <div class="right">
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+          <div
+            style="
+              display: flex;
+              gap: 8px;
+              align-items: center;
+              flex-wrap: wrap;
+            "
+          >
             <input
               v-model="audioResolverUrl"
               type="text"
@@ -242,7 +249,9 @@
             >
               打开管理面板
             </button>
-            <button @click="syncFrontendCookieToResolver">从前端获取Cookie</button>
+            <button @click="syncFrontendCookieToResolver"
+              >从前端获取Cookie</button
+            >
             <button @click="clearResolverBackendCache">清后端缓存</button>
           </div>
         </div>
@@ -324,11 +333,10 @@
       <div v-if="isElectron && isLinux" class="item">
         <div class="left">
           <div class="title">
-            {{ $t('settings.unm.enable') }}
+            {{ $t('settings.enableOsdlyricsSupport.title') }}
             <a target="_blank" href="https://github.com/osdlyrics/osdlyrics"
               >OSDLyrics</a
             >
-            {{ $t('settings.enableOsdlyricsSupport.title') }}
           </div>
           <div class="description">
             {{ $t('settings.enableOsdlyricsSupport.desc1') }}
@@ -348,174 +356,6 @@
           </div>
         </div>
       </div>
-
-      <section v-if="isElectron" class="unm-configuration">
-        <h3>UnblockNeteaseMusic</h3>
-        <div class="item">
-          <div class="left">
-            <div class="title"
-              >{{ $t('settings.unm.enable') }}
-              <a
-                href="https://github.com/UnblockNeteaseMusic/server"
-                target="blank"
-                >UnblockNeteaseMusic</a
-              ></div
-            >
-          </div>
-          <div class="right">
-            <div class="toggle">
-              <input
-                id="enable-unblock-netease-music"
-                v-model="enableUnblockNeteaseMusic"
-                type="checkbox"
-                name="enable-unblock-netease-music"
-              />
-              <label for="enable-unblock-netease-music"></label>
-            </div>
-          </div>
-        </div>
-
-        <div class="item">
-          <div class="left">
-            <div class="title">
-              {{ $t('settings.unm.audioSource.title') }}
-            </div>
-            <div class="description">
-              音源的具体代号
-              <a
-                href="https://github.com/UnblockNeteaseMusic/server-rust/blob/main/README.md#支援的所有引擎"
-                target="_blank"
-              >
-                可以点此到 UNM 的说明页面查询。 </a
-              ><br />
-              多个音源请用 <code>,</code> 逗号分隔。<br />
-              留空则使用 UNM 内置的默认值。
-            </div>
-          </div>
-          <div class="right">
-            <input
-              v-model="unmSource"
-              class="text-input margin-right-0"
-              placeholder="例 bilibili, kuwo"
-            />
-          </div>
-        </div>
-
-        <div class="item">
-          <div class="left">
-            <div class="title"> {{ $t('settings.unm.enableFlac.title') }} </div>
-            <div class="description">
-              {{ $t('settings.unm.enableFlac.desc') }}
-            </div>
-          </div>
-          <div class="right">
-            <div class="toggle">
-              <input
-                id="unm-enable-flac"
-                v-model="unmEnableFlac"
-                type="checkbox"
-              />
-              <label for="unm-enable-flac" />
-            </div>
-          </div>
-        </div>
-
-        <div class="item">
-          <div class="left">
-            <div class="title"> {{ $t('settings.unm.searchMode.title') }} </div>
-          </div>
-          <div class="right">
-            <select v-model="unmSearchMode">
-              <option value="fast-first">
-                {{ $t('settings.unm.searchMode.fast') }}
-              </option>
-              <option value="order-first">
-                {{ $t('settings.unm.searchMode.order') }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div class="item">
-          <div class="left">
-            <div class="title">{{ $t('settings.unm.cookie.joox') }}</div>
-            <div class="description">
-              <a
-                href="https://github.com/UnblockNeteaseMusic/server-rust/tree/main/engines#joox-cookie-設定說明"
-                target="_blank"
-                >{{ $t('settings.unm.cookie.desc1') }}
-              </a>
-              {{ $t('settings.unm.cookie.desc2') }}
-            </div>
-          </div>
-          <div class="right">
-            <input
-              v-model="unmJooxCookie"
-              class="text-input margin-right-0"
-              placeholder="wmid=..; session_key=.."
-            />
-          </div>
-        </div>
-
-        <div class="item">
-          <div class="left">
-            <div class="title"> {{ $t('settings.unm.cookie.qq') }} </div>
-            <div class="description">
-              <a
-                href="https://github.com/UnblockNeteaseMusic/server-rust/tree/main/engines#qq-cookie-設定說明"
-                target="_blank"
-                >{{ $t('settings.unm.cookie.desc1') }}
-              </a>
-              {{ $t('settings.unm.cookie.desc2') }}
-            </div>
-          </div>
-          <div class="right">
-            <input
-              v-model="unmQQCookie"
-              class="text-input margin-right-0"
-              placeholder="uin=..; qm_keyst=..;"
-            />
-          </div>
-        </div>
-
-        <div class="item">
-          <div class="left">
-            <div class="title"> {{ $t('settings.unm.ytdl') }} </div>
-            <div class="description">
-              <a
-                href="https://github.com/UnblockNeteaseMusic/server-rust/tree/main/engines#ytdlexe-設定說明"
-                target="_blank"
-                >{{ $t('settings.unm.cookie.desc1') }}
-              </a>
-              {{ $t('settings.unm.cookie.desc2') }}
-            </div>
-          </div>
-          <div class="right">
-            <input
-              v-model="unmYtDlExe"
-              class="text-input margin-right-0"
-              placeholder="ex. youtube-dl"
-            />
-          </div>
-        </div>
-
-        <div class="item">
-          <div class="left">
-            <div class="title"> {{ $t('settings.unm.proxy.title') }} </div>
-            <div class="description">
-              {{ $t('settings.unm.proxy.desc1') }}<br />
-              {{ $t('settings.unm.proxy.desc2') }}
-            </div>
-          </div>
-          <div class="right">
-            <input
-              v-model="unmProxyUri"
-              class="text-input margin-right-0"
-              placeholder="ex. https://192.168.11.45"
-            />
-          </div>
-        </div>
-      </section>
 
       <h3>{{ $t('settings.customization') }}</h3>
       <div class="item">
@@ -866,12 +706,20 @@ import { isLinux, isMac } from '@/utils/platform';
 
 const electronSettings = window.electronAPI?.settings;
 
- const validShortcutCodes = ['=', '-', '~', '[', ']', ';', "'", ',', '.', '/'];
+const validShortcutCodes = ['=', '-', '~', '[', ']', ';', "'", ',', '.', '/'];
 
 function normalizeMusicQuality(value) {
   if (typeof value === 'string') {
     if (
-      ['standard', 'exhigh', 'lossless', 'hires', 'jyeffect', 'sky', 'jymaster'].includes(value)
+      [
+        'standard',
+        'exhigh',
+        'lossless',
+        'hires',
+        'jyeffect',
+        'sky',
+        'jymaster',
+      ].includes(value)
     ) {
       return value;
     }
@@ -912,18 +760,18 @@ async function syncResolverDefaultQuality(level) {
   }
 }
 
- // module-level helper — used in computed section where `this` is unavailable
- const setting = (key, defaults) => ({
-   get() {
-     const val = this.settings[key];
-     return val === undefined && defaults !== undefined ? defaults : val;
-   },
-   set(value) {
-     this.$store.commit('updateSettings', { key, value });
-   },
- });
+// module-level helper — used in computed section where `this` is unavailable
+const setting = (key, defaults) => ({
+  get() {
+    const val = this.settings[key];
+    return val === undefined && defaults !== undefined ? defaults : val;
+  },
+  set(value) {
+    this.$store.commit('updateSettings', { key, value });
+  },
+});
 
- export default {
+export default {
   name: 'Settings',
   data() {
     return {
@@ -1107,18 +955,6 @@ async function syncResolverDefaultQuality(level) {
         this.player.setOutputDevice();
       },
     },
-    enableUnblockNeteaseMusic: {
-      get() {
-        const value = this.settings.enableUnblockNeteaseMusic;
-        return value !== undefined ? value : true;
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'enableUnblockNeteaseMusic',
-          value,
-        });
-      },
-    },
     showPlaylistsByAppleMusic: setting('showPlaylistsByAppleMusic', true),
     nyancatStyle: setting('nyancatStyle', false),
     automaticallyCacheSongs: {
@@ -1208,67 +1044,6 @@ async function syncResolverDefaultQuality(level) {
         });
       },
     },
-    unmSource: {
-      /**
-       * @returns {string}
-       */
-      get() {
-        return this.settings.unmSource || '';
-      },
-      /** @param {string?} value */
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'unmSource',
-          value: value.length && value,
-        });
-      },
-    },
-    unmSearchMode: setting('unmSearchMode', 'fast-first'),
-    unmEnableFlac: setting('unmEnableFlac', false),
-    unmProxyUri: {
-      get() {
-        return this.settings.unmProxyUri || '';
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'unmProxyUri',
-          value: value.length && value,
-        });
-      },
-    },
-    unmJooxCookie: {
-      get() {
-        return this.settings.unmJooxCookie || '';
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'unmJooxCookie',
-          value: value.length && value,
-        });
-      },
-    },
-    unmQQCookie: {
-      get() {
-        return this.settings.unmQQCookie || '';
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'unmQQCookie',
-          value: value.length && value,
-        });
-      },
-    },
-    unmYtDlExe: {
-      get() {
-        return this.settings.unmYtDlExe || '';
-      },
-      set(value) {
-        this.$store.commit('updateSettings', {
-          key: 'unmYtDlExe',
-          value: value.length && value,
-        });
-      },
-    },
     enableCustomTitlebar: {
       get() {
         return this.settings.linuxEnableCustomTitlebar;
@@ -1284,17 +1059,17 @@ async function syncResolverDefaultQuality(level) {
       return this.lastfm.key !== undefined;
     },
   },
- created() {
-   this.countDBSize('tracks');
-   if (isElectron) this.getAllOutputDevices();
- },
+  created() {
+    this.countDBSize('tracks');
+    if (isElectron) this.getAllOutputDevices();
+  },
   activated() {
     this.countDBSize('tracks');
     if (isElectron) this.getAllOutputDevices();
   },
   methods: {
-   ...mapActions(['showToast']),
-   getAllOutputDevices() {
+    ...mapActions(['showToast']),
+    getAllOutputDevices() {
       navigator.mediaDevices.enumerateDevices().then(devices => {
         this.allOutputDevices = devices.filter(device => {
           return device.kind == 'audiooutput';
@@ -1361,7 +1136,10 @@ async function syncResolverDefaultQuality(level) {
       }
     },
     openResolverAdminPanel() {
-      const base = (this.audioResolverUrl || 'http://127.0.0.1:27232').replace(/\/+$/, '');
+      const base = (this.audioResolverUrl || 'http://127.0.0.1:27232').replace(
+        /\/+$/,
+        ''
+      );
       const url = `${base}/admin/#/`;
       if (window.electronAPI?.app?.openExternalUrl) {
         window.electronAPI.app.openExternalUrl(url);
@@ -1370,7 +1148,10 @@ async function syncResolverDefaultQuality(level) {
       window.open(url, '_blank', 'noopener');
     },
     async openResolverAdminPanelInApp() {
-      const base = (this.audioResolverUrl || 'http://127.0.0.1:27232').replace(/\/+$/, '');
+      const base = (this.audioResolverUrl || 'http://127.0.0.1:27232').replace(
+        /\/+$/,
+        ''
+      );
       const url = `${base}/admin/#/`;
       if (window.electronAPI?.app?.openResolverAdminPanel) {
         await window.electronAPI.app.openResolverAdminPanel(url);

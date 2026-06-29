@@ -1,105 +1,308 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YesPlayMusic Audio Resolver</title>
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.prod.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: radial-gradient(circle at top, #132238 0%, #0d1117 46%, #070b11 100%); color: #c9d1d9; min-height: 100vh; }
-    .app { display: flex; min-height: 100vh; }
-    .sidebar { width: 240px; background: rgba(10, 14, 20, 0.92); border-right: 1px solid #30363d; padding: 24px 0; flex-shrink: 0; backdrop-filter: blur(12px); }
-    .sidebar h2 { padding: 0 20px 20px; font-size: 16px; color: #7dd3fc; border-bottom: 1px solid #30363d; margin-bottom: 10px; }
-    .sidebar a { display: block; padding: 10px 20px; color: #8b949e; text-decoration: none; font-size: 14px; transition: all 0.15s; }
-    .sidebar a:hover, .sidebar a.router-link-active { color: #f0f6fc; background: #1c2128; }
-    .main { flex: 1; padding: 30px; overflow-y: auto; }
-    .main h1 { font-size: 28px; margin-bottom: 8px; color: #f0f6fc; }
-    .subtle { color: #8b949e; margin-bottom: 20px; }
-    .card { background: rgba(22, 27, 34, 0.92); border: 1px solid #30363d; border-radius: 14px; padding: 20px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22); }
-    .card h3 { font-size: 14px; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .stat { font-size: 28px; font-weight: 600; color: #58a6ff; }
-    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-    label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 4px; margin-top: 12px; }
-    input, select, textarea { width: 100%; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 14px; }
-    input:focus, select:focus { outline: none; border-color: #58a6ff; }
-    button { padding: 8px 16px; background: #238636; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
-    button:hover { background: #2ea043; }
-    button.danger { background: #da3633; }
-    button.danger:hover { background: #f85149; }
-    button.secondary { background: #30363d; }
-    button.secondary:hover { background: #484f58; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-    .badge-ok { background: #23863633; color: #3fb950; }
-    .badge-fail { background: #da363333; color: #f85149; }
-    .badge-info { background: #58a6ff33; color: #58a6ff; }
-    .badge-warn { background: #d2992233; color: #f0b34d; }
-    .log-entry { font-family: 'SF Mono', 'Consolas', monospace; font-size: 12px; padding: 8px 0; border-bottom: 1px solid #21262d; }
-    .log-entry .time { color: #484f58; }
-    .log-entry .meta { color: #8b949e; }
-    .result-box { margin-top: 12px; padding: 12px; border-radius: 6px; font-family: 'SF Mono', 'Consolas', monospace; font-size: 13px; }
-    .result-box.success { background: #2386361a; border: 1px solid #238636; }
-    .result-box.fail { background: #da36331a; border: 1px solid #da3633; }
-    .flex-row { display: flex; gap: 12px; align-items: flex-end; }
-    .flex-row > div { flex: 1; }
-    .toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; border-radius: 6px; font-size: 14px; z-index: 100; animation: slideIn 0.3s ease; }
-    .toast-ok { background: #238636; color: #fff; }
-    .toast-err { background: #da3633; color: #fff; }
-    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-  </style>
-</head>
-<body>
-<div id="app">
-  <div class="app">
-    <nav class="sidebar">
-      <h2>Audio Resolver</h2>
-      <router-link to="/">Dashboard</router-link>
-      <router-link to="/settings">Settings</router-link>
-      <router-link to="/test">Test Resolve</router-link>
-      <router-link to="/logs">Logs</router-link>
-    </nav>
-    <main class="main">
-      <router-view></router-view>
-    </main>
-  </div>
-  <div v-if="toast.show" :class="'toast toast-' + toast.type">{{ toast.message }}</div>
-</div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YesPlayMusic Audio Resolver</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.prod.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        background: radial-gradient(
+          circle at top,
+          #132238 0%,
+          #0d1117 46%,
+          #070b11 100%
+        );
+        color: #c9d1d9;
+        min-height: 100vh;
+      }
+      .app {
+        display: flex;
+        min-height: 100vh;
+      }
+      .sidebar {
+        width: 240px;
+        background: rgba(10, 14, 20, 0.92);
+        border-right: 1px solid #30363d;
+        padding: 24px 0;
+        flex-shrink: 0;
+        backdrop-filter: blur(12px);
+      }
+      .sidebar h2 {
+        padding: 0 20px 20px;
+        font-size: 16px;
+        color: #7dd3fc;
+        border-bottom: 1px solid #30363d;
+        margin-bottom: 10px;
+      }
+      .sidebar a {
+        display: block;
+        padding: 10px 20px;
+        color: #8b949e;
+        text-decoration: none;
+        font-size: 14px;
+        transition: all 0.15s;
+      }
+      .sidebar a:hover,
+      .sidebar a.router-link-active {
+        color: #f0f6fc;
+        background: #1c2128;
+      }
+      .main {
+        flex: 1;
+        padding: 30px;
+        overflow-y: auto;
+      }
+      .main h1 {
+        font-size: 28px;
+        margin-bottom: 8px;
+        color: #f0f6fc;
+      }
+      .subtle {
+        color: #8b949e;
+        margin-bottom: 20px;
+      }
+      .card {
+        background: rgba(22, 27, 34, 0.92);
+        border: 1px solid #30363d;
+        border-radius: 14px;
+        padding: 20px;
+        margin-bottom: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+      }
+      .card h3 {
+        font-size: 14px;
+        color: #8b949e;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .stat {
+        font-size: 28px;
+        font-weight: 600;
+        color: #58a6ff;
+      }
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        color: #8b949e;
+        margin-bottom: 4px;
+        margin-top: 12px;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 8px 12px;
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        color: #c9d1d9;
+        font-size: 14px;
+      }
+      input:focus,
+      select:focus {
+        outline: none;
+        border-color: #58a6ff;
+      }
+      button {
+        padding: 8px 16px;
+        background: #238636;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button:hover {
+        background: #2ea043;
+      }
+      button.danger {
+        background: #da3633;
+      }
+      button.danger:hover {
+        background: #f85149;
+      }
+      button.secondary {
+        background: #30363d;
+      }
+      button.secondary:hover {
+        background: #484f58;
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .badge-ok {
+        background: #23863633;
+        color: #3fb950;
+      }
+      .badge-fail {
+        background: #da363333;
+        color: #f85149;
+      }
+      .badge-info {
+        background: #58a6ff33;
+        color: #58a6ff;
+      }
+      .badge-warn {
+        background: #d2992233;
+        color: #f0b34d;
+      }
+      .log-entry {
+        font-family: 'SF Mono', 'Consolas', monospace;
+        font-size: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid #21262d;
+      }
+      .log-entry .time {
+        color: #484f58;
+      }
+      .log-entry .meta {
+        color: #8b949e;
+      }
+      .result-box {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 6px;
+        font-family: 'SF Mono', 'Consolas', monospace;
+        font-size: 13px;
+      }
+      .result-box.success {
+        background: #2386361a;
+        border: 1px solid #238636;
+      }
+      .result-box.fail {
+        background: #da36331a;
+        border: 1px solid #da3633;
+      }
+      .flex-row {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+      }
+      .flex-row > div {
+        flex: 1;
+      }
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        z-index: 100;
+        animation: slideIn 0.3s ease;
+      }
+      .toast-ok {
+        background: #238636;
+        color: #fff;
+      }
+      .toast-err {
+        background: #da3633;
+        color: #fff;
+      }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="app">
+        <nav class="sidebar">
+          <h2>Audio Resolver</h2>
+          <router-link to="/">Dashboard</router-link>
+          <router-link to="/settings">Settings</router-link>
+          <router-link to="/test">Test Resolve</router-link>
+          <router-link to="/logs">Logs</router-link>
+        </nav>
+        <main class="main">
+          <router-view></router-view>
+        </main>
+      </div>
+      <div v-if="toast.show" :class="'toast toast-' + toast.type"
+        >{{ toast.message }}</div
+      >
+    </div>
 
-<script>
-const { createApp, ref, reactive, onMounted, onBeforeUnmount, computed, provide, inject, watch } = Vue;
-const { createRouter, createWebHashHistory } = VueRouter;
+    <script>
+      const {
+        createApp,
+        ref,
+        reactive,
+        onMounted,
+        onBeforeUnmount,
+        computed,
+        provide,
+        inject,
+        watch,
+      } = Vue;
+      const { createRouter, createWebHashHistory } = VueRouter;
 
-const API_BASE = '/api/admin';
-const LOG_FIELD_STORAGE_KEY = 'resolver-panel-log-fields';
+      const API_BASE = '/api/admin';
+      const LOG_FIELD_STORAGE_KEY = 'resolver-panel-log-fields';
 
-function formatBytes(bytes) {
-  if (bytes === null || bytes === undefined || bytes === '') return '';
-  const size = Number(bytes);
-  if (!Number.isFinite(size) || size < 0) return '';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-}
+      function formatBytes(bytes) {
+        if (bytes === null || bytes === undefined || bytes === '') return '';
+        const size = Number(bytes);
+        if (!Number.isFinite(size) || size < 0) return '';
+        if (size < 1024) return `${size} B`;
+        if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+        return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+      }
 
-const app = createApp({
-  setup() {
-    const toast = reactive({ show: false, message: '', type: 'ok' });
-    let toastTimer = null;
-    const showToast = (message, type = 'ok') => {
-      toast.show = true; toast.message = message; toast.type = type;
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => { toast.show = false; }, 3000);
-    };
-    provide('toast', showToast);
-    provide('api', API_BASE);
-    return { toast };
-  }
-});
+      const app = createApp({
+        setup() {
+          const toast = reactive({ show: false, message: '', type: 'ok' });
+          let toastTimer = null;
+          const showToast = (message, type = 'ok') => {
+            toast.show = true;
+            toast.message = message;
+            toast.type = type;
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+              toast.show = false;
+            }, 3000);
+          };
+          provide('toast', showToast);
+          provide('api', API_BASE);
+          return { toast };
+        },
+      });
 
-// ---- Dashboard ----
-const Dashboard = {
-  template: `
+      // ---- Dashboard ----
+      const Dashboard = {
+        template: `
     <div>
       <h1>Audio Resolver Panel</h1>
       <div class="subtle">Manage server config, sync cookie, test resolve, and inspect logs from one place.</div>
@@ -150,71 +353,80 @@ const Dashboard = {
       </div>
     </div>
   `,
-  setup() {
-    const stats = ref({ status: 'loading...', successCount: 0, failCount: 0, cacheSize: 0, providers: [], recentErrors: [] });
-    const cookie = reactive({ hasCookie: false, updatedAt: '' });
-    const api = inject('api');
-    const toast = inject('toast');
-    let cookieTimer = null;
-    async function loadCookie(silent = false) {
-      try {
-        const r = await fetch(api + '/cookie');
-        const d = await r.json();
-        cookie.hasCookie = !!d.hasCookie;
-        cookie.updatedAt = d.updatedAt ? new Date(d.updatedAt).toLocaleString() : '';
-      } catch {
-        if (!silent) toast('Failed to load cookie state', 'err');
-      }
-    }
-    async function clearCookie() {
-      try {
-        await fetch(api + '/cookie', { method: 'DELETE' });
-        cookie.hasCookie = false;
-        cookie.updatedAt = '';
-        toast('Cookie cleared');
-      } catch {
-        toast('Failed to clear cookie', 'err');
-      }
-    }
-    async function clearCache() {
-      try {
-        await fetch(api + '/cache/clear', { method: 'POST' });
-        stats.value.cacheSize = 0;
-        toast('Cache cleared');
-      } catch {
-        toast('Failed to clear cache', 'err');
-      }
-    }
-    onMounted(async () => {
-      try {
-        const r = await fetch(api + '/stats');
-        if (r.ok) {
-          const d = await r.json();
-          stats.value.status = d.providers?.length ? 'online' : 'ready';
-          stats.value.successCount = d.successCount;
-          stats.value.failCount = d.failCount;
-          stats.value.cacheSize = d.cacheSize;
-          stats.value.providers = d.providers;
-          stats.value.recentErrors = d.recentErrors;
-        } else {
-          stats.value.status = 'offline';
-        }
-      } catch {
-        stats.value.status = 'offline';
-      }
-      loadCookie(false);
-      cookieTimer = setInterval(() => loadCookie(true), 3000);
-    });
-    onBeforeUnmount(() => {
-      if (cookieTimer) clearInterval(cookieTimer);
-    });
-    return { stats, cookie, loadCookie, clearCookie, clearCache };
-  }
-};
+        setup() {
+          const stats = ref({
+            status: 'loading...',
+            successCount: 0,
+            failCount: 0,
+            cacheSize: 0,
+            providers: [],
+            recentErrors: [],
+          });
+          const cookie = reactive({ hasCookie: false, updatedAt: '' });
+          const api = inject('api');
+          const toast = inject('toast');
+          let cookieTimer = null;
+          async function loadCookie(silent = false) {
+            try {
+              const r = await fetch(api + '/cookie');
+              const d = await r.json();
+              cookie.hasCookie = !!d.hasCookie;
+              cookie.updatedAt = d.updatedAt
+                ? new Date(d.updatedAt).toLocaleString()
+                : '';
+            } catch {
+              if (!silent) toast('Failed to load cookie state', 'err');
+            }
+          }
+          async function clearCookie() {
+            try {
+              await fetch(api + '/cookie', { method: 'DELETE' });
+              cookie.hasCookie = false;
+              cookie.updatedAt = '';
+              toast('Cookie cleared');
+            } catch {
+              toast('Failed to clear cookie', 'err');
+            }
+          }
+          async function clearCache() {
+            try {
+              await fetch(api + '/cache/clear', { method: 'POST' });
+              stats.value.cacheSize = 0;
+              toast('Cache cleared');
+            } catch {
+              toast('Failed to clear cache', 'err');
+            }
+          }
+          onMounted(async () => {
+            try {
+              const r = await fetch(api + '/stats');
+              if (r.ok) {
+                const d = await r.json();
+                stats.value.status = d.providers?.length ? 'online' : 'ready';
+                stats.value.successCount = d.successCount;
+                stats.value.failCount = d.failCount;
+                stats.value.cacheSize = d.cacheSize;
+                stats.value.providers = d.providers;
+                stats.value.recentErrors = d.recentErrors;
+              } else {
+                stats.value.status = 'offline';
+              }
+            } catch {
+              stats.value.status = 'offline';
+            }
+            loadCookie(false);
+            cookieTimer = setInterval(() => loadCookie(true), 3000);
+          });
+          onBeforeUnmount(() => {
+            if (cookieTimer) clearInterval(cookieTimer);
+          });
+          return { stats, cookie, loadCookie, clearCookie, clearCache };
+        },
+      };
 
-// ---- Settings ----
-const Settings = {
-  template: `
+      // ---- Settings ----
+      const Settings = {
+        template: `
     <div>
       <h1>Settings</h1>
       <div class="card">
@@ -249,43 +461,112 @@ const Settings = {
           <option :value="false">Disabled</option>
         </select>
       </div>
+      <div class="card">
+        <h3>Providers</h3>
+        <label>UnblockNeteaseMusic</label>
+        <select v-model="cfg.audio.unblock.enabled">
+          <option :value="true">Enabled</option>
+          <option :value="false">Disabled</option>
+        </select>
+        <label>UNM Sources</label>
+        <input v-model="cfg.audio.unblock.source" placeholder="ytdl, bilibili, pyncm, kugou">
+        <label>Enable FLAC</label>
+        <select v-model="cfg.audio.unblock.enableFlac">
+          <option :value="true">Enabled</option>
+          <option :value="false">Disabled</option>
+        </select>
+        <label>Search Mode</label>
+        <select v-model="cfg.audio.unblock.searchMode">
+          <option value="fast-first">Fast First</option>
+          <option value="order-first">Order First</option>
+        </select>
+        <label>Proxy URI</label>
+        <input v-model="cfg.audio.unblock.proxyUri" placeholder="http://127.0.0.1:7890">
+        <label>JOOX Cookie</label>
+        <input v-model="cfg.audio.unblock.jooxCookie" placeholder="wmid=...; session_key=...">
+        <label>QQ Cookie</label>
+        <input v-model="cfg.audio.unblock.qqCookie" placeholder="uin=...; qm_keyst=...">
+        <label>yt-dlp Path</label>
+        <input v-model="cfg.audio.unblock.ytDlExe" placeholder="yt-dlp">
+      </div>
       <div style="margin-top:12px">
         <button @click="save">Save Config</button>
         <button class="secondary" @click="load" style="margin-left:8px">Reload</button>
       </div>
     </div>
   `,
-  setup() {
-    const cfg = reactive({ server: { host: '127.0.0.1', port: 27232 }, security: { adminToken: '' }, audio: { proxyStream: true, defaultQuality: 'standard', cacheTtl: 1800, providerOrder: [], fallbackToLegacy: true, useCookie: true } });
-    const providerOrderStr = ref('');
-    const api = inject('api');
-    const toast = inject('toast');
+        setup() {
+          const defaultUnblockConfig = {
+            enabled: true,
+            source: 'ytdl, bilibili, pyncm, kugou',
+            enableFlac: false,
+            proxyUri: '',
+            searchMode: 'fast-first',
+            jooxCookie: '',
+            qqCookie: '',
+            ytDlExe: '',
+          };
+          const cfg = reactive({
+            server: { host: '127.0.0.1', port: 27232 },
+            security: { adminToken: '' },
+            audio: {
+              proxyStream: true,
+              defaultQuality: 'standard',
+              cacheTtl: 1800,
+              providerOrder: [],
+              fallbackToLegacy: true,
+              useCookie: true,
+              unblock: { ...defaultUnblockConfig },
+            },
+          });
+          const providerOrderStr = ref('');
+          const api = inject('api');
+          const toast = inject('toast');
 
-    async function load() {
-      try {
-        const r = await fetch(api + '/config');
-        const d = await r.json();
-        Object.assign(cfg, d.config);
-        providerOrderStr.value = cfg.audio.providerOrder.join(', ');
-      } catch (e) { toast('Failed to load config', 'err'); }
-    }
+          async function load() {
+            try {
+              const r = await fetch(api + '/config');
+              const d = await r.json();
+              Object.assign(cfg, d.config);
+              cfg.audio.unblock = {
+                ...defaultUnblockConfig,
+                ...(cfg.audio.unblock || {}),
+              };
+              providerOrderStr.value = cfg.audio.providerOrder.join(', ');
+            } catch (e) {
+              toast('Failed to load config', 'err');
+            }
+          }
 
-    async function save() {
-      try {
-        cfg.audio.providerOrder = providerOrderStr.value.split(',').map(s => s.trim()).filter(Boolean);
-        await fetch(api + '/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) });
-        toast('Config saved');
-      } catch (e) { toast('Failed to save', 'err'); }
-    }
+          async function save() {
+            try {
+              cfg.audio.providerOrder = providerOrderStr.value
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean);
+              cfg.audio.unblock = {
+                ...defaultUnblockConfig,
+                ...(cfg.audio.unblock || {}),
+              };
+              await fetch(api + '/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cfg),
+              });
+              toast('Config saved');
+            } catch (e) {
+              toast('Failed to save', 'err');
+            }
+          }
 
-    onMounted(load);
-    return { cfg, providerOrderStr, save, load };
-  }
-};
+          onMounted(load);
+          return { cfg, providerOrderStr, save, load };
+        },
+      };
 
-// ---- Test Resolve ----
-const TestResolve = {
-  template: `
+      // ---- Test Resolve ----
+      const TestResolve = {
+        template: `
     <div>
       <h1>Test Resolve</h1>
       <div class="card">
@@ -322,38 +603,53 @@ const TestResolve = {
       </div>
     </div>
   `,
-  setup() {
-    const trackId = ref('');
-    const trackName = ref('');
-    const quality = ref('standard');
-    const useProxy = ref(true);
-    const loading = ref(false);
-    const result = ref(null);
-    const api = inject('api');
+        setup() {
+          const trackId = ref('');
+          const trackName = ref('');
+          const quality = ref('standard');
+          const useProxy = ref(true);
+          const loading = ref(false);
+          const result = ref(null);
+          const api = inject('api');
 
-    async function test() {
-      loading.value = true; result.value = null;
-      try {
-        const r = await fetch(api + '/test-resolve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trackId: Number(trackId.value), trackName: trackName.value, quality: quality.value, useProxy: useProxy.value })
-        });
-        result.value = await r.json();
-        if (result.value && trackName.value) result.value.trackName = trackName.value;
-      } catch (e) {
-        result.value = { ok: false, message: e.message };
-      }
-      loading.value = false;
-    }
+          async function test() {
+            loading.value = true;
+            result.value = null;
+            try {
+              const r = await fetch(api + '/test-resolve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  trackId: Number(trackId.value),
+                  trackName: trackName.value,
+                  quality: quality.value,
+                  useProxy: useProxy.value,
+                }),
+              });
+              result.value = await r.json();
+              if (result.value && trackName.value)
+                result.value.trackName = trackName.value;
+            } catch (e) {
+              result.value = { ok: false, message: e.message };
+            }
+            loading.value = false;
+          }
 
-    return { trackId, trackName, quality, useProxy, loading, result, test };
-  }
-};
+          return {
+            trackId,
+            trackName,
+            quality,
+            useProxy,
+            loading,
+            result,
+            test,
+          };
+        },
+      };
 
-// ---- Logs ----
-const Logs = {
-  template: `
+      // ---- Logs ----
+      const Logs = {
+        template: `
     <div>
       <h1>Logs</h1>
       <div style="margin-bottom:12px">
@@ -395,67 +691,76 @@ const Logs = {
       </div>
     </div>
   `,
-  setup() {
-    const logs = ref([]);
-    const defaultShowFields = {
-      requestedQuality: true,
-      source: true,
-      provider: true,
-      extraMeta: true,
-      note: true,
-    };
-    let savedShowFields = {};
-    try {
-      savedShowFields = JSON.parse(localStorage.getItem(LOG_FIELD_STORAGE_KEY) || '{}') || {};
-    } catch (e) {
-      savedShowFields = {};
-    }
-    const showFields = reactive({
-      ...defaultShowFields,
-      ...savedShowFields,
-    });
-    const api = inject('api');
-    const toast = inject('toast');
+        setup() {
+          const logs = ref([]);
+          const defaultShowFields = {
+            requestedQuality: true,
+            source: true,
+            provider: true,
+            extraMeta: true,
+            note: true,
+          };
+          let savedShowFields = {};
+          try {
+            savedShowFields =
+              JSON.parse(localStorage.getItem(LOG_FIELD_STORAGE_KEY) || '{}') ||
+              {};
+          } catch (e) {
+            savedShowFields = {};
+          }
+          const showFields = reactive({
+            ...defaultShowFields,
+            ...savedShowFields,
+          });
+          const api = inject('api');
+          const toast = inject('toast');
 
-    async function refresh() {
-      try {
-        const r = await fetch(api + '/logs?count=100');
-        const d = await r.json();
-        logs.value = d.logs;
-      } catch (e) { toast('Failed to load logs', 'err'); }
-    }
+          async function refresh() {
+            try {
+              const r = await fetch(api + '/logs?count=100');
+              const d = await r.json();
+              logs.value = d.logs;
+            } catch (e) {
+              toast('Failed to load logs', 'err');
+            }
+          }
 
-    async function clear() {
-      try {
-        await fetch(api + '/logs', { method: 'DELETE' });
-        logs.value = [];
-        toast('Logs cleared');
-      } catch (e) { toast('Failed to clear logs', 'err'); }
-    }
+          async function clear() {
+            try {
+              await fetch(api + '/logs', { method: 'DELETE' });
+              logs.value = [];
+              toast('Logs cleared');
+            } catch (e) {
+              toast('Failed to clear logs', 'err');
+            }
+          }
 
-    watch(
-      showFields,
-      value => {
-        localStorage.setItem(LOG_FIELD_STORAGE_KEY, JSON.stringify(value));
-      },
-      { deep: true }
-    );
+          watch(
+            showFields,
+            value => {
+              localStorage.setItem(
+                LOG_FIELD_STORAGE_KEY,
+                JSON.stringify(value)
+              );
+            },
+            { deep: true }
+          );
 
-    onMounted(refresh);
-    return { logs, refresh, clear, showFields, formatBytes };
-  }
-};
+          onMounted(refresh);
+          return { logs, refresh, clear, showFields, formatBytes };
+        },
+      };
 
-// ---- Router ----
-const routes = [
-  { path: '/', component: Dashboard },
-  { path: '/settings', component: Settings },
-  { path: '/test', component: TestResolve },
-  { path: '/logs', component: Logs },
-];
-const router = createRouter({ history: createWebHashHistory(), routes });
-app.use(router);
-app.mount('#app');
-</script>
-</body>
+      // ---- Router ----
+      const routes = [
+        { path: '/', component: Dashboard },
+        { path: '/settings', component: Settings },
+        { path: '/test', component: TestResolve },
+        { path: '/logs', component: Logs },
+      ];
+      const router = createRouter({ history: createWebHashHistory(), routes });
+      app.use(router);
+      app.mount('#app');
+    </script>
+  </body>
 </html>
