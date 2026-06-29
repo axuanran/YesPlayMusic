@@ -1,6 +1,40 @@
+import store from '@/store';
 import { resolveAudioByBackend, isResolverEnabled } from '@/api/audioResolver';
 import { getMP3 } from '@/api/track';
 import { isAccountLoggedIn } from '@/utils/auth';
+
+function getResolverQuality() {
+  const quality = store.state.settings?.musicQuality ?? 320000;
+  switch (quality) {
+    case 'standard':
+      return 'standard';
+    case 'exhigh':
+      return 'exhigh';
+    case 'lossless':
+      return 'lossless';
+    case 'hires':
+      return 'hires';
+    case 'jyeffect':
+      return 'jyeffect';
+    case 'sky':
+      return 'sky';
+    case 'jymaster':
+      return 'jymaster';
+    case 128000:
+      return 'standard';
+    case 192000:
+      return 'exhigh';
+    case 320000:
+      return 'exhigh';
+    case 'flac':
+    case 350000:
+      return 'lossless';
+    case 999000:
+      return 'hires';
+    default:
+      return 'standard';
+  }
+}
 
 /**
  * Resolve audio source for a track.
@@ -12,7 +46,7 @@ import { isAccountLoggedIn } from '@/utils/auth';
 export async function resolveTrackSource(trackId) {
   if (isResolverEnabled()) {
     try {
-      const result = await resolveAudioByBackend(trackId);
+      const result = await resolveAudioByBackend(trackId, getResolverQuality());
       return result.playUrl;
     } catch (error) {
       console.warn('[resolver] backend failed, fallback to legacy:', error.message);
@@ -64,6 +98,9 @@ async function resolveFromLegacy(trackId) {
     if (result.data?.[0]?.url && result.data[0].freeTrialInfo === null) {
       return result.data[0].url.replace(/^http:/, 'https:');
     }
+    // Logged-in account should not fall back to the outer URL page.
+    // That endpoint often returns HTML rather than a playable audio stream.
+    return null;
   }
 
   return getOuterAudioUrl(trackId);

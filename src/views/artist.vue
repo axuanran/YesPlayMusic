@@ -276,7 +276,7 @@ export default {
         if (!this.show) NProgress.start();
       }, 1000);
       this.show = false;
-      this.$parent.$refs.main.scrollTo({ top: 0 });
+      this.$parent?.$refs?.main?.scrollTo?.({ top: 0 });
       getArtist(id).then(data => {
         this.artist = data.artist;
         this.setPopularTracks(data.hotSongs);

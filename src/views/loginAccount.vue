@@ -150,7 +150,7 @@ import {
   loginQrCodeKey,
   loginQrCodeCheck,
 } from '@/api/auth';
-import { syncCookieToResolver } from '@/api/audioResolver';
+import { syncCookieToResolverWithRetry } from '@/api/audioResolver';
 
 export default {
   name: 'Login',
@@ -257,7 +257,11 @@ export default {
         this.updateData({ key: 'loginMode', value: 'account' });
         // Sync cookie to resolver backend for persistence
         const cookie = getCookieString();
-        if (cookie) syncCookieToResolver(cookie);
+        if (cookie) {
+          syncCookieToResolverWithRetry(cookie, { timeoutMs: 10000, intervalMs: 1000 }).catch(error => {
+            console.warn('Failed to sync cookie after password login', error);
+          });
+        }
         this.$store.dispatch('fetchUserProfile').then(() => {
           this.$store.dispatch('fetchLikedPlaylist').then(() => {
             this.$router.push({ path: '/library' });
@@ -294,7 +298,11 @@ export default {
           this.processing = false;
           // Sync cookie to resolver backend for persistence
           const cookieStr = getCookieString();
-          if (cookieStr) syncCookieToResolver(cookieStr);
+          if (cookieStr) {
+            syncCookieToResolverWithRetry(cookieStr, { timeoutMs: 10000, intervalMs: 1000 }).catch(error => {
+              console.warn('Failed to sync cookie after cookie login', error);
+            });
+          }
           this.$router.push({ path: '/library' });
           this.$store.dispatch('fetchLikedPlaylist').catch(error => {
             console.warn(

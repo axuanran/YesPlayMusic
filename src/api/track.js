@@ -16,9 +16,24 @@ import {
  */
 export function getMP3(id) {
   const getBr = () => {
-    // 当返回的 quality >= 400000时，就会优先返回 hi-res
-    const quality = store.state.settings?.musicQuality ?? '320000';
-    return quality === 'flac' ? '350000' : quality;
+    const quality = store.state.settings?.musicQuality ?? 'exhigh';
+    switch (quality) {
+      case 'standard':
+        return '128000';
+      case 'exhigh':
+        return '320000';
+      case 'lossless':
+        return '350000';
+      case 'hires':
+      case 'jyeffect':
+      case 'sky':
+      case 'jymaster':
+        return '999000';
+      case 'flac':
+        return '350000';
+      default:
+        return typeof quality === 'number' ? String(quality) : '320000';
+    }
   };
 
   return request({

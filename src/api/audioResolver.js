@@ -68,6 +68,18 @@ export function isResolverEnabled() {
   }
 }
 
+export async function getResolverConfig() {
+  const client = getResolverClient();
+  const { data } = await client.get('/api/admin/config');
+  return data;
+}
+
+export async function updateResolverConfig(config) {
+  const client = getResolverClient();
+  const { data } = await client.post('/api/admin/config', config);
+  return data;
+}
+
 /**
  * Sync cookie to resolver backend for persistence.
  * Called after successful login so resolver can use the cookie for API requests.
@@ -76,13 +88,44 @@ export function isResolverEnabled() {
  */
 export async function syncCookieToResolver(cookie) {
   if (!cookie) return;
-  try {
-    const client = getResolverClient();
-    await client.post('/api/admin/cookie', { cookie });
-    console.log('[resolver] Cookie synced to backend');
-  } catch (error) {
-    console.warn('[resolver] Failed to sync cookie to backend:', error.message);
+  const client = getResolverClient();
+  await client.post('/api/admin/cookie', { cookie });
+  console.log('[resolver] Cookie synced to backend');
+}
+
+/**
+ * Wait until resolver backend is reachable, then sync cookie once.
+ * Useful when the backend starts slower than the renderer.
+ * @param {string} cookie
+ * @param {{ timeoutMs?: number, intervalMs?: number, onAttempt?: (attempt:number, error?:Error) => void }} [options]
+ * @returns {Promise<void>}
+ */
+export async function syncCookieToResolverWithRetry(cookie, options = {}) {
+  if (!cookie) return;
+  const timeoutMs = options.timeoutMs ?? 30000;
+  const intervalMs = options.intervalMs ?? 1000;
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+  let lastError;
+
+  while (Date.now() <= deadline) {
+    attempt += 1;
+    try {
+      const client = getResolverClient();
+      await client.get('/api/admin/cookie');
+      await syncCookieToResolver(cookie);
+      return;
+    } catch (error) {
+      lastError = error;
+      options.onAttempt?.(attempt, error);
+      if (Date.now() > deadline) {
+        break;
+      }
+      await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
   }
+
+  throw lastError || new Error('resolver 后端未就绪');
 }
 
 /**
@@ -97,5 +140,21 @@ export async function clearCookieFromResolver() {
     console.log('[resolver] Cookie cleared from backend');
   } catch (error) {
     console.warn('[resolver] Failed to clear cookie from backend:', error.message);
+  }
+}
+
+/**
+ * Clear resolver backend cache.
+ * Called from the front-end settings page when you want to invalidate stale audio sources.
+ * @returns {Promise<void>}
+ */
+export async function clearResolverCache() {
+  try {
+    const client = getResolverClient();
+    await client.post('/api/admin/cache/clear');
+    console.log('[resolver] Cache cleared on backend');
+  } catch (error) {
+    console.warn('[resolver] Failed to clear backend cache:', error.message);
+    throw error;
   }
 }

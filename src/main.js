@@ -9,7 +9,8 @@ import filters from '@/utils/filters';
 import './registerServiceWorker';
 import { dailyTask } from '@/utils/common';
 import { installDevErrorReporter } from '@/utils/devErrorReporter';
-import { hydrateCookiesToDocument } from '@/utils/auth';
+import { getCookieString, hydrateCookiesToDocument } from '@/utils/auth';
+import { syncCookieToResolverWithRetry } from '@/api/audioResolver';
 import '@/assets/css/global.scss';
 import NProgress from 'nprogress';
 import '@/assets/css/nprogress.css';
@@ -33,6 +34,38 @@ console.log(
 NProgress.configure({ showSpinner: false, trickleSpeed: 100 });
 installDevErrorReporter();
 hydrateCookiesToDocument();
+
+let startupCookieTimer = null;
+const syncCookieFromStartup = async () => {
+  const cookie = getCookieString();
+  if (!cookie) {
+    if (startupCookieTimer) {
+      clearInterval(startupCookieTimer);
+      startupCookieTimer = null;
+    }
+    return;
+  }
+
+  try {
+    await syncCookieToResolverWithRetry(cookie, {
+      timeoutMs: 8000,
+      intervalMs: 1000,
+    });
+    if (startupCookieTimer) {
+      clearInterval(startupCookieTimer);
+      startupCookieTimer = null;
+    }
+  } catch (error) {
+    console.warn('[resolver] Failed to sync cookie on startup:', error?.message || error);
+    store.dispatch('showToast', '启动时同步网易云 Cookie 失败，请检查 resolver 面板');
+  }
+};
+
+startupCookieTimer = setInterval(() => {
+  syncCookieFromStartup();
+}, 3000);
+syncCookieFromStartup();
+
 dailyTask();
 
 const app = createApp(App);

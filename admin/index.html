@@ -8,15 +8,16 @@
   <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.prod.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: radial-gradient(circle at top, #132238 0%, #0d1117 46%, #070b11 100%); color: #c9d1d9; min-height: 100vh; }
     .app { display: flex; min-height: 100vh; }
-    .sidebar { width: 220px; background: #161b22; border-right: 1px solid #30363d; padding: 20px 0; flex-shrink: 0; }
-    .sidebar h2 { padding: 0 20px 20px; font-size: 16px; color: #58a6ff; border-bottom: 1px solid #30363d; margin-bottom: 10px; }
+    .sidebar { width: 240px; background: rgba(10, 14, 20, 0.92); border-right: 1px solid #30363d; padding: 24px 0; flex-shrink: 0; backdrop-filter: blur(12px); }
+    .sidebar h2 { padding: 0 20px 20px; font-size: 16px; color: #7dd3fc; border-bottom: 1px solid #30363d; margin-bottom: 10px; }
     .sidebar a { display: block; padding: 10px 20px; color: #8b949e; text-decoration: none; font-size: 14px; transition: all 0.15s; }
     .sidebar a:hover, .sidebar a.router-link-active { color: #f0f6fc; background: #1c2128; }
     .main { flex: 1; padding: 30px; overflow-y: auto; }
-    .main h1 { font-size: 22px; margin-bottom: 20px; color: #f0f6fc; }
-    .card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 20px; margin-bottom: 16px; }
+    .main h1 { font-size: 28px; margin-bottom: 8px; color: #f0f6fc; }
+    .subtle { color: #8b949e; margin-bottom: 20px; }
+    .card { background: rgba(22, 27, 34, 0.92); border: 1px solid #30363d; border-radius: 14px; padding: 20px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22); }
     .card h3 { font-size: 14px; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
     .stat { font-size: 28px; font-weight: 600; color: #58a6ff; }
     .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
@@ -33,6 +34,7 @@
     .badge-ok { background: #23863633; color: #3fb950; }
     .badge-fail { background: #da363333; color: #f85149; }
     .badge-info { background: #58a6ff33; color: #58a6ff; }
+    .badge-warn { background: #d2992233; color: #f0b34d; }
     .log-entry { font-family: 'SF Mono', 'Consolas', monospace; font-size: 12px; padding: 8px 0; border-bottom: 1px solid #21262d; }
     .log-entry .time { color: #484f58; }
     .log-entry .meta { color: #8b949e; }
@@ -65,10 +67,19 @@
 </div>
 
 <script>
-const { createApp, ref, reactive, onMounted, computed } = Vue;
+const { createApp, ref, reactive, onMounted, onBeforeUnmount, computed, provide, inject } = Vue;
 const { createRouter, createWebHashHistory } = VueRouter;
 
 const API_BASE = '/api/admin';
+
+function formatBytes(bytes) {
+  if (bytes === null || bytes === undefined || bytes === '') return '';
+  const size = Number(bytes);
+  if (!Number.isFinite(size) || size < 0) return '';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+}
 
 const app = createApp({
   setup() {
@@ -89,49 +100,114 @@ const app = createApp({
 const Dashboard = {
   template: `
     <div>
-      <h1>Dashboard</h1>
+      <h1>Audio Resolver Panel</h1>
+      <div class="subtle">Manage server config, sync cookie, test resolve, and inspect logs from one place.</div>
       <div class="stat-grid">
-        <div class="card"><h3>Status</h3><div class="stat">{{ stats.status }}</div></div>
+        <div class="card"><h3>Status</h3><div class="stat">{{ stats.status || 'unknown' }}</div></div>
         <div class="card"><h3>Success</h3><div class="stat">{{ stats.successCount }}</div></div>
         <div class="card"><h3>Failed</h3><div class="stat">{{ stats.failCount }}</div></div>
-        <div class="card"><h3>Cache Size</h3><div class="stat">{{ stats.cacheSize }}</div></div>
+        <div class="card">
+          <h3>Cache Size</h3>
+          <div class="stat">{{ stats.cacheSize }}</div>
+          <button class="danger" style="margin-top:12px" @click="clearCache">Clear Cache</button>
+          <div class="meta" style="margin-top:8px">Cache hit reuses the last resolved source, including fallback results.</div>
+        </div>
       </div>
       <div class="card" style="margin-top:16px">
         <h3>Providers</h3>
         <div><span class="badge badge-info" v-for="p in stats.providers" :key="p" style="margin-right:8px">{{ p }}</span></div>
+      </div>
+      <div class="card">
+        <h3>Cookie State</h3>
+        <div style="margin:8px 0 12px">
+          <span :class="'badge ' + (cookie.hasCookie ? 'badge-ok' : 'badge-warn')">
+            {{ cookie.hasCookie ? 'cookie saved' : 'no cookie' }}
+          </span>
+          <span class="badge badge-info" style="margin-left:8px" v-if="cookie.updatedAt">updated {{ cookie.updatedAt }}</span>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
+          <button @click="loadCookie">Refresh Cookie</button>
+          <button class="danger" @click="clearCookie">Clear Cookie</button>
+        </div>
       </div>
       <div class="card" v-if="stats.recentErrors && stats.recentErrors.length">
         <h3>Recent Errors</h3>
         <div v-for="(e, i) in stats.recentErrors" :key="i" class="log-entry">
           <span class="time">{{ e.time }}</span>
           <span class="badge badge-fail" style="margin-left:8px">{{ e.errorCode }}</span>
-          trackId: {{ e.trackId }}
+          <span style="margin-left:8px">trackId: {{ e.trackId }}</span>
+          <span v-if="e.requestedQuality || e.resolvedQuality" style="margin-left:8px">
+            requested: {{ e.requestedQuality || 'n/a' }} resolved: {{ e.resolvedQuality || 'n/a' }}
+          </span>
+          <span v-else-if="e.quality" style="margin-left:8px">quality: {{ e.quality }}</span>
+          <span v-if="e.source" style="margin-left:8px">source: {{ e.source }}</span>
         </div>
+      </div>
+      <div class="card" v-else>
+        <h3>Recent Errors</h3>
+        <div style="color:#8b949e">No recent errors.</div>
       </div>
     </div>
   `,
   setup() {
     const stats = ref({ status: 'loading...', successCount: 0, failCount: 0, cacheSize: 0, providers: [], recentErrors: [] });
+    const cookie = reactive({ hasCookie: false, updatedAt: '' });
     const api = inject('api');
-    onMounted(async () => {
+    const toast = inject('toast');
+    let cookieTimer = null;
+    async function loadCookie(silent = false) {
       try {
-        const h = await fetch('/api/health');
-        const hd = await h.json();
-        stats.value.status = hd.name + ' v' + hd.version;
-      } catch { stats.value.status = 'offline'; }
+        const r = await fetch(api + '/cookie');
+        const d = await r.json();
+        cookie.hasCookie = !!d.hasCookie;
+        cookie.updatedAt = d.updatedAt ? new Date(d.updatedAt).toLocaleString() : '';
+      } catch {
+        if (!silent) toast('Failed to load cookie state', 'err');
+      }
+    }
+    async function clearCookie() {
+      try {
+        await fetch(api + '/cookie', { method: 'DELETE' });
+        cookie.hasCookie = false;
+        cookie.updatedAt = '';
+        toast('Cookie cleared');
+      } catch {
+        toast('Failed to clear cookie', 'err');
+      }
+    }
+    async function clearCache() {
+      try {
+        await fetch(api + '/cache/clear', { method: 'POST' });
+        stats.value.cacheSize = 0;
+        toast('Cache cleared');
+      } catch {
+        toast('Failed to clear cache', 'err');
+      }
+    }
+    onMounted(async () => {
       try {
         const r = await fetch(api + '/stats');
         if (r.ok) {
           const d = await r.json();
+          stats.value.status = d.providers?.length ? 'online' : 'ready';
           stats.value.successCount = d.successCount;
           stats.value.failCount = d.failCount;
           stats.value.cacheSize = d.cacheSize;
           stats.value.providers = d.providers;
           stats.value.recentErrors = d.recentErrors;
+        } else {
+          stats.value.status = 'offline';
         }
-      } catch {}
+      } catch {
+        stats.value.status = 'offline';
+      }
+      loadCookie(false);
+      cookieTimer = setInterval(() => loadCookie(true), 3000);
     });
-    return { stats };
+    onBeforeUnmount(() => {
+      if (cookieTimer) clearInterval(cookieTimer);
+    });
+    return { stats, cookie, loadCookie, clearCookie, clearCache };
   }
 };
 
@@ -144,6 +220,7 @@ const Settings = {
         <h3>Server</h3>
         <label>Host</label><input v-model="cfg.server.host">
         <label>Port</label><input v-model.number="cfg.server.port" type="number">
+        <label>Admin Token</label><input v-model="cfg.security.adminToken" placeholder="optional">
       </div>
       <div class="card">
         <h3>Audio</h3>
@@ -165,6 +242,11 @@ const Settings = {
           <option :value="true">Enabled</option>
           <option :value="false">Disabled</option>
         </select>
+        <label>Use Cookie Source</label>
+        <select v-model="cfg.audio.useCookie">
+          <option :value="true">Enabled</option>
+          <option :value="false">Disabled</option>
+        </select>
       </div>
       <div style="margin-top:12px">
         <button @click="save">Save Config</button>
@@ -173,7 +255,7 @@ const Settings = {
     </div>
   `,
   setup() {
-    const cfg = reactive({ server: { host: '127.0.0.1', port: 27232 }, audio: { proxyStream: true, defaultQuality: 'standard', cacheTtl: 1800, providerOrder: [], fallbackToLegacy: true } });
+    const cfg = reactive({ server: { host: '127.0.0.1', port: 27232 }, security: { adminToken: '' }, audio: { proxyStream: true, defaultQuality: 'standard', cacheTtl: 1800, providerOrder: [], fallbackToLegacy: true, useCookie: true } });
     const providerOrderStr = ref('');
     const api = inject('api');
     const toast = inject('toast');
@@ -208,6 +290,7 @@ const TestResolve = {
       <div class="card">
         <div class="flex-row">
           <div><label>Track ID</label><input v-model="trackId" placeholder="e.g. 405998841"></div>
+          <div><label>Song Name</label><input v-model="trackName" placeholder="e.g. Down to Earth"></div>
           <div><label>Quality</label>
             <select v-model="quality">
               <option value="standard">Standard</option>
@@ -215,17 +298,34 @@ const TestResolve = {
               <option value="lossless">Lossless</option>
             </select>
           </div>
+          <div><label>Use Proxy</label>
+            <select v-model="useProxy">
+              <option :value="true">Yes</option>
+              <option :value="false">No</option>
+            </select>
+          </div>
           <div><button @click="test" :disabled="loading" style="height:38px">{{ loading ? 'Testing...' : 'Test' }}</button></div>
         </div>
       </div>
       <div v-if="result" :class="['result-box', result.ok ? 'success' : 'fail']">
+        <div v-if="result.trackName" style="margin-bottom:8px; opacity:0.8">Song: {{ result.trackName }}</div>
+        <div v-if="Array.isArray(result.tried) && result.tried.length" style="margin-bottom:12px">
+          <div style="font-weight:600; margin-bottom:6px">Tried Providers</div>
+          <div v-for="(item, idx) in result.tried" :key="idx" class="log-entry" style="padding:6px 0">
+            <span class="badge badge-info">{{ item.provider }}</span>
+            <span v-if="item.errorCode" class="badge badge-fail" style="margin-left:8px">{{ item.errorCode }}</span>
+            <span v-if="item.errorMessage" class="meta" style="margin-left:8px">{{ item.errorMessage }}</span>
+          </div>
+        </div>
         <pre>{{ JSON.stringify(result, null, 2) }}</pre>
       </div>
     </div>
   `,
   setup() {
     const trackId = ref('');
+    const trackName = ref('');
     const quality = ref('standard');
+    const useProxy = ref(true);
     const loading = ref(false);
     const result = ref(null);
     const api = inject('api');
@@ -236,16 +336,17 @@ const TestResolve = {
         const r = await fetch(api + '/test-resolve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trackId: Number(trackId.value), quality: quality.value })
+          body: JSON.stringify({ trackId: Number(trackId.value), trackName: trackName.value, quality: quality.value, useProxy: useProxy.value })
         });
         result.value = await r.json();
+        if (result.value && trackName.value) result.value.trackName = trackName.value;
       } catch (e) {
         result.value = { ok: false, message: e.message };
       }
       loading.value = false;
     }
 
-    return { trackId, quality, loading, result, test };
+    return { trackId, trackName, quality, useProxy, loading, result, test };
   }
 };
 
@@ -258,20 +359,50 @@ const Logs = {
         <button @click="refresh">Refresh</button>
         <button class="danger" @click="clear" style="margin-left:8px">Clear</button>
       </div>
+      <div class="card" style="margin-bottom:12px">
+        <h3>Visible Fields</h3>
+        <div style="display:flex; gap:12px; flex-wrap:wrap">
+          <label style="margin:0"><input type="checkbox" v-model="showFields.requestedQuality"> requested/resolved</label>
+          <label style="margin:0"><input type="checkbox" v-model="showFields.source"> source</label>
+          <label style="margin:0"><input type="checkbox" v-model="showFields.provider"> provider</label>
+          <label style="margin:0"><input type="checkbox" v-model="showFields.extraMeta"> br/size/md5/urlExt</label>
+          <label style="margin:0"><input type="checkbox" v-model="showFields.note"> note</label>
+        </div>
+      </div>
       <div class="card">
         <div v-if="logs.length === 0" style="color:#8b949e">No logs yet.</div>
         <div v-for="(l, i) in logs" :key="i" class="log-entry">
           <span class="time">{{ l.time }}</span>
           <span :class="'badge ' + (l.result === 'ok' || l.result === 'cache_hit' ? 'badge-ok' : 'badge-fail')" style="margin-left:8px">{{ l.result }}</span>
-          <span style="margin-left:8px">trackId: {{ l.trackId }} quality: {{ l.quality }} source: {{ l.source }}</span>
+          <span style="margin-left:8px">trackId: {{ l.trackId }}</span>
+          <span v-if="showFields.requestedQuality && (l.requestedQuality || l.resolvedQuality)" style="margin-left:8px">
+            requested: {{ l.requestedQuality || 'n/a' }} resolved: {{ l.resolvedQuality || 'n/a' }}
+          </span>
+          <span v-else-if="l.quality" style="margin-left:8px">quality: {{ l.quality }}</span>
+          <span v-if="showFields.source" style="margin-left:8px">source: {{ l.source }}</span>
+          <span v-if="showFields.provider && l.provider" class="badge badge-info" style="margin-left:8px">{{ l.provider }}</span>
           <span v-if="l.errorCode" class="badge badge-fail" style="margin-left:4px">{{ l.errorCode }}</span>
           <span class="meta" style="margin-left:8px">{{ l.durationMs }}ms</span>
+          <span v-if="showFields.extraMeta && (l.br || l.size || l.md5 || l.urlExt)" class="meta" style="margin-left:8px">
+            <template v-if="l.br">br: {{ l.br }}</template>
+            <template v-if="l.size"> size: {{ formatBytes(l.size) }}</template>
+            <template v-if="l.md5"> md5: {{ l.md5 }}</template>
+            <template v-if="l.urlExt"> ext: {{ l.urlExt }}</template>
+          </span>
+          <div v-if="showFields.note && l.note" class="meta" style="margin-top:4px; word-break:break-all">{{ l.note }}</div>
         </div>
       </div>
     </div>
   `,
   setup() {
     const logs = ref([]);
+    const showFields = reactive({
+      requestedQuality: true,
+      source: true,
+      provider: true,
+      extraMeta: false,
+      note: true,
+    });
     const api = inject('api');
     const toast = inject('toast');
 
@@ -292,7 +423,7 @@ const Logs = {
     }
 
     onMounted(refresh);
-    return { logs, refresh, clear };
+    return { logs, refresh, clear, showFields, formatBytes };
   }
 };
 

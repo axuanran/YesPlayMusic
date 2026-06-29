@@ -2,15 +2,15 @@ import axios from 'axios';
 import { loadCookie } from '../storage/cookieStore.js';
 
 const NETEASE_API_BASE = 'http://127.0.0.1:10754';
-
-const QUALITY_BR = {
-  standard: '320000',
-  higher: '320000',
-  exhigh: '320000',
-  lossless: '350000',
-  hires: '350000',
-  flac: '350000',
-};
+const QUALITY_LEVELS = new Set([
+  'standard',
+  'exhigh',
+  'lossless',
+  'hires',
+  'jyeffect',
+  'sky',
+  'jymaster',
+]);
 
 export const providerName = 'netease';
 
@@ -20,13 +20,12 @@ export const providerName = 'netease';
  * @returns {Promise<{ok: boolean, url?: string, mime?: string, quality?: string, source?: string, expiresAt?: number, errorCode?: string, errorMessage?: string}>}
  */
 export async function resolve(trackId, context = {}) {
-  const quality = context.quality || 'standard';
-  const br = QUALITY_BR[quality] || '320000';
+  const level = normalizeLevel(context.quality);
   const cookie = loadCookie();
 
   try {
-    const response = await axios.get(`${NETEASE_API_BASE}/song/url`, {
-      params: { id: trackId, br },
+    const response = await axios.get(`${NETEASE_API_BASE}/song/url/v1`, {
+      params: { id: trackId, level },
       timeout: 10000,
       headers: cookie ? { Cookie: cookie } : {},
     });
@@ -51,7 +50,11 @@ export async function resolve(trackId, context = {}) {
       ok: true,
       url,
       mime: song.type || 'audio/mpeg',
-      quality: song.br >= 350000 ? 'lossless' : 'standard',
+      quality: song.level || level,
+      br: song.br,
+      size: song.size,
+      md5: song.md5,
+      urlExt: getUrlExt(url),
       source: 'netease',
       expiresAt: Date.now() + 30 * 60 * 1000,
     };
@@ -60,5 +63,25 @@ export async function resolve(trackId, context = {}) {
       return { ok: false, errorCode: 'PROVIDER_TIMEOUT', errorMessage: '音源超时' };
     }
     return { ok: false, errorCode: 'PROVIDER_FAILED', errorMessage: error.message };
+  }
+}
+
+function normalizeLevel(level) {
+  if (typeof level === 'string' && QUALITY_LEVELS.has(level)) {
+    return level;
+  }
+  if (level === 999000) return 'jymaster';
+  if (level === 350000 || level === 'flac') return 'lossless';
+  if (level === 320000) return 'exhigh';
+  return 'standard';
+}
+
+function getUrlExt(url) {
+  try {
+    const clean = String(url).split('?')[0];
+    const index = clean.lastIndexOf('.');
+    return index >= 0 ? clean.slice(index + 1) : '';
+  } catch {
+    return '';
   }
 }

@@ -356,7 +356,7 @@ export default {
         return;
       }
       this.currentTab = tab;
-      this.$parent.$refs.main.scrollTo({ top: 375, behavior: 'smooth' });
+      this.$parent?.$refs?.main?.scrollTo?.({ top: 375, behavior: 'smooth' });
     },
     goToLikedSongsList() {
       this.$router.push({ path: '/library/liked-songs' });

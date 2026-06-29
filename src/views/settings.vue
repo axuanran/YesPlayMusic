@@ -123,19 +123,13 @@
         </div>
         <div class="right">
           <select v-model="musicQuality">
-            <option value="128000">
-              {{ $t('settings.musicQuality.low') }} - 128Kbps
-            </option>
-            <option value="192000">
-              {{ $t('settings.musicQuality.medium') }} - 192Kbps
-            </option>
-            <option value="320000">
-              {{ $t('settings.musicQuality.high') }} - 320Kbps
-            </option>
-            <option value="flac">
-              {{ $t('settings.musicQuality.lossless') }} - FLAC
-            </option>
-            <option value="999000">Hi-Res</option>
+            <option value="standard">standard</option>
+            <option value="exhigh">exhigh</option>
+            <option value="lossless">lossless</option>
+            <option value="hires">hires</option>
+            <option value="jyeffect">jyeffect</option>
+            <option value="sky">sky</option>
+            <option value="jymaster">jymaster</option>
           </select>
         </div>
       </div>
@@ -208,6 +202,41 @@
           <button @click="clearCache()">
             {{ $t('settings.clearSongsCache') }}
           </button>
+        </div>
+      </div>
+
+      <h3 v-if="isElectron">音频解析</h3>
+      <div v-if="isElectron" class="item">
+        <div class="left">
+          <div class="title">启用音频解析</div>
+        </div>
+        <div class="right">
+          <div class="toggle">
+            <input
+              id="use-audio-resolver"
+              v-model="useAudioResolver"
+              type="checkbox"
+              name="use-audio-resolver"
+            />
+            <label for="use-audio-resolver"></label>
+          </div>
+        </div>
+      </div>
+      <div v-if="isElectron" class="item">
+        <div class="left">
+          <div class="title">Resolver 地址</div>
+        </div>
+        <div class="right">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+            <input
+              v-model="audioResolverUrl"
+              type="text"
+              placeholder="http://127.0.0.1:27232"
+              style="width: 320px"
+            />
+            <button @click="syncFrontendCookieToResolver">从前端获取Cookie</button>
+            <button @click="clearResolverBackendCache">清后端缓存</button>
+          </div>
         </div>
       </div>
 
@@ -809,7 +838,7 @@
 
 <script>
 import { mapState, mapActions } from 'vuex';
-import { isLooseLoggedIn, doLogout } from '@/utils/auth';
+import { isLooseLoggedIn, doLogout, getCookieString } from '@/utils/auth';
 import { auth as lastfmAuth } from '@/api/lastfm';
 import {
   changeAppearance,
@@ -817,6 +846,12 @@ import {
   bytesToSize,
 } from '@/utils/common';
 import { countDBSize, clearDB } from '@/utils/db';
+import {
+  clearResolverCache,
+  getResolverConfig,
+  syncCookieToResolverWithRetry,
+  updateResolverConfig,
+} from '@/api/audioResolver';
 import pkg from '../../package.json';
 import { isElectron } from '@/utils/env';
 import { isLinux, isMac } from '@/utils/platform';
@@ -824,6 +859,50 @@ import { isLinux, isMac } from '@/utils/platform';
 const electronSettings = window.electronAPI?.settings;
 
  const validShortcutCodes = ['=', '-', '~', '[', ']', ';', "'", ',', '.', '/'];
+
+function normalizeMusicQuality(value) {
+  if (typeof value === 'string') {
+    if (
+      ['standard', 'exhigh', 'lossless', 'hires', 'jyeffect', 'sky', 'jymaster'].includes(value)
+    ) {
+      return value;
+    }
+    if (value === 'flac') return 'lossless';
+    if (value === 'higher') return 'exhigh';
+  }
+  if (value === 999000) return 'jymaster';
+  if (value === 350000) return 'lossless';
+  if (value === 320000) return 'exhigh';
+  if (value === 192000 || value === 128000) return 'standard';
+  return 'exhigh';
+}
+
+function mapMusicQualityToResolverLevel(value) {
+  const normalized = normalizeMusicQuality(value);
+  if (normalized === 'standard') return 'standard';
+  if (normalized === 'exhigh') return 'exhigh';
+  if (normalized === 'lossless') return 'lossless';
+  if (normalized === 'hires') return 'hires';
+  if (normalized === 'jyeffect') return 'jyeffect';
+  if (normalized === 'sky') return 'sky';
+  if (normalized === 'jymaster') return 'jymaster';
+  return 'exhigh';
+}
+
+async function syncResolverDefaultQuality(level) {
+  try {
+    const currentData = await getResolverConfig();
+    await updateResolverConfig({
+      ...(currentData.config || {}),
+      audio: {
+        ...((currentData.config || {}).audio || {}),
+        defaultQuality: level,
+      },
+    });
+  } catch (error) {
+    console.warn('Failed to sync resolver default quality', error);
+  }
+}
 
  // module-level helper — used in computed section where `this` is unavailable
  const setting = (key, defaults) => ({
@@ -983,12 +1062,13 @@ const electronSettings = window.electronAPI?.settings;
     },
     musicQuality: {
       get() {
-        return this.settings.musicQuality ?? 320000;
+        return normalizeMusicQuality(this.settings.musicQuality);
       },
       set(value) {
         if (value === this.settings.musicQuality) return;
         this.$store.commit('changeMusicQuality', value);
         this.clearCache();
+        syncResolverDefaultQuality(mapMusicQualityToResolverLevel(value));
       },
     },
     lyricFontSize: {
@@ -1073,6 +1153,8 @@ const electronSettings = window.electronAPI?.settings;
     enableGlobalShortcut: setting('enableGlobalShortcut'),
     showLibraryDefault: setting('showLibraryDefault', false),
     cacheLimit: setting('cacheLimit', false),
+    useAudioResolver: setting('useAudioResolver', false),
+    audioResolverUrl: setting('audioResolverUrl', 'http://127.0.0.1:27232'),
     proxyProtocol: {
       get() {
         return this.settings.proxyConfig?.protocol || 'noProxy';
@@ -1245,6 +1327,30 @@ const electronSettings = window.electronAPI?.settings;
       clearDB().then(() => {
         this.countDBSize();
       });
+    },
+    async clearResolverBackendCache() {
+      try {
+        await clearResolverCache();
+        this.showToast('已清除 resolver 后端缓存');
+      } catch (error) {
+        this.showToast(`清除后端缓存失败：${error.message || error}`);
+      }
+    },
+    async syncFrontendCookieToResolver() {
+      try {
+        const cookie = getCookieString();
+        if (!cookie) {
+          this.showToast('前端没有可同步的 Cookie');
+          return;
+        }
+        await syncCookieToResolverWithRetry(cookie, {
+          timeoutMs: 10000,
+          intervalMs: 1000,
+        });
+        this.showToast('已从前端同步 Cookie 到 resolver');
+      } catch (error) {
+        this.showToast(`同步 Cookie 失败：${error.message || error}`);
+      }
     },
     lastfmConnect() {
       lastfmAuth();

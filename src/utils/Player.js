@@ -43,6 +43,16 @@ const excludeSaveKeys = [
   '_personalFMNextLoading',
 ];
 
+function formatTrackDebugLabel(track) {
+  if (!track) return 'unknown #0';
+  const name = track.name || 'unknown';
+  const id = track.id || 0;
+  const artists = Array.isArray(track.ar)
+    ? track.ar.map(a => a?.name).filter(Boolean).join(', ')
+    : '';
+  return `${name}${artists ? ` by ${artists}` : ''} #${id}`;
+}
+
 function setTitle(track) {
   document.title = track
     ? `${track.name} · ${track.ar[0].name} - YesPlayMusic`
@@ -130,11 +140,43 @@ export default class {
 
     window.yesplaymusic = {};
     window.yesplaymusic.player = this;
+    Object.defineProperty(window.yesplaymusic, 'currentTrackId', {
+      enumerable: true,
+      configurable: true,
+      get: () => this.currentTrackID,
+    });
+    Object.defineProperty(window.yesplaymusic, 'currentTrackLabel', {
+      enumerable: true,
+      configurable: true,
+      get: () => {
+        const track = this.currentTrack;
+        if (!track) return '';
+        const name = track.name || 'unknown';
+        const id = track.id || 0;
+        return `${name} #${id}`;
+      },
+    });
   }
 
   bindReactiveSelf(player) {
     this._reactiveSelf = player;
     window.yesplaymusic.player = player;
+    Object.defineProperty(window.yesplaymusic, 'currentTrackId', {
+      enumerable: true,
+      configurable: true,
+      get: () => player.currentTrackID,
+    });
+    Object.defineProperty(window.yesplaymusic, 'currentTrackLabel', {
+      enumerable: true,
+      configurable: true,
+      get: () => {
+        const track = player.currentTrack;
+        if (!track) return '';
+        const name = track.name || 'unknown';
+        const id = track.id || 0;
+        return `${name} #${id}`;
+      },
+    });
   }
 
   _getReactiveSelf() {
@@ -300,6 +342,7 @@ export default class {
     }
   }
   _setCurrentTrack(track) {
+    console.debug(`[debug][Player.js] currentTrack => ${formatTrackDebugLabel(track)}`);
     this._currentTrack = track;
     this.persist();
     store.commit('bumpPlayerVersion');
@@ -403,6 +446,9 @@ export default class {
     this._progress = 0;
     this._currentAudioSource = source;
     this._audioToken += 1;
+    console.debug(
+      `[debug][Player.js] loadAudioSource => ${formatTrackDebugLabel(this._currentTrack)} source:${source}`
+    );
     this._audio.load(source, this._audioToken);
     if (autoplay) {
       this.play();
@@ -543,6 +589,9 @@ export default class {
     autoplay = true,
     ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK
   ) {
+    console.debug(
+      `[debug][Player.js] replaceCurrentTrack => id:${id} autoplay:${autoplay} current:${formatTrackDebugLabel(this._currentTrack)}`
+    );
     if (autoplay && this._currentTrack.name) {
       this._scrobble(this.currentTrack, this.seek(null, false));
     }
@@ -776,6 +825,9 @@ export default class {
       this._setPlaying(false);
       return false;
     }
+    console.debug(
+      `[debug][Player.js] playNextTrack => next:${trackID} from:${formatTrackDebugLabel(this._currentTrack)}`
+    );
     this.current = index;
     this._replaceCurrentTrack(trackID);
     return true;
@@ -828,6 +880,9 @@ export default class {
   playPrevTrack() {
     const [trackID, index] = this._getSiblingTrack(false);
     if (trackID === undefined) return false;
+    console.debug(
+      `[debug][Player.js] playPrevTrack => prev:${trackID} from:${formatTrackDebugLabel(this._currentTrack)}`
+    );
     this.current = index;
     this._replaceCurrentTrack(
       trackID,
@@ -952,6 +1007,10 @@ export default class {
     );
     getPlaylistDetail(id, noCache).then(data => {
       let trackIDs = data.playlist.trackIds.map(t => t.id);
+      const picked = trackID === 'first' ? trackIDs[0] : trackID;
+      console.debug(
+        `[debug][Player.js] playlistReady => playlist:${id} picked:${picked} target:${formatTrackDebugLabel({ id: picked, name: 'pending' })}`
+      );
       this.replacePlaylist(trackIDs, id, 'playlist', trackID);
     });
   }
