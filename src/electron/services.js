@@ -2,6 +2,8 @@ import clc from 'cli-color';
 import server from '@neteasecloudmusicapienhanced/api/server';
 import generateConfig from '@neteasecloudmusicapienhanced/api/generateConfig';
 
+export const NETEASE_API_PORT = 10754;
+
 export async function startNeteaseMusicApi() {
   // Let user know that the service is starting
   console.log(`${clc.redBright('[NetEase API]')} initiating NCM API`);
@@ -18,6 +20,6 @@ export async function startNeteaseMusicApi() {
 
   // Start the NCM API server
   await server.serveNcmApi({
-    port: 10754,
+    port: NETEASE_API_PORT,
   });
 }

@@ -1,6 +1,7 @@
 'use strict';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import net from 'node:net';
 import {
   app,
   protocol,
@@ -18,7 +19,7 @@ import {
   isDevelopment,
   isCreateTray,
 } from '@/utils/platform';
-import { startNeteaseMusicApi } from '../electron/services';
+import { NETEASE_API_PORT, startNeteaseMusicApi } from '../electron/services';
 import { registerProvider } from '../../server/resolver/providerManager.js';
 import * as neteaseProvider from '../../server/providers/netease.js';
 import * as unblockProvider from '../../server/providers/unblock.js';
@@ -64,6 +65,40 @@ global.__static = app.isPackaged
 const log = text => {
   console.log(`${clc.blueBright('[main]')} ${text}`);
 };
+
+const waitForTcpPort = (port, host = '127.0.0.1', timeout = 8000) =>
+  new Promise(resolve => {
+    const startedAt = Date.now();
+    let done = false;
+
+    const tryConnect = () => {
+      const socket = net.createConnection({ host, port });
+      socket.setTimeout(1000);
+
+      socket.once('connect', () => {
+        done = true;
+        socket.destroy();
+        resolve(true);
+      });
+      socket.once('timeout', () => {
+        socket.destroy();
+      });
+      socket.once('error', () => {
+        socket.destroy();
+      });
+      socket.once('close', () => {
+        if (done) return;
+        if (Date.now() - startedAt >= timeout) {
+          done = true;
+          resolve(false);
+        } else {
+          setTimeout(tryConnect, 250);
+        }
+      });
+    };
+
+    tryConnect();
+  });
 
 const closeOnLinux = (e, win, store) => {
   let closeOpt = store.get('settings.closeAppOption');
@@ -201,7 +236,20 @@ class Background {
     const adminDir = path.join(__dirname, '../../admin');
     expressApp.use('/admin', express.static(adminDir));
 
-    expressApp.use('/api', expressProxy('http://127.0.0.1:10754'));
+    expressApp.use(
+      '/api',
+      expressProxy(`http://127.0.0.1:${NETEASE_API_PORT}`, {
+        proxyErrorHandler: (err, res, next) => {
+          log(`NetEase API proxy failed: ${err.message}`);
+          if (res.headersSent) return next(err);
+          res.status(503).json({
+            code: 'NETEASE_API_UNAVAILABLE',
+            message: 'NetEase API is still starting or unavailable',
+            error: err.code || err.message,
+          });
+        },
+      })
+    );
 
     if (isDevelopment) {
       expressApp.use(
@@ -438,6 +486,11 @@ class Background {
       // for development
       if (isDevelopment) {
         this.initDevtools();
+      }
+
+      const apiReady = await waitForTcpPort(NETEASE_API_PORT);
+      if (!apiReady) {
+        log(`NetEase API not ready on 127.0.0.1:${NETEASE_API_PORT}`);
       }
 
       // create window
