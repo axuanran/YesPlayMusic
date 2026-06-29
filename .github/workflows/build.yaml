@@ -9,6 +9,10 @@ on:
     branches:
       - dev
       - master
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'UPDATE.md'
     tags:
       - 'v*'
   workflow_dispatch:
