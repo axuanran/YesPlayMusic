@@ -8,9 +8,9 @@
         @click="handleClick"
       >
         <div
+          ref="thumbContainer"
           id="thumbContainer"
           :class="{ active }"
-          :style="thumbStyle"
           @mouseenter="handleMouseenter"
           @mouseleave="handleMouseleave"
           @mousedown="handleDragStart"
@@ -24,19 +24,16 @@
 </template>
 
 <script>
-const SCROLLBAR_SYNC_INTERVAL = 80;
 const POSITION_SAVE_INTERVAL = 250;
 
 export default {
   name: 'Scrollbar',
   data() {
     return {
-      top: 0,
-      thumbHeight: 0,
       active: false,
       show: false,
       hideTimer: null,
-      scrollSyncTimer: null,
+      scrollFrame: null,
       positionSaveTimer: null,
       pendingRoutePosition: null,
       isOnDrag: false,
@@ -47,18 +44,13 @@ export default {
     };
   },
   computed: {
-    thumbStyle() {
-      return {
-        transform: `translateY(${this.top}px)`,
-        height: `${this.thumbHeight}px`,
-      };
-    },
     main() {
       return this.$parent.$refs.main;
     },
   },
 
   created() {
+    this._thumbTop = 0;
     this.$router.beforeEach((to, from, next) => {
       this.show = false;
       next();
@@ -73,18 +65,20 @@ export default {
 
   methods: {
     handleScroll() {
-      if (this.scrollSyncTimer !== null) return;
-      this.scrollSyncTimer = setTimeout(() => {
-        this.scrollSyncTimer = null;
+      if (this.scrollFrame !== null) return;
+      this.scrollFrame = requestAnimationFrame(() => {
+        this.scrollFrame = null;
         this.syncScrollState();
-      }, SCROLLBAR_SYNC_INTERVAL);
+      });
     },
     syncScrollState() {
-      if (!this.main) return;
+      const main = this.main;
+      const thumb = this.$refs.thumbContainer;
+      if (!main || !thumb) return;
 
-      const clintHeight = this.main.clientHeight - 128;
-      const scrollHeight = this.main.scrollHeight - 128;
-      const scrollTop = this.main.scrollTop;
+      const clintHeight = main.clientHeight - 128;
+      const scrollHeight = main.scrollHeight - 128;
+      const scrollTop = main.scrollTop;
 
       if (clintHeight <= 0 || scrollHeight <= 0 || scrollHeight <= clintHeight) {
         if (this.show) this.show = false;
@@ -99,8 +93,10 @@ export default {
         top = clintHeight - thumbHeight;
       }
 
-      if (this.top !== top) this.top = top;
-      if (this.thumbHeight !== thumbHeight) this.thumbHeight = thumbHeight;
+      this._thumbTop = top;
+      thumb.style.transform = `translateY(${top}px)`;
+      thumb.style.height = `${thumbHeight}px`;
+
       if (!this.show) this.show = true;
 
       this.setScrollbarHideTimeout();
@@ -143,17 +139,25 @@ export default {
       document.addEventListener('mouseup', this.handleDragEnd);
     },
     handleDragMove(e) {
-      if (!this.isOnDrag || !this.main) return;
-      const clintHeight = this.main.clientHeight - 128;
-      const scrollHeight = this.main.scrollHeight - 128;
+      const main = this.main;
+      const thumb = this.$refs.thumbContainer;
+      if (!this.isOnDrag || !main || !thumb) return;
+
+      const clintHeight = main.clientHeight - 128;
+      const scrollHeight = main.scrollHeight - 128;
+      if (clintHeight <= 0 || scrollHeight <= 0) return;
+
       const clientY = e.clientY;
-      const scrollTop = this.main.scrollTop;
+      const scrollTop = main.scrollTop;
       const offset = ~~(
         ((clientY - this.onDragClientY) / clintHeight) *
         scrollHeight
       );
-      this.top = ~~((scrollTop / scrollHeight) * clintHeight);
-      this.main.scrollBy(0, offset);
+      const top = ~~((scrollTop / scrollHeight) * clintHeight);
+
+      this._thumbTop = top;
+      thumb.style.transform = `translateY(${top}px)`;
+      main.scrollBy(0, offset);
       this.onDragClientY = clientY;
     },
     handleDragEnd() {
@@ -164,12 +168,8 @@ export default {
       this.syncScrollState();
     },
     handleClick(e) {
-      let scrollTop;
-      if (e.clientY < this.top + 84) {
-        scrollTop = -256;
-      } else {
-        scrollTop = 256;
-      }
+      if (!this.main) return;
+      const scrollTop = e.clientY < this._thumbTop + 84 ? -256 : 256;
       this.main.scrollBy({
         top: scrollTop,
         behavior: 'smooth',
@@ -184,10 +184,10 @@ export default {
     },
     clearTimers() {
       if (this.hideTimer !== null) clearTimeout(this.hideTimer);
-      if (this.scrollSyncTimer !== null) clearTimeout(this.scrollSyncTimer);
+      if (this.scrollFrame !== null) cancelAnimationFrame(this.scrollFrame);
       if (this.positionSaveTimer !== null) clearTimeout(this.positionSaveTimer);
       this.hideTimer = null;
-      this.scrollSyncTimer = null;
+      this.scrollFrame = null;
       this.positionSaveTimer = null;
     },
     restorePosition() {
@@ -217,6 +217,9 @@ export default {
 
   #thumbContainer {
     margin-top: 64px;
+    transform: translateY(0);
+    height: 24px;
+    will-change: transform;
     div {
       transition: background 0.4s;
       position: absolute;
