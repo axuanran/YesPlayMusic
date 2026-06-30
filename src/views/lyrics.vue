@@ -226,13 +226,30 @@
       </div>
       <div class="right-side">
         <transition name="slide-fade">
+          <button-icon
+            v-show="!noLyric && !shouldAutoScrollLyrics"
+            class="back-to-current-lyric"
+            title="回到当前歌词"
+            @click="resumeLyricsAutoScroll"
+          >
+            <svg-icon icon-class="arrow-down" />
+          </button-icon>
+        </transition>
+        <transition name="slide-fade">
           <div
             v-show="!noLyric"
             ref="lyricsContainer"
             class="lyrics-container"
             :style="lyricFontSize"
+            @scroll="handleLyricsScroll"
+            @wheel.passive="pauseLyricsAutoScroll"
+            @touchstart.passive="pauseLyricsAutoScroll"
+            @mousedown="pauseLyricsAutoScroll"
           >
-            <div id="line-1" class="line"></div>
+            <div
+              class="lyrics-edge-spacer"
+              :style="{ height: lyricsEdgeSpacerHeight }"
+            ></div>
             <div
               v-for="(line, index) in lyricToShow"
               :id="`line${index}`"
@@ -262,6 +279,10 @@
                 >
               </div>
             </div>
+            <div
+              class="lyrics-edge-spacer"
+              :style="{ height: lyricsEdgeSpacerHeight }"
+            ></div>
             <ContextMenu v-if="!noLyric" ref="lyricMenu">
               <div class="item" @click="copyLyric(false)">{{
                 $t('contextMenu.copyLyric')
@@ -327,11 +348,17 @@ export default {
       romalyric: [],
       lyricType: 'translation', // or 'romaPronunciation'
       highlightLyricIndex: -1,
+      isAutoScrollingLyrics: false,
+      shouldAutoScrollLyrics: true,
+      lyricsAutoScrollTimer: null,
+      lyricsAutoResumeTimer: null,
+      lyricsEdgeSpacerHeight: '50%',
       minimize: true,
       background: '',
       date: this.formatTime(new Date()),
       isFullscreen: !!document.fullscreenElement,
       rightClickLyric: null,
+      updateLyricsEdgeSpacerOnResize: null,
     };
   },
   computed: {
@@ -447,15 +474,24 @@ export default {
   },
   watch: {
     currentTrack() {
-      this.getLyric();
+      this.shouldAutoScrollLyrics = true;
+      this.highlightLyricIndex = -1;
+      clearTimeout(this.lyricsAutoResumeTimer);
+      Promise.resolve(this.getLyric()).then(() => {
+        this.$nextTick(() => this.syncCurrentLyricPosition(true));
+      });
       this.getCoverColor();
     },
     showLyrics(show) {
       if (show) {
+        this.shouldAutoScrollLyrics = true;
+        this.$nextTick(() => this.updateLyricsEdgeSpacer());
         this.setLyricsInterval();
         this.$store.commit('enableScrolling', false);
       } else {
         clearInterval(this.lyricsInterval);
+        clearTimeout(this.lyricsAutoScrollTimer);
+        clearTimeout(this.lyricsAutoResumeTimer);
         this.$store.commit('enableScrolling', true);
       }
     },
@@ -473,6 +509,8 @@ export default {
     document.addEventListener('fullscreenchange', () => {
       this.isFullscreen = !!document.fullscreenElement;
     });
+    this.updateLyricsEdgeSpacerOnResize = () => this.updateLyricsEdgeSpacer();
+    window.addEventListener('resize', this.updateLyricsEdgeSpacerOnResize);
   },
   beforeUnmount: function () {
     if (this.timer) {
@@ -481,6 +519,9 @@ export default {
   },
   unmounted() {
     clearInterval(this.lyricsInterval);
+    clearTimeout(this.lyricsAutoScrollTimer);
+    clearTimeout(this.lyricsAutoResumeTimer);
+    window.removeEventListener('resize', this.updateLyricsEdgeSpacerOnResize);
   },
   methods: {
     ...mapMutations(['toggleLyrics', 'updateModal']),
@@ -620,6 +661,7 @@ export default {
         }
       });
       if (window.getSelection().toString().length === 0 && !jumpFlag) {
+        this.shouldAutoScrollLyrics = true;
         this.player.seek(value);
       }
       if (startPlay === true) {
@@ -643,23 +685,107 @@ export default {
     },
     setLyricsInterval() {
       this.lyricsInterval = setInterval(() => {
-        const progress = this.player.seek(null, false) ?? 0;
-        let oldHighlightLyricIndex = this.highlightLyricIndex;
-        this.highlightLyricIndex = this.lyric.findIndex((l, index) => {
-          const nextLyric = this.lyric[index + 1];
-          return (
-            progress >= l.time && (nextLyric ? progress < nextLyric.time : true)
-          );
-        });
-        if (oldHighlightLyricIndex !== this.highlightLyricIndex) {
-          const el = document.getElementById(`line${this.highlightLyricIndex}`);
-          if (el)
-            el.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-            });
+        if (this.syncCurrentLyricPosition()) {
+          this.scrollCurrentLyricIntoCenter();
         }
       }, 50);
+    },
+    syncCurrentLyricPosition(force = false) {
+      const progress = this.player.seek(null, false) ?? 0;
+      const oldHighlightLyricIndex = this.highlightLyricIndex;
+      this.highlightLyricIndex = this.lyric.findIndex((l, index) => {
+        const nextLyric = this.lyric[index + 1];
+        return (
+          progress >= l.time && (nextLyric ? progress < nextLyric.time : true)
+        );
+      });
+      return (
+        this.shouldAutoScrollLyrics &&
+        this.highlightLyricIndex >= 0 &&
+        (force || oldHighlightLyricIndex !== this.highlightLyricIndex)
+      );
+    },
+    handleLyricsScroll() {
+      if (this.isAutoScrollingLyrics) {
+        clearTimeout(this.lyricsAutoScrollTimer);
+        this.lyricsAutoScrollTimer = setTimeout(() => {
+          this.isAutoScrollingLyrics = false;
+        }, 120);
+        return;
+      }
+      this.pauseLyricsAutoScroll();
+    },
+    pauseLyricsAutoScroll() {
+      this.isAutoScrollingLyrics = false;
+      this.shouldAutoScrollLyrics = false;
+      clearTimeout(this.lyricsAutoResumeTimer);
+      if (
+        this.settings.lyricsAutoResumeWhenVisible &&
+        this.isCurrentLyricVisible()
+      ) {
+        this.shouldAutoScrollLyrics = true;
+        return;
+      }
+      const resumeDelay = Number(this.settings.lyricsAutoResumeDelay ?? 4000);
+      if (resumeDelay <= 0) return;
+      this.lyricsAutoResumeTimer = setTimeout(() => {
+        this.resumeLyricsAutoScroll();
+      }, resumeDelay);
+    },
+    resumeLyricsAutoScroll() {
+      clearTimeout(this.lyricsAutoResumeTimer);
+      this.shouldAutoScrollLyrics = true;
+      this.updateLyricsEdgeSpacer();
+      this.scrollCurrentLyricIntoCenter();
+    },
+    isCurrentLyricVisible() {
+      const container = this.$refs.lyricsContainer;
+      const el = document.getElementById(`line${this.highlightLyricIndex}`);
+      if (!container || !el) return false;
+
+      const containerRect = container.getBoundingClientRect();
+      const lyricRect = el.getBoundingClientRect();
+      return (
+        lyricRect.top >= containerRect.top &&
+        lyricRect.bottom <= containerRect.bottom
+      );
+    },
+    scrollCurrentLyricIntoCenter() {
+      const container = this.$refs.lyricsContainer;
+      const el = document.getElementById(`line${this.highlightLyricIndex}`);
+      if (!container || !el) return;
+
+      clearTimeout(this.lyricsAutoScrollTimer);
+      this.isAutoScrollingLyrics = true;
+      this.updateLyricsEdgeSpacer(el);
+
+      const containerRect = container.getBoundingClientRect();
+      const lyricRect = el.getBoundingClientRect();
+      const top =
+        container.scrollTop +
+        lyricRect.top +
+        lyricRect.height / 2 -
+        containerRect.top -
+        container.clientHeight / 2;
+      container.scrollTo({
+        top,
+        behavior: 'smooth',
+      });
+      this.lyricsAutoScrollTimer = setTimeout(() => {
+        this.isAutoScrollingLyrics = false;
+      }, 120);
+    },
+    updateLyricsEdgeSpacer(el = null) {
+      const container = this.$refs.lyricsContainer;
+      if (!container) return;
+
+      const lyricEl =
+        el || document.getElementById(`line${this.highlightLyricIndex}`);
+      const spacerHeight = Math.max(
+        0,
+        (container.clientHeight - (lyricEl?.clientHeight || 0)) / 2
+      );
+      this.lyricsEdgeSpacerHeight = `${spacerHeight}px`;
     },
     moveToFMTrash() {
       this.player.moveToFMTrash();
@@ -958,7 +1084,27 @@ export default {
   font-weight: 600;
   color: var(--color-text);
   margin-right: 24px;
+  position: relative;
   z-index: 0;
+
+  .back-to-current-lyric {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    z-index: 2;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--color-secondary-bg-for-transparent);
+    backdrop-filter: blur(12px);
+
+    .svg-icon {
+      width: 18px;
+      height: 18px;
+      opacity: 0.88;
+      transform: rotate(180deg);
+    }
+  }
 
   .lyrics-container {
     height: 100%;
@@ -969,6 +1115,10 @@ export default {
     overflow-y: auto;
     transition: 0.5s;
     scrollbar-width: none; // firefox
+
+    .lyrics-edge-spacer {
+      flex: 0 0 auto;
+    }
 
     .line {
       margin: 2px 0;
@@ -1026,12 +1176,8 @@ export default {
     display: none;
   }
 
-  .lyrics-container .line:first-child {
-    margin-top: 50vh;
-  }
-
   .lyrics-container .line:last-child {
-    margin-bottom: calc(50vh - 128px);
+    margin-bottom: 0;
   }
 }
 

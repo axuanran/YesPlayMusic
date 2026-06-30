@@ -317,6 +317,42 @@
           </select>
         </div>
       </div>
+      <div class="item">
+        <div class="left">
+          <div class="title">
+            {{ $t('settings.lyricsAutoResumeDelay.text') }}
+          </div>
+        </div>
+        <div class="right">
+          <select v-model="lyricsAutoResumeDelay">
+            <option :value="0">
+              {{ $t('settings.lyricsAutoResumeDelay.off') }}
+            </option>
+            <option :value="3000">3s</option>
+            <option :value="5000">5s</option>
+            <option :value="10000">10s</option>
+            <option :value="30000">30s</option>
+          </select>
+        </div>
+      </div>
+      <div class="item">
+        <div class="left">
+          <div class="title">
+            {{ $t('settings.lyricsAutoResumeWhenVisible') }}
+          </div>
+        </div>
+        <div class="right">
+          <div class="toggle">
+            <input
+              id="lyrics-auto-resume-when-visible"
+              v-model="lyricsAutoResumeWhenVisible"
+              type="checkbox"
+              name="lyrics-auto-resume-when-visible"
+            />
+            <label for="lyrics-auto-resume-when-visible"></label>
+          </div>
+        </div>
+      </div>
       <div v-if="isElectron && isLinux" class="item">
         <div class="left">
           <div class="title">
@@ -958,6 +994,8 @@ export default {
     },
     showLyricsTranslation: setting('showLyricsTranslation'),
     lyricsBackground: setting('lyricsBackground', false),
+    lyricsAutoResumeDelay: setting('lyricsAutoResumeDelay', 4000),
+    lyricsAutoResumeWhenVisible: setting('lyricsAutoResumeWhenVisible', true),
     showLyricsTime: setting('showLyricsTime'),
     enableOsdlyricsSupport: setting('enableOsdlyricsSupport'),
     closeAppOption: setting('closeAppOption'),

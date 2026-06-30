@@ -207,6 +207,12 @@ export default {
       on: 'On',
       dynamic: 'Dynamic (High GPU usage)',
     },
+    lyricsAutoResumeDelay: {
+      text: 'Return to current lyric after inactivity',
+      off: 'Off',
+    },
+    lyricsAutoResumeWhenVisible:
+      'Resume following automatically when current lyric is visible',
     closeAppOption: {
       text: 'Close App...',
       ask: 'Ask',

@@ -206,6 +206,11 @@ export default {
       on: '打开',
       dynamic: '动态（GPU 占用较高）',
     },
+    lyricsAutoResumeDelay: {
+      text: '无动作后回到当前歌词',
+      off: '关闭',
+    },
+    lyricsAutoResumeWhenVisible: '当前歌词可见时自动恢复跟随',
     showLyricsTime: '显示当前时间',
     closeAppOption: {
       text: '关闭主面板时...',

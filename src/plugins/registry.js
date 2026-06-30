@@ -1,6 +1,6 @@
 import resolverAdminPlugin from './builtin/resolver-admin/manifest';
 import { normalizePluginManifest, validatePluginManifest } from './manifest';
-import { getPluginState } from './settings';
+import { getPluginSettings, getPluginState } from './settings';
 import {
   disposePlugin as disposeRuntimePlugin,
   getPluginHealth,
@@ -10,6 +10,8 @@ import {
 import { collectPluginRoutes } from './routes';
 
 const builtinPlugins = [resolverAdminPlugin];
+
+export { getPluginSettings };
 
 export function getBuiltinPlugins() {
   const seenIds = new Set();
