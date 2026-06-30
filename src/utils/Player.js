@@ -18,6 +18,8 @@ import { emitPlayerEvent, PLAYER_EVENTS } from '@/plugins/playerEvents';
 const isCreateMpris = false;
 
 const PLAY_PAUSE_FADE_DURATION = 200;
+const PROGRESS_PERSIST_INTERVAL = 5000;
+const PROGRESS_SYNC_INTERVAL = 250;
 
 /**
  * @readonly
@@ -95,6 +97,8 @@ export default class {
     this._audioToken = 0; // 防止旧音频回调污染新的播放源
     this._reactiveSelf = this; // Vuex Proxy 创建后会回绑，用于音频事件触发响应式更新
     this._progressFrame = null;
+    this._progressSyncTimer = null;
+    this._progressPersistTimer = null;
     this._playNextList = []; // 当这个list不为空时，会优先播放这个list的歌
     this._isPersonalFM = false; // 是否是私人FM模式
     this._personalFMTrack = { id: 0 }; // 私人FM当前歌曲
@@ -133,6 +137,12 @@ export default class {
       enumerable: false,
     });
     Object.defineProperty(this, '_progressFrame', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_progressSyncTimer', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_progressPersistTimer', {
       enumerable: false,
     });
 
@@ -302,6 +312,14 @@ export default class {
     this.sendSelfToIpcMain();
   }
 
+  _schedulePersist() {
+    if (this._progressPersistTimer !== null) return;
+    this._progressPersistTimer = setTimeout(() => {
+      this._progressPersistTimer = null;
+      this.saveSelfToLocalStorage();
+    }, PROGRESS_PERSIST_INTERVAL);
+  }
+
   _guardNotPersonalFM() {
     return this._isPersonalFM;
   }
@@ -357,7 +375,13 @@ export default class {
     if (!this._audio) return;
     const duration = this.currentTrackDuration;
     this._progress = Math.min(this._audio.currentTime(), duration);
-    localStorage.setItem('playerCurrentTrackTime', this._progress);
+    if (this._progressSyncTimer === null) {
+      this._progressSyncTimer = setTimeout(() => {
+        this._progressSyncTimer = null;
+        localStorage.setItem('playerCurrentTrackTime', this._progress);
+      }, PROGRESS_SYNC_INTERVAL);
+    }
+    this._schedulePersist();
     if (isCreateMpris) {
       electronPlayer?.playerCurrentTrackTime(this._progress);
     }
@@ -851,6 +875,16 @@ export default class {
       this._audio?.pause();
       this._setPlaying(false);
       this._stopProgressLoop();
+      if (this._progressSyncTimer !== null) {
+        clearTimeout(this._progressSyncTimer);
+        this._progressSyncTimer = null;
+      }
+      if (this._progressPersistTimer !== null) {
+        clearTimeout(this._progressPersistTimer);
+        this._progressPersistTimer = null;
+      }
+      localStorage.setItem('playerCurrentTrackTime', this._progress);
+      this.saveSelfToLocalStorage();
       setTitle(null);
       this._pauseDiscordPresence(this._currentTrack);
       emitPlayerEvent(PLAYER_EVENTS.PLAYBACK_PAUSE, {
@@ -905,6 +939,11 @@ export default class {
     if (time !== null) {
       this._audio?.seek(time);
       this._syncProgress();
+      if (this._progressSyncTimer !== null) {
+        clearTimeout(this._progressSyncTimer);
+        this._progressSyncTimer = null;
+      }
+      localStorage.setItem('playerCurrentTrackTime', this._progress);
       if (isCreateMpris && sendMpris) {
         electronPlayer?.seeked(this._progress);
       }

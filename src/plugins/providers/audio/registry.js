@@ -1,8 +1,11 @@
-import store from '@/store';
 import { pluginEvents } from '@/plugins/events';
 import { AUDIO_PROVIDER_EVENTS } from '@/plugins/eventsCatalog';
 import { createPluginLogger } from '@/plugins/logger';
 import { getResolverQuality } from './quality';
+
+function getRuntimeStore() {
+  return globalThis?.yesplaymusicStore;
+}
 
 const logger = createPluginLogger('audio-provider');
 function normalizeProvider(provider) {
@@ -34,7 +37,7 @@ function normalizeResolveResult(provider, result, quality) {
 export function createAudioProviderRegistry({
   getQuality = getResolverQuality,
   logger: providerLogger = logger,
-  providerStore = store,
+  providerStore = getRuntimeStore(),
   events = pluginEvents,
 } = {}) {
   const audioProviders = new Map();

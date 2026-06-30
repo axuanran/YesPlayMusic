@@ -1,7 +1,9 @@
-import store from '@/store';
+function getRuntimeStore() {
+  return globalThis?.yesplaymusicStore;
+}
 
-export function getResolverQuality() {
-  const quality = store.state.settings?.musicQuality ?? 320000;
+export function getResolverQuality(runtimeStore = getRuntimeStore()) {
+  const quality = runtimeStore?.state?.settings?.musicQuality ?? 320000;
   switch (quality) {
     case 'standard':
     case 'exhigh':

@@ -69,5 +69,6 @@ player = new Proxy(player, {
 });
 player.bindReactiveSelf(player);
 store.state.player = player;
+globalThis.yesplaymusicStore = store;
 
 export default store;
