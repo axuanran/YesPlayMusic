@@ -207,6 +207,50 @@ nav {
   contain-intrinsic-size: 260px;
 }
 
+// Temporary low-cost visual mode during active scrolling. This preserves the normal
+// look at rest, but removes paint-heavy decoration while the viewport is moving.
+#app.is-scrolling {
+  nav,
+  .player,
+  .play-button,
+  .back-to-current-lyric,
+  .cover img,
+  .daily-recommend-card img {
+    transition: none !important;
+  }
+
+  nav,
+  .player,
+  .play-button,
+  .back-to-current-lyric,
+  .cover .shadow,
+  .playing .container img,
+  .daily-recommend-card,
+  .fm {
+    box-shadow: none !important;
+  }
+
+  .cover .shadow {
+    display: none !important;
+  }
+
+  .cover .shade,
+  .play-button {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .daily-recommend-card img {
+    transform: translateY(-18%) scale(1.02) !important;
+  }
+
+  .navigation-links a:active,
+  .button-icon:active,
+  .play-button:active {
+    transform: none !important;
+  }
+}
+
 [data-electron='yes'] {
   button,
   .navigation-links a,
