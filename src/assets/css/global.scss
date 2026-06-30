@@ -120,6 +120,26 @@ a {
   }
 }
 
+// Reduce expensive compositor effects in Electron/Chromium.
+// These fixed or full-screen layers are the most common source of high GPU usage.
+nav,
+.player,
+.play-button,
+.back-to-current-lyric {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+// Avoid full-screen blurred cover layers and permanent background motion.
+.lyrics-background {
+  filter: none !important;
+}
+
+.dynamic-background > div,
+.daily-recommend-card img {
+  animation: none !important;
+}
+
 [data-electron='yes'] {
   button,
   .navigation-links a,
