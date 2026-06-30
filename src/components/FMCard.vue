@@ -125,7 +125,11 @@ export default {
   box-sizing: border-box;
 }
 .cover {
+  display: block;
   height: 100%;
+  width: 166px;
+  flex: 0 0 166px;
+  object-fit: cover;
   clip-path: border-box;
   border-radius: 0.75rem;
   margin-right: 1.2rem;
@@ -138,6 +142,7 @@ export default {
   justify-content: space-between;
   color: var(--color-text);
   width: 100%;
+  min-width: 0;
   .title {
     font-size: 1.6rem;
     font-weight: 600;
