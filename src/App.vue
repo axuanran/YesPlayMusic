@@ -1,5 +1,11 @@
 <template>
-  <div id="app" :class="{ 'user-select-none': userSelectNone }">
+  <div
+    id="app"
+    :class="{
+      'user-select-none': userSelectNone,
+      'low-performance-mode': settings.lowPerformanceMode,
+    }"
+  >
     <Scrollbar v-show="!showLyrics" ref="scrollbar" />
     <Navbar v-show="showNavbar" ref="navbar" />
     <main
