@@ -8,19 +8,20 @@
       }"
       @click.stop
     >
-      <vue-slider
-        v-model="player.progress"
+      <input
+        class="progress-range"
+        type="range"
+        :value="progressValue"
         :min="0"
         :max="player.currentTrackDuration"
-        :interval="1"
-        :drag-on-click="true"
-        :duration="0"
-        :dot-size="12"
-        :height="2"
-        :tooltip-formatter="formatTrackTime"
-        :lazy="true"
-        :silent="true"
-      ></vue-slider>
+        :step="1"
+        :style="progressRangeStyle"
+        :aria-label="$t('player.progress')"
+        @input="handleProgressInput"
+        @change="handleProgressInput"
+        @mousedown.stop
+        @click.stop
+      />
     </div>
     <div class="controls">
       <div class="playing">
@@ -187,7 +188,6 @@ import '@/assets/css/slider.css';
 import ButtonIcon from '@/components/ButtonIcon.vue';
 import VueSlider from 'vue-slider-component';
 import { goToListSource, hasListSource } from '@/utils/playList';
-import { formatTrackTime } from '@/utils/common';
 
 export default {
   name: 'Player',
@@ -218,6 +218,22 @@ export default {
     playing() {
       return this.player.playing;
     },
+    progressValue() {
+      return Math.min(
+        this.player.progress || 0,
+        this.player.currentTrackDuration || 0
+      );
+    },
+    progressPercent() {
+      const duration = this.player.currentTrackDuration || 0;
+      if (duration <= 0) return 0;
+      return Math.min(100, Math.max(0, (this.progressValue / duration) * 100));
+    },
+    progressRangeStyle() {
+      return {
+        '--progress-percent': `${this.progressPercent}%`,
+      };
+    },
     audioSource() {
       return this.player.currentAudioSource?.includes('kuwo.cn')
         ? '音源来自酷我音乐'
@@ -242,6 +258,9 @@ export default {
     handleMouseDown(event) {
       this.mouseDownTarget = event.target;
     },
+    handleProgressInput(event) {
+      this.player.progress = Number(event.target.value);
+    },
     playPrevTrack() {
       this.player.playPrevTrack();
     },
@@ -264,9 +283,6 @@ export default {
       this.$route.name === 'next'
         ? this.$router.go(-1)
         : this.$router.push({ name: 'next' });
-    },
-    formatTrackTime(value) {
-      return formatTrackTime(value);
     },
     hasList() {
       return hasListSource();
@@ -360,6 +376,46 @@ export default {
   margin-top: -6px;
   margin-bottom: -6px;
   width: 100%;
+  height: 14px;
+  display: flex;
+  align-items: center;
+}
+
+.progress-range {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.progress-range::-webkit-slider-runnable-track {
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    var(--color-primary) 0%,
+    var(--color-primary) var(--progress-percent),
+    rgba(128, 128, 128, 0.28) var(--progress-percent),
+    rgba(128, 128, 128, 0.28) 100%
+  );
+}
+
+.progress-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: none;
+}
+
+.progress-range:focus {
+  outline: none;
 }
 
 .controls {
