@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/store', () => ({
   default: {
@@ -41,6 +41,10 @@ describe('audio provider registry', () => {
       events: { emit: vi.fn() },
     });
     vi.spyOn(Date, 'now').mockReturnValue(1000);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('sorts providers by priority', () => {
@@ -89,6 +93,56 @@ describe('audio provider registry', () => {
     await expect(
       registry.resolveTrackSourceWithProviders(1, 'hires')
     ).resolves.toBe('https://example.test/b.mp3');
+  });
+
+  it('caches successful results by track and quality', async () => {
+    const resolve = vi.fn().mockResolvedValue('https://example.test/c.mp3');
+    registry.registerAudioProvider({
+      id: 'demo',
+      resolve,
+    });
+
+    await expect(
+      registry.resolveTrackSourceWithProviders(1, 'standard')
+    ).resolves.toBe('https://example.test/c.mp3');
+    await expect(
+      registry.resolveTrackSourceWithProviders(1, 'standard')
+    ).resolves.toBe('https://example.test/c.mp3');
+
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
+  it('expires cached successful results', async () => {
+    registry = createAudioProviderRegistry({
+      getQuality: () => 'lossless',
+      logger: {
+        debug: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+      providerStore: { state: { settings: { musicQuality: 'lossless' } } },
+      events: { emit: vi.fn() },
+      cacheTtl: 100,
+    });
+    const resolve = vi
+      .fn()
+      .mockResolvedValueOnce('https://example.test/first.mp3')
+      .mockResolvedValueOnce('https://example.test/second.mp3');
+    registry.registerAudioProvider({
+      id: 'demo',
+      resolve,
+    });
+
+    vi.mocked(Date.now).mockReturnValue(1000);
+    await expect(
+      registry.resolveTrackSourceWithProviders(1, 'standard')
+    ).resolves.toBe('https://example.test/first.mp3');
+    vi.mocked(Date.now).mockReturnValue(1200);
+    await expect(
+      registry.resolveTrackSourceWithProviders(1, 'standard')
+    ).resolves.toBe('https://example.test/second.mp3');
+
+    expect(resolve).toHaveBeenCalledTimes(2);
   });
 
   it('falls back after provider errors and stores error status', async () => {

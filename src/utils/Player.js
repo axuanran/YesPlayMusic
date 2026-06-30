@@ -95,6 +95,9 @@ export default class {
     this._currentTrack = { id: 86827685 }; // 当前播放歌曲的详细信息
     this._currentAudioSource = ''; // 当前播放音频地址，用于展示来源信息
     this._audioToken = 0; // 防止旧音频回调污染新的播放源
+    this._trackRequestToken = 0; // 防止旧切歌请求污染当前播放状态
+    this._prefetchToken = 0;
+    this._prefetchingTrackId = null;
     this._reactiveSelf = this; // Vuex Proxy 创建后会回绑，用于音频事件触发响应式更新
     this._progressFrame = null;
     this._progressSyncTimer = null;
@@ -131,6 +134,15 @@ export default class {
       },
     });
     Object.defineProperty(this, '_audio', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_trackRequestToken', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_prefetchToken', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_prefetchingTrackId', {
       enumerable: false,
     });
     Object.defineProperty(this, '_reactiveSelf', {
@@ -553,11 +565,17 @@ export default class {
       return source ?? this._getAudioSourceFromNetease(track);
     });
   }
+  _isTrackRequestCurrent(token) {
+    return token === undefined || token === this._trackRequestToken;
+  }
   _replaceCurrentTrack(
     id,
     autoplay = true,
     ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK
   ) {
+    const requestToken = ++this._trackRequestToken;
+    this._prefetchToken += 1;
+    this._prefetchingTrackId = null;
     console.debug(
       `[debug][Player.js] replaceCurrentTrack => id:${id} autoplay:${autoplay} current:${formatTrackDebugLabel(this._currentTrack)}`
     );
@@ -565,6 +583,7 @@ export default class {
       this._scrobble(this.currentTrack, this.seek(null, false));
     }
     return getTrackDetail(id).then(data => {
+      if (!this._isTrackRequestCurrent(requestToken)) return false;
       const track = data.songs[0];
       this._setCurrentTrack(track);
       this._updateMediaSessionMetaData(track);
@@ -572,7 +591,8 @@ export default class {
         track,
         autoplay,
         true,
-        ifUnplayableThen
+        ifUnplayableThen,
+        requestToken
       );
     });
   }
@@ -583,9 +603,11 @@ export default class {
     track,
     autoplay,
     isCacheNextTrack,
-    ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK
+    ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK,
+    requestToken
   ) {
     return this._getAudioSource(track).then(source => {
+      if (!this._isTrackRequestCurrent(requestToken)) return false;
       if (source) {
         let replaced = false;
         if (track.id === this.currentTrackID) {
@@ -622,10 +644,24 @@ export default class {
       : this._getSiblingTrack(true)[0];
     if (!nextTrackID) return;
     if (this._personalFMTrack.id == nextTrackID) return;
-    getTrackDetail(nextTrackID).then(data => {
-      let track = data.songs[0];
-      this._getAudioSource(track);
-    });
+    if (this._prefetchingTrackId === nextTrackID) return;
+
+    const prefetchToken = ++this._prefetchToken;
+    this._prefetchingTrackId = nextTrackID;
+    getTrackDetail(nextTrackID)
+      .then(data => {
+        if (prefetchToken !== this._prefetchToken) return null;
+        let track = data.songs[0];
+        return this._getAudioSource(track);
+      })
+      .catch(error => {
+        console.debug('[debug][Player.js] cacheNextTrack failed', error);
+      })
+      .finally(() => {
+        if (prefetchToken === this._prefetchToken) {
+          this._prefetchingTrackId = null;
+        }
+      });
   }
   _loadSelfFromLocalStorage() {
     const player = JSON.parse(localStorage.getItem('player'));
@@ -790,6 +826,9 @@ export default class {
     }
     const [trackID, index] = this._getSiblingTrack(true);
     if (trackID === undefined) {
+      this._trackRequestToken += 1;
+      this._prefetchToken += 1;
+      this._prefetchingTrackId = null;
       this._audio?.stop();
       this._setPlaying(false);
       return false;
