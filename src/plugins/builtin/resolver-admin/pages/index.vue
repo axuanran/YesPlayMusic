@@ -18,7 +18,10 @@
         @sync-cookie="syncFrontendCookieToResolver"
         @clear-cache="clearResolverBackendCache"
       />
-      <provider-status :providers="providerStatus" />
+      <provider-status
+        :providers="providerStatus"
+        @refresh="refreshProviderStatus"
+      />
       <resolve-tester
         :track-id="testTrackId"
         :quality="testQuality"
@@ -67,7 +70,7 @@ export default {
     return {
       testTrackId: '',
       testQuality: 'standard',
-      testResult: '',
+      testResult: null,
       providerStatus: getAudioProviderStatus(),
     };
   },
@@ -110,17 +113,28 @@ export default {
         this.showToast('请输入 trackId');
         return;
       }
-      this.testResult = '解析中...';
+      const startedAt = Date.now();
+      this.testResult = {
+        status: '解析中',
+      };
       try {
         const playUrl = await resolveTrackSourceWithProviders(
           Number(this.testTrackId) || this.testTrackId,
           this.testQuality
         );
         this.refreshProviderStatus();
-        this.testResult = playUrl || '未获取到播放地址';
+        this.testResult = {
+          status: playUrl ? '成功' : '未获取到播放地址',
+          durationMs: Date.now() - startedAt,
+          playUrl,
+        };
       } catch (error) {
         this.refreshProviderStatus();
-        this.testResult = error.message || String(error);
+        this.testResult = {
+          status: '失败',
+          durationMs: Date.now() - startedAt,
+          error: error.message || String(error),
+        };
       }
     },
     async syncFrontendCookieToResolver() {

@@ -1,7 +1,9 @@
+import { createPluginLogger } from './logger';
+
 const requiredManifestFields = ['id', 'name', 'version', 'type'];
 
 export function warnPlugin(pluginId, message, error) {
-  console.warn(`[plugins:${pluginId}] ${message}`, error || '');
+  createPluginLogger(pluginId).warn(message, error || '');
 }
 
 export function validatePluginManifest(plugin, seenIds = new Set()) {

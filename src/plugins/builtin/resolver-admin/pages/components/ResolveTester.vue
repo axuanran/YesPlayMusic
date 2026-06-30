@@ -22,7 +22,14 @@
       </select>
       <button @click="$emit('test')">测试</button>
     </div>
-    <div v-if="result" class="test-result">{{ result }}</div>
+    <div v-if="result" class="test-result">
+      <div v-if="result.status">状态：{{ result.status }}</div>
+      <div v-if="result.durationMs !== undefined">
+        耗时：{{ result.durationMs }}ms
+      </div>
+      <div v-if="result.playUrl">地址：{{ result.playUrl }}</div>
+      <div v-if="result.error">错误：{{ result.error }}</div>
+    </div>
   </div>
 </template>
 
@@ -39,8 +46,8 @@ export default {
       required: true,
     },
     result: {
-      type: String,
-      default: '',
+      type: Object,
+      default: null,
     },
   },
   emits: ['update:trackId', 'update:quality', 'test'],

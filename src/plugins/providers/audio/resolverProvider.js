@@ -12,7 +12,17 @@ export function registerResolverAudioProvider() {
       const result = await resolveAudioByBackend(trackId, quality, {
         track: typeof track === 'object' ? track : undefined,
       });
-      return result.playUrl;
+      return {
+        ok: true,
+        playUrl: result.playUrl,
+        providerId: 'resolver-audio-provider',
+        quality: result.quality || quality,
+        meta: {
+          mode: result.mode,
+          source: result.source,
+          expiresAt: result.expiresAt,
+        },
+      };
     },
   });
 }

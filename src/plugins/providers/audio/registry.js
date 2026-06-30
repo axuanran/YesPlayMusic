@@ -1,9 +1,11 @@
 import store from '@/store';
 import { pluginEvents } from '@/plugins/events';
+import { createPluginLogger } from '@/plugins/logger';
 import { getResolverQuality } from './quality';
 
+const logger = createPluginLogger('audio-provider');
 const audioProviders = new Map();
-const providerErrors = new Map();
+const providerStatus = new Map();
 
 function normalizeProvider(provider) {
   if (!provider?.id || typeof provider.resolve !== 'function') {
@@ -26,14 +28,34 @@ export function registerAudioProvider(provider) {
 
 export function unregisterAudioProvider(providerId) {
   audioProviders.delete(providerId);
-  providerErrors.delete(providerId);
+  providerStatus.delete(providerId);
+}
+
+function updateProviderStatus(providerId, patch) {
+  providerStatus.set(providerId, {
+    ...providerStatus.get(providerId),
+    ...patch,
+  });
+}
+
+function normalizeResolveResult(provider, result, quality) {
+  const playUrl = typeof result === 'string' ? result : result?.playUrl;
+  if (!playUrl) return null;
+  return {
+    ok: true,
+    providerId: provider.id,
+    quality,
+    meta: {},
+    ...(typeof result === 'string' ? {} : result),
+    playUrl,
+  };
 }
 
 export function getAudioProviders() {
   return Array.from(audioProviders.values())
     .map(provider => ({
       ...provider,
-      lastError: providerErrors.get(provider.id),
+      ...providerStatus.get(provider.id),
       active: provider.enabled?.() !== false,
     }))
     .sort((a, b) => b.priority - a.priority);
@@ -46,6 +68,8 @@ export function getAudioProviderStatus() {
     priority: provider.priority,
     active: provider.active,
     lastError: provider.lastError,
+    lastErrorAt: provider.lastErrorAt,
+    lastSuccessAt: provider.lastSuccessAt,
   }));
 }
 
@@ -60,25 +84,41 @@ export async function resolveTrackSourceWithProviders(track, qualityOverride) {
         store,
         events: pluginEvents,
       });
-      const playUrl = typeof result === 'string' ? result : result?.playUrl;
-      if (!playUrl) continue;
-      providerErrors.delete(provider.id);
+      const normalizedResult = normalizeResolveResult(
+        provider,
+        result,
+        quality
+      );
+      if (!normalizedResult) continue;
+      updateProviderStatus(provider.id, {
+        lastError: undefined,
+        lastErrorAt: undefined,
+        lastSuccessAt: Date.now(),
+        lastResult: {
+          providerId: normalizedResult.providerId,
+          quality: normalizedResult.quality,
+          playUrl: normalizedResult.playUrl,
+        },
+      });
       pluginEvents.emit('audio:resolve:success', {
         track,
         quality,
         providerId: provider.id,
       });
-      return playUrl;
+      return normalizedResult.playUrl;
     } catch (error) {
       const message = error?.message || String(error);
-      providerErrors.set(provider.id, message);
+      updateProviderStatus(provider.id, {
+        lastError: message,
+        lastErrorAt: Date.now(),
+      });
       pluginEvents.emit('audio:resolve:error', {
         track,
         quality,
         providerId: provider.id,
         error,
       });
-      console.warn(`[audio-provider:${provider.id}] resolve failed:`, error);
+      logger.warn(`${provider.id} resolve failed`, error);
     }
   }
 
