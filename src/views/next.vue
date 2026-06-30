@@ -47,7 +47,7 @@ export default {
   computed: {
     ...mapState(['player']),
     currentTrack() {
-      return this.player.currentTrack;
+      return this.player.displayTrack;
     },
     playerShuffle() {
       return this.player.shuffle;

@@ -122,7 +122,11 @@ export function createAudioProviderRegistry({
     }));
   }
 
-  async function resolveTrackSourceWithProviders(track, qualityOverride) {
+  async function resolveTrackSourceWithProviders(
+    track,
+    qualityOverride,
+    options = {}
+  ) {
     const quality = qualityOverride || getQuality();
     const cacheKey = getCacheKey(track, quality);
     const cachedSource = getCachedSource(cacheKey);
@@ -136,6 +140,7 @@ export function createAudioProviderRegistry({
         const result = await provider.resolve(track, quality, {
           store: getProviderStore(),
           events,
+          signal: options.signal,
         });
         const normalizedResult = normalizeResolveResult(
           provider,

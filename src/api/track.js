@@ -14,7 +14,7 @@ import {
  * !!!未登录状态返回试听片段(返回字段包含被截取的正常歌曲的开始时间和结束时间)
  * @param {string} id - 音乐的 id，例如 id=405998841,33894312
  */
-export function getMP3(id) {
+export function getMP3(id, options = {}) {
   const getBr = () => {
     const quality = store.state.settings?.musicQuality ?? 'exhigh';
     switch (quality) {
@@ -39,6 +39,7 @@ export function getMP3(id) {
   return request({
     url: '/song/url',
     method: 'get',
+    signal: options.signal,
     params: {
       id,
       br: getBr(),
@@ -51,11 +52,12 @@ export function getMP3(id) {
  * 说明 : 调用此接口 , 传入音乐 id(支持多个 id, 用 , 隔开), 可获得歌曲详情(注意:歌曲封面现在需要通过专辑内容接口获取)
  * @param {string} ids - 音乐 id, 例如 ids=405998841,33894312
  */
-export function getTrackDetail(ids) {
+export function getTrackDetail(ids, options = {}) {
   const fetchLatest = () => {
     return request({
       url: '/song/detail',
       method: 'get',
+      signal: options.signal,
       params: {
         ids,
       },
@@ -68,7 +70,6 @@ export function getTrackDetail(ids) {
       return data;
     });
   };
-  fetchLatest();
 
   let idsInArray = [String(ids)];
   if (typeof ids === 'string') {

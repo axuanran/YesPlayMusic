@@ -7,10 +7,11 @@ export function registerResolverAudioProvider() {
     name: 'Resolver Audio Provider',
     priority: 1000,
     enabled: () => isResolverEnabled(),
-    async resolve(track, quality) {
+    async resolve(track, quality, context = {}) {
       const trackId = typeof track === 'object' ? track.id : track;
       const result = await resolveAudioByBackend(trackId, quality, {
         track: typeof track === 'object' ? track : undefined,
+        signal: context.signal,
       });
       return {
         ok: true,

@@ -14,6 +14,9 @@ import shuffle from 'lodash/shuffle';
 import { resolveTrackSource } from '@/utils/resolveAudioSource';
 import { getOuterAudioUrl } from '@/utils/resolveAudioSource';
 import { emitPlayerEvent, PLAYER_EVENTS } from '@/plugins/playerEvents';
+import PlayerQueue from '@/utils/player/Queue';
+import { createActor } from 'xstate';
+import { createPlayerMachine } from '@/player/playerMachine';
 // MPRIS disabled during Electron 42 migration
 const isCreateMpris = false;
 
@@ -63,13 +66,34 @@ function setTitle(track) {
   if (isCreateTray) {
     electronPlayer?.updateTrayTooltip(document.title);
   }
-  store.commit('updateTitle', document.title);
+  getRuntimeStore()?.commit('updateTitle', document.title);
 }
 
 function setTrayLikeState(isLiked) {
   if (isCreateTray) {
     electronPlayer?.updateTrayLikeState(isLiked);
   }
+}
+
+function getRuntimeStore() {
+  return globalThis?.yesplaymusicStore || null;
+}
+
+function isCanceledRequest(error) {
+  return error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED';
+}
+
+function createPendingTrack(id) {
+  return {
+    id,
+    name: '加载中',
+    ar: [],
+    al: {
+      id: 0,
+      picUrl: '',
+    },
+    dt: 1000,
+  };
 }
 
 export default class {
@@ -93,16 +117,27 @@ export default class {
     this._shuffledCurrent = 0; // 当前播放歌曲在随机列表里面的index
     this._playlistSource = { type: 'album', id: 123 }; // 当前播放列表的信息
     this._currentTrack = { id: 86827685 }; // 当前播放歌曲的详细信息
+    this._displayTrackID = 86827685; // UI 目标歌曲，切歌时立即更新
+    this._displayTrack = this._currentTrack;
+    this._isTrackPending = false;
     this._currentAudioSource = ''; // 当前播放音频地址，用于展示来源信息
     this._audioToken = 0; // 防止旧音频回调污染新的播放源
     this._trackRequestToken = 0; // 防止旧切歌请求污染当前播放状态
     this._prefetchToken = 0;
     this._prefetchingTrackId = null;
+    this._trackSwitchTimer = null;
+    this._trackRequestAbortController = null;
     this._reactiveSelf = this; // Vuex Proxy 创建后会回绑，用于音频事件触发响应式更新
     this._progressFrame = null;
     this._progressSyncTimer = null;
     this._progressPersistTimer = null;
     this._playNextList = []; // 当这个list不为空时，会优先播放这个list的歌
+    this._queue = new PlayerQueue();
+    this._trackActor = createActor(
+      createPlayerMachine({
+        loadTarget: this._loadTrackTarget.bind(this),
+      })
+    ).start();
     this._isPersonalFM = false; // 是否是私人FM模式
     this._personalFMTrack = { id: 0 }; // 私人FM当前歌曲
     this._personalFMNextTrack = {
@@ -136,6 +171,12 @@ export default class {
     Object.defineProperty(this, '_audio', {
       enumerable: false,
     });
+    Object.defineProperty(this, '_queue', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_trackActor', {
+      enumerable: false,
+    });
     Object.defineProperty(this, '_trackRequestToken', {
       enumerable: false,
     });
@@ -143,6 +184,12 @@ export default class {
       enumerable: false,
     });
     Object.defineProperty(this, '_prefetchingTrackId', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_trackSwitchTimer', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_trackRequestAbortController', {
       enumerable: false,
     });
     Object.defineProperty(this, '_reactiveSelf', {
@@ -206,6 +253,18 @@ export default class {
     return this._reactiveSelf || this;
   }
 
+  _syncQueueState() {
+    if (!this._queue) return;
+    this._queue.list = this._list;
+    this._queue.current = this._current;
+    this._queue.shuffledList = this._shuffledList;
+    this._queue.shuffledCurrent = this._shuffledCurrent;
+    this._queue.shuffleEnabled = this._shuffle;
+    this._queue.repeatMode = this._repeatMode;
+    this._queue.reversed = this._reversed;
+    this._queue.playNextList = this._playNextList;
+  }
+
   get repeatMode() {
     return this._repeatMode;
   }
@@ -216,6 +275,7 @@ export default class {
       return;
     }
     this._repeatMode = mode;
+    this._syncQueueState();
     this.persist();
   }
   get shuffle() {
@@ -233,6 +293,7 @@ export default class {
     }
     // 同步当前歌曲在列表中的下标
     this.current = this.list.indexOf(this.currentTrackID);
+    this._syncQueueState();
     this.persist();
   }
   get reversed() {
@@ -245,6 +306,7 @@ export default class {
       return;
     }
     this._reversed = reversed;
+    this._syncQueueState();
     this.persist();
   }
   get volume() {
@@ -260,6 +322,7 @@ export default class {
   }
   set list(list) {
     this._list = list;
+    this._syncQueueState();
   }
   get current() {
     return this.shuffle ? this._shuffledCurrent : this._current;
@@ -270,6 +333,7 @@ export default class {
     } else {
       this._current = current;
     }
+    this._syncQueueState();
   }
   get enabled() {
     return this._enabled;
@@ -279,6 +343,15 @@ export default class {
   }
   get currentTrack() {
     return this._currentTrack;
+  }
+  get displayTrack() {
+    return this._displayTrack || this._currentTrack || createPendingTrack(0);
+  }
+  get displayTrackID() {
+    return this._displayTrackID || this.currentTrackID;
+  }
+  get isTrackPending() {
+    return this._isTrackPending;
   }
   get currentAudioSource() {
     return this._currentAudioSource;
@@ -316,7 +389,7 @@ export default class {
     }
   }
   get isCurrentTrackLiked() {
-    return store.state.liked.songs.includes(this.currentTrack.id);
+    return store.state.liked.songs.includes(this.displayTrackID);
   }
 
   persist() {
@@ -379,9 +452,25 @@ export default class {
       `[debug][Player.js] currentTrack => ${formatTrackDebugLabel(track)}`
     );
     this._currentTrack = track;
-    this.persist();
-    store.commit('bumpPlayerVersion');
+    this._displayTrack = track;
+    this._displayTrackID = track?.id ?? 0;
+    this._isTrackPending = false;
+    const runtimeStore = getRuntimeStore();
+    if (runtimeStore) {
+      this.persist();
+      runtimeStore.commit('bumpPlayerVersion');
+    }
     emitPlayerEvent(PLAYER_EVENTS.TRACK_CHANGE, { track });
+  }
+  _setDisplayTrackTarget(trackId) {
+    this._displayTrackID = trackId;
+    this._displayTrack =
+      this._currentTrack?.id === trackId
+        ? this._currentTrack
+        : createPendingTrack(trackId);
+    this._isTrackPending = this._currentTrack?.id !== trackId;
+    this._progress = 0;
+    getRuntimeStore()?.commit('bumpPlayerVersion');
   }
   _syncProgress() {
     if (!this._audio) return;
@@ -441,20 +530,8 @@ export default class {
     }
   }
   _getSiblingTrack(forward) {
-    const dir = forward ? 1 : -1;
-    const next = this._reversed ? this.current - dir : this.current + dir;
-
-    if (this.repeatMode === 'on') {
-      const atBoundary = this._reversed
-        ? this.current === 0
-        : this.current + 1 === this.list.length;
-      if (atBoundary) {
-        const wrapTo = forward !== this._reversed ? 0 : this.list.length - 1;
-        return [this.list[wrapTo], wrapTo];
-      }
-    }
-
-    return [this.list[next], next];
+    this._syncQueueState();
+    return this._queue.getSibling(forward);
   }
   async _shuffleTheList(firstTrackID = this.currentTrackID) {
     let list = this._list.filter(tid => tid !== firstTrackID);
@@ -533,9 +610,9 @@ export default class {
       return this._getAudioSourceBlobURL(t.source);
     });
   }
-  _getAudioSourceFromNetease(track) {
+  _getAudioSourceFromNetease(track, options = {}) {
     if (isAccountLoggedIn()) {
-      return getMP3(track.id)
+      return getMP3(track.id, options)
         .then(result => {
           if (!result.data[0]) return null;
           if (!result.data[0].url) return null;
@@ -546,43 +623,57 @@ export default class {
           }
           return source;
         })
-        .catch(() => {
+        .catch(error => {
+          if (isCanceledRequest(error)) throw error;
           return getOuterAudioUrl(track.id);
         });
     } else {
       return Promise.resolve(getOuterAudioUrl(track.id));
     }
   }
-  _getAudioSource(track) {
+  _getAudioSource(track, options = {}) {
     // Stage 1: Try resolver backend first
-    return resolveTrackSource(track).catch(() => {
+    return resolveTrackSource(track, options).catch(error => {
+      if (isCanceledRequest(error)) throw error;
       // Stage 2: Fall back to full legacy chain
-      return this._getAudioSourceLegacy(track);
+      return this._getAudioSourceLegacy(track, options);
     });
   }
-  _getAudioSourceLegacy(track) {
+  _getAudioSourceLegacy(track, options = {}) {
     return this._getAudioSourceFromCache(String(track.id)).then(source => {
-      return source ?? this._getAudioSourceFromNetease(track);
+      return source ?? this._getAudioSourceFromNetease(track, options);
     });
   }
   _isTrackRequestCurrent(token) {
     return token === undefined || token === this._trackRequestToken;
   }
-  _replaceCurrentTrack(
+  _abortTrackRequest() {
+    this._trackRequestAbortController?.abort();
+    this._trackRequestAbortController = null;
+  }
+  _queueReplaceCurrentTrack(
     id,
     autoplay = true,
     ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK
   ) {
-    const requestToken = ++this._trackRequestToken;
+    if (this._trackSwitchTimer !== null) {
+      clearTimeout(this._trackSwitchTimer);
+    }
+    this._trackRequestToken += 1;
     this._prefetchToken += 1;
     this._prefetchingTrackId = null;
-    console.debug(
-      `[debug][Player.js] replaceCurrentTrack => id:${id} autoplay:${autoplay} current:${formatTrackDebugLabel(this._currentTrack)}`
-    );
-    if (autoplay && this._currentTrack.name) {
-      this._scrobble(this.currentTrack, this.seek(null, false));
-    }
-    return getTrackDetail(id).then(data => {
+    this._abortTrackRequest();
+    this._setDisplayTrackTarget(id);
+    this._trackActor.send({
+      type: 'TARGET_CHANGED',
+      trackId: id,
+      autoplay,
+      ifUnplayableThen,
+    });
+  }
+  _loadTrackTarget({ trackId, autoplay, ifUnplayableThen, signal }) {
+    const requestToken = this._trackRequestToken;
+    return getTrackDetail(trackId, { signal }).then(data => {
       if (!this._isTrackRequestCurrent(requestToken)) return false;
       const track = data.songs[0];
       this._setCurrentTrack(track);
@@ -592,9 +683,55 @@ export default class {
         autoplay,
         true,
         ifUnplayableThen,
-        requestToken
+        requestToken,
+        signal
       );
     });
+  }
+  _replaceCurrentTrack(
+    id,
+    autoplay = true,
+    ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK
+  ) {
+    if (this._trackSwitchTimer !== null) {
+      clearTimeout(this._trackSwitchTimer);
+      this._trackSwitchTimer = null;
+    }
+    const requestToken = ++this._trackRequestToken;
+    this._prefetchToken += 1;
+    this._prefetchingTrackId = null;
+    this._abortTrackRequest();
+    this._setDisplayTrackTarget(id);
+    this._trackRequestAbortController = new AbortController();
+    const signal = this._trackRequestAbortController.signal;
+    console.debug(
+      `[debug][Player.js] replaceCurrentTrack => id:${id} autoplay:${autoplay} current:${formatTrackDebugLabel(this._currentTrack)}`
+    );
+    if (autoplay && this._currentTrack.name) {
+      this._scrobble(this.currentTrack, this.seek(null, false));
+    }
+    return getTrackDetail(id, { signal })
+      .then(data => {
+        if (!this._isTrackRequestCurrent(requestToken)) return false;
+        const track = data.songs[0];
+        this._setCurrentTrack(track);
+        this._updateMediaSessionMetaData(track);
+        return this._replaceCurrentTrackAudio(
+          track,
+          autoplay,
+          true,
+          ifUnplayableThen,
+          requestToken,
+          signal
+        );
+      })
+      .catch(error => {
+        if (isCanceledRequest(error)) return false;
+        if (!this._isTrackRequestCurrent(requestToken)) return false;
+        console.debug('[debug][Player.js] replaceCurrentTrack failed', error);
+        store.dispatch('showToast', `歌曲加载超时，请重试`);
+        return false;
+      });
   }
   /**
    * @returns 是否成功加载音频，并使用加载完成的音频替换了当前播放源
@@ -604,39 +741,51 @@ export default class {
     autoplay,
     isCacheNextTrack,
     ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK,
-    requestToken
+    requestToken,
+    signal
   ) {
-    return this._getAudioSource(track).then(source => {
-      if (!this._isTrackRequestCurrent(requestToken)) return false;
-      if (source) {
-        let replaced = false;
-        if (track.id === this.currentTrackID) {
-          this._playAudioSource(source, autoplay);
-          replaced = true;
+    return this._getAudioSource(track, { signal })
+      .then(source => {
+        if (!this._isTrackRequestCurrent(requestToken)) return false;
+        if (source) {
+          let replaced = false;
+          if (track.id === this.currentTrackID) {
+            this._playAudioSource(source, autoplay);
+            replaced = true;
+          }
+          if (isCacheNextTrack) {
+            this._cacheNextTrack();
+          }
+          return replaced;
+        } else {
+          store.dispatch('showToast', `无法播放 ${track.name}`);
+          switch (ifUnplayableThen) {
+            case UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK:
+              this._playNextTrack(this.isPersonalFM);
+              break;
+            case UNPLAYABLE_CONDITION.PLAY_PREV_TRACK:
+              this.playPrevTrack();
+              break;
+            default:
+              store.dispatch(
+                'showToast',
+                `undefined Unplayable condition: ${ifUnplayableThen}`
+              );
+              break;
+          }
+          return false;
         }
-        if (isCacheNextTrack) {
-          this._cacheNextTrack();
-        }
-        return replaced;
-      } else {
-        store.dispatch('showToast', `无法播放 ${track.name}`);
-        switch (ifUnplayableThen) {
-          case UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK:
-            this._playNextTrack(this.isPersonalFM);
-            break;
-          case UNPLAYABLE_CONDITION.PLAY_PREV_TRACK:
-            this.playPrevTrack();
-            break;
-          default:
-            store.dispatch(
-              'showToast',
-              `undefined Unplayable condition: ${ifUnplayableThen}`
-            );
-            break;
-        }
+      })
+      .catch(error => {
+        if (isCanceledRequest(error)) return false;
+        if (!this._isTrackRequestCurrent(requestToken)) return false;
+        console.debug(
+          '[debug][Player.js] replaceCurrentTrackAudio failed',
+          error
+        );
+        store.dispatch('showToast', `音源加载超时，请重试`);
         return false;
-      }
-    });
+      });
   }
   _cacheNextTrack() {
     let nextTrackID = this._isPersonalFM
@@ -815,13 +964,15 @@ export default class {
   }
 
   appendTrack(trackID) {
-    this.list.append(trackID);
+    this._syncQueueState();
+    this._queue.addPlayNext(trackID);
   }
   playNextTrack() {
     // TODO: 切换歌曲时增加加载中的状态
-    if (this._playNextList.length > 0) {
-      const trackID = this._playNextList.shift();
-      this._replaceCurrentTrack(trackID);
+    this._syncQueueState();
+    if (this._queue.playNextList.length > 0) {
+      const trackID = this._queue.takePlayNext();
+      this._queueReplaceCurrentTrack(trackID);
       return true;
     }
     const [trackID, index] = this._getSiblingTrack(true);
@@ -829,6 +980,8 @@ export default class {
       this._trackRequestToken += 1;
       this._prefetchToken += 1;
       this._prefetchingTrackId = null;
+      this._abortTrackRequest();
+      this._isTrackPending = false;
       this._audio?.stop();
       this._setPlaying(false);
       return false;
@@ -837,7 +990,7 @@ export default class {
       `[debug][Player.js] playNextTrack => next:${trackID} from:${formatTrackDebugLabel(this._currentTrack)}`
     );
     this.current = index;
-    this._replaceCurrentTrack(trackID);
+    this._queueReplaceCurrentTrack(trackID);
     return true;
   }
   async playNextFMTrack() {
@@ -880,6 +1033,7 @@ export default class {
       this._personalFMTrack = this._personalFMNextTrack;
     }
     if (this._isPersonalFM) {
+      this._setDisplayTrackTarget(this._personalFMTrack.id);
       this._replaceCurrentTrack(this._personalFMTrack.id);
     }
     this._loadPersonalFMNextTrack();
@@ -892,7 +1046,7 @@ export default class {
       `[debug][Player.js] playPrevTrack => prev:${trackID} from:${formatTrackDebugLabel(this._currentTrack)}`
     );
     this.current = index;
-    this._replaceCurrentTrack(
+    this._queueReplaceCurrentTrack(
       trackID,
       true,
       UNPLAYABLE_CONDITION.PLAY_PREV_TRACK
@@ -1018,9 +1172,11 @@ export default class {
     };
     if (this.shuffle) this._shuffleTheList(autoPlayTrackID);
     if (autoPlayTrackID === 'first') {
+      this._setDisplayTrackTarget(this.list[0]);
       this._replaceCurrentTrack(this.list[0]);
     } else {
       this.current = this.list.indexOf(autoPlayTrackID);
+      this._setDisplayTrackTarget(autoPlayTrackID);
       this._replaceCurrentTrack(autoPlayTrackID);
     }
   }
@@ -1091,7 +1247,9 @@ export default class {
 
   sendSelfToIpcMain() {
     if (!isElectron) return false;
-    let liked = store.state.liked.songs.includes(this.currentTrack.id);
+    const runtimeStore = getRuntimeStore();
+    if (!runtimeStore) return false;
+    let liked = runtimeStore.state.liked.songs.includes(this.currentTrack.id);
     electronPlayer?.player({
       playing: this.playing,
       likedCurrentTrack: liked,
@@ -1122,9 +1280,11 @@ export default class {
   }
 
   clearPlayNextList() {
-    this._playNextList = [];
+    this._syncQueueState();
+    this._queue.clearPlayNext();
   }
   removeTrackFromQueue(index) {
-    this._playNextList.splice(index, 1);
+    this._syncQueueState();
+    this._queue.removePlayNext(index);
   }
 }

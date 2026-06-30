@@ -55,7 +55,7 @@
                   ? $t('player.unlike')
                   : $t('player.like')
               "
-              @click="likeATrack(player.currentTrack.id)"
+              @click="likeCurrentTrack"
             >
               <svg-icon
                 v-show="!player.isCurrentTrackLiked"
@@ -204,8 +204,8 @@ export default {
     ...mapState(['player', 'playerVersion', 'settings', 'data']),
     currentTrack() {
       const version = this.playerVersion;
-      if (version < 0) return this.player.currentTrack;
-      return this.player.currentTrack;
+      if (version < 0) return this.player.displayTrack;
+      return this.player.displayTrack;
     },
     volume: {
       get() {
@@ -255,6 +255,10 @@ export default {
         this.player.playNextTrack();
       }
     },
+    likeCurrentTrack() {
+      if (this.player.isTrackPending) return;
+      this.likeATrack(this.player.currentTrack.id);
+    },
     goToNextTracksPage() {
       if (this.player.isPersonalFM) return;
       this.$route.name === 'next'
@@ -271,6 +275,7 @@ export default {
       goToListSource();
     },
     goToAlbum() {
+      if (this.player.isTrackPending) return;
       if (this.player.currentTrack.al.id === 0) return;
       this.$router.push({ path: '/album/' + this.player.currentTrack.al.id });
     },

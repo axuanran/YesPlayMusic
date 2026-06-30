@@ -9,14 +9,18 @@ import { resolveTrackSourceWithProviders } from '@/plugins/providers/audio';
  * @param {number|object} track
  * @returns {Promise<string>} playUrl
  */
-export async function resolveTrackSource(track) {
+export async function resolveTrackSource(track, options = {}) {
   const trackId = typeof track === 'object' ? track.id : track;
-  const providerSource = await resolveTrackSourceWithProviders(track);
+  const providerSource = await resolveTrackSourceWithProviders(
+    track,
+    undefined,
+    options
+  );
   if (providerSource) {
     return providerSource;
   }
 
-  return resolveFromLegacy(trackId);
+  return resolveFromLegacy(trackId, options);
 }
 
 /**
@@ -58,9 +62,9 @@ export function getOuterAudioUrl(trackId) {
 /**
  * Legacy audio source resolution (existing getMP3 + outer URL logic).
  */
-async function resolveFromLegacy(trackId) {
+async function resolveFromLegacy(trackId, options = {}) {
   if (isAccountLoggedIn()) {
-    const result = await getMP3(trackId);
+    const result = await getMP3(trackId, options);
     if (result.data?.[0]?.url && result.data[0].freeTrialInfo === null) {
       return result.data[0].url.replace(/^http:/, 'https:');
     }

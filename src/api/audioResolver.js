@@ -41,11 +41,17 @@ export async function resolveAudioByBackend(
   options = {}
 ) {
   const client = getResolverClient();
-  const { data } = await client.post('/api/audio/resolve', {
-    trackId,
-    quality,
-    track: options.track,
-  });
+  const { data } = await client.post(
+    '/api/audio/resolve',
+    {
+      trackId,
+      quality,
+      track: options.track,
+    },
+    {
+      signal: options.signal,
+    }
+  );
 
   if (!data.ok) {
     const error = new Error(data.message || '音频解析失败');

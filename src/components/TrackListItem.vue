@@ -188,7 +188,7 @@ export default {
       return this.likedSongIds.includes(this.track?.id);
     },
     isPlaying() {
-      return this.$store.state.player.currentTrack.id === this.track?.id;
+      return this.$store.state.player.displayTrackID === this.track?.id;
     },
     trackClass() {
       let trackClass = [this.type];

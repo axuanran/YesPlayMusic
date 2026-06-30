@@ -192,7 +192,8 @@
     "vue-router": "^4.5.1",
     "vue-slider-component": "4.1.0-beta.7",
     "vuex": "^4.1.0",
-    "x11": "^2.3.0"
+    "x11": "^2.3.0",
+    "xstate": "^5.32.2"
   },
   "devDependencies": {
     "@babel/core": "^7.28.5",
