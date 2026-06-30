@@ -1,5 +1,11 @@
 <template>
-  <div id="app" :class="{ 'user-select-none': userSelectNone }">
+  <div
+    id="app"
+    :class="{
+      'user-select-none': userSelectNone,
+      'is-scrolling': isScrolling,
+    }"
+  >
     <Scrollbar v-show="!showLyrics" ref="scrollbar" />
     <Navbar v-show="showNavbar" ref="navbar" />
     <main
@@ -38,6 +44,8 @@ import Lyrics from './views/lyrics.vue';
 import { mapState } from 'vuex';
 import { isElectron } from '@/utils/env';
 
+const SCROLLING_VISUAL_IDLE_DELAY = 140;
+
 export default {
   name: 'App',
   components: {
@@ -53,6 +61,8 @@ export default {
     return {
       isElectron,
       userSelectNone: false,
+      isScrolling: false,
+      scrollingIdleTimer: null,
       // keep-alive :include matches component name (PascalCase), not route name
       keepAliveComponents: [
         'Home',
@@ -93,6 +103,12 @@ export default {
     window.addEventListener('keydown', this.handleKeydown);
     this.fetchData();
   },
+  beforeUnmount() {
+    window.removeEventListener('keydown', this.handleKeydown);
+    if (this.scrollingIdleTimer !== null) {
+      clearTimeout(this.scrollingIdleTimer);
+    }
+  },
   methods: {
     handleKeydown(e) {
       if (e.code === 'Space') {
@@ -115,6 +131,13 @@ export default {
       }
     },
     handleScroll() {
+      if (!this.isScrolling) this.isScrolling = true;
+      if (this.scrollingIdleTimer !== null) clearTimeout(this.scrollingIdleTimer);
+      this.scrollingIdleTimer = setTimeout(() => {
+        this.isScrolling = false;
+        this.scrollingIdleTimer = null;
+      }, SCROLLING_VISUAL_IDLE_DELAY);
+
       this.$refs.scrollbar?.handleScroll?.();
     },
   },
