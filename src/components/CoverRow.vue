@@ -1,47 +1,5 @@
 <template>
-  <div
-    v-if="useVirtualRow"
-    ref="virtualContainer"
-    class="cover-row-virtual"
-    :style="virtualContainerStyle"
-  >
-    <div class="cover-row cover-row-window" :style="virtualWindowStyles">
-      <div
-        v-for="item in renderedItems"
-        :key="item.id"
-        class="item"
-        :class="{ artist: type === 'artist' }"
-      >
-        <Cover
-          :id="item.id"
-          :image-url="getImageUrl(item)"
-          :type="type"
-          :play-button-size="type === 'artist' ? 26 : playButtonSize"
-        />
-        <div class="text">
-          <div v-if="showPlayCount" class="info">
-            <span class="play-count"
-              ><svg-icon icon-class="play" />{{ formatPlayCount(item.playCount) }}
-            </span>
-          </div>
-          <div class="title" :style="{ fontSize: subTextFontSize }">
-            <span v-if="isExplicit(item)" class="explicit-symbol"
-              ><ExplicitSymbol
-            /></span>
-            <span v-if="isPrivacy(item)" class="lock-icon">
-              <svg-icon icon-class="lock"
-            /></span>
-            <router-link :to="getTitleLink(item)">{{ item.name }}</router-link>
-          </div>
-          <div v-if="type !== 'artist' && subText !== 'none'" class="info">
-            <span v-html="getSubText(item)"></span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div v-else class="cover-row" :style="rowStyles">
+  <div class="cover-row" :style="rowStyles">
     <div
       v-for="item in items"
       :key="item.id"
@@ -82,9 +40,6 @@ import Cover from '@/components/Cover.vue';
 import ExplicitSymbol from '@/components/ExplicitSymbol.vue';
 
 const ROW_COVER_IMAGE_SIZE = 320;
-const VIRTUAL_ROW_THRESHOLD = 36;
-const VIRTUAL_ROW_OVERSCAN = 3;
-const DEFAULT_VIRTUAL_ROW_HEIGHT = 270;
 
 export default {
   name: 'CoverRow',
@@ -103,15 +58,6 @@ export default {
     playButtonSize: { type: Number, default: 22 },
     imageSize: { type: Number, default: ROW_COVER_IMAGE_SIZE },
   },
-  data() {
-    return {
-      rowHeight: DEFAULT_VIRTUAL_ROW_HEIGHT,
-      visibleStartRow: 0,
-      visibleEndRow: 6,
-      virtualFrame: null,
-      scrollParent: null,
-    };
-  },
   computed: {
     rowStyles() {
       return {
@@ -119,130 +65,11 @@ export default {
         gap: this.gap,
       };
     },
-    useVirtualRow() {
-      return this.items.length > VIRTUAL_ROW_THRESHOLD;
-    },
-    totalRows() {
-      return Math.ceil(this.items.length / this.columnNumber);
-    },
-    renderedItems() {
-      if (!this.useVirtualRow) return this.items;
-      const start = this.visibleStartRow * this.columnNumber;
-      const end = Math.min(this.items.length, this.visibleEndRow * this.columnNumber);
-      return this.items.slice(start, end);
-    },
-    virtualContainerStyle() {
-      return {
-        height: `${Math.max(this.totalRows * this.rowHeight - this.rowGap, 0)}px`,
-      };
-    },
-    virtualWindowStyles() {
-      return {
-        ...this.rowStyles,
-        transform: `translateY(${this.visibleStartRow * this.rowHeight}px)`,
-      };
-    },
-    rowGap() {
-      const firstGap = String(this.gap).trim().split(/\s+/)[0];
-      const gap = Number.parseFloat(firstGap);
-      return Number.isFinite(gap) ? gap : 44;
-    },
     resolvedImageSize() {
       return Math.min(this.imageSize || ROW_COVER_IMAGE_SIZE, ROW_COVER_IMAGE_SIZE);
     },
   },
-  watch: {
-    'items.length'() {
-      this.resetVirtualWindow();
-    },
-    columnNumber() {
-      this.resetVirtualWindow();
-    },
-    gap() {
-      this.resetVirtualWindow();
-    },
-  },
-  mounted() {
-    this.attachVirtualListeners();
-    this.resetVirtualWindow();
-  },
-  activated() {
-    this.attachVirtualListeners();
-    this.resetVirtualWindow();
-  },
-  deactivated() {
-    this.detachVirtualListeners();
-  },
-  beforeUnmount() {
-    this.detachVirtualListeners();
-  },
   methods: {
-    attachVirtualListeners() {
-      if (this.scrollParent) return;
-      this.scrollParent = this.$el?.closest?.('main') || window;
-      this.scrollParent.addEventListener('scroll', this.scheduleVirtualWindowUpdate, {
-        passive: true,
-      });
-      window.addEventListener('resize', this.resetVirtualWindow, { passive: true });
-    },
-    detachVirtualListeners() {
-      if (this.virtualFrame !== null) {
-        cancelAnimationFrame(this.virtualFrame);
-        this.virtualFrame = null;
-      }
-      if (this.scrollParent) {
-        this.scrollParent.removeEventListener('scroll', this.scheduleVirtualWindowUpdate);
-        this.scrollParent = null;
-      }
-      window.removeEventListener('resize', this.resetVirtualWindow);
-    },
-    resetVirtualWindow() {
-      if (!this.useVirtualRow) return;
-      this.scheduleVirtualWindowUpdate();
-      this.$nextTick(() => {
-        this.measureRowHeight();
-        this.scheduleVirtualWindowUpdate();
-      });
-    },
-    scheduleVirtualWindowUpdate() {
-      if (!this.useVirtualRow) return;
-      if (this.virtualFrame !== null) return;
-      this.virtualFrame = requestAnimationFrame(() => {
-        this.virtualFrame = null;
-        this.updateVirtualWindow();
-      });
-    },
-    updateVirtualWindow() {
-      if (!this.useVirtualRow || !this.$el) return;
-
-      const rect = this.$el.getBoundingClientRect();
-      const viewportTop =
-        this.scrollParent === window ? 0 : this.scrollParent.getBoundingClientRect().top;
-      const viewportHeight =
-        this.scrollParent === window ? window.innerHeight : this.scrollParent.clientHeight;
-      const viewportOffsetTop = viewportTop - rect.top;
-      const overscan = this.rowHeight * VIRTUAL_ROW_OVERSCAN;
-
-      let startRow = Math.floor((viewportOffsetTop - overscan) / this.rowHeight);
-      let endRow = Math.ceil(
-        (viewportOffsetTop + viewportHeight + overscan) / this.rowHeight
-      );
-
-      startRow = Math.max(0, startRow);
-      endRow = Math.min(this.totalRows, Math.max(startRow + 1, endRow));
-
-      if (this.visibleStartRow !== startRow) this.visibleStartRow = startRow;
-      if (this.visibleEndRow !== endRow) this.visibleEndRow = endRow;
-    },
-    measureRowHeight() {
-      if (!this.useVirtualRow) return;
-      const item = this.$el?.querySelector?.('.cover-row .item');
-      if (!item) return;
-      const measured = Math.ceil(item.getBoundingClientRect().height + this.rowGap);
-      if (measured > 0 && Math.abs(measured - this.rowHeight) > 4) {
-        this.rowHeight = measured;
-      }
-    },
     getSubText(item) {
       if (this.subText === 'copywriter') return item.copywriter;
       if (this.subText === 'description') return item.description;
@@ -297,19 +124,6 @@ export default {
 <style lang="scss" scoped>
 .cover-row {
   display: grid;
-}
-
-.cover-row-virtual {
-  position: relative;
-  width: 100%;
-}
-
-.cover-row-window {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  will-change: transform;
 }
 
 .item {
