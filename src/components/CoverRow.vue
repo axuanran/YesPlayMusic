@@ -1,7 +1,7 @@
 <template>
   <div class="cover-row" :style="rowStyles">
     <div
-      v-for="item in items"
+      v-for="(item, index) in items"
       :key="item.id"
       class="item"
       :class="{ artist: type === 'artist' }"
@@ -11,6 +11,8 @@
         :image-url="getImageUrl(item)"
         :type="type"
         :play-button-size="type === 'artist' ? 26 : playButtonSize"
+        :image-loading="getImageLoading(index)"
+        :image-fetch-priority="getImageFetchPriority(index)"
       />
       <div class="text">
         <div v-if="showPlayCount" class="info">
@@ -57,6 +59,7 @@ export default {
     gap: { type: String, default: '44px 24px' },
     playButtonSize: { type: Number, default: 22 },
     imageSize: { type: Number, default: ROW_COVER_IMAGE_SIZE },
+    eager: { type: Boolean, default: false },
   },
   computed: {
     rowStyles() {
@@ -70,6 +73,12 @@ export default {
     },
   },
   methods: {
+    getImageLoading(index) {
+      return this.eager && index < this.columnNumber ? 'eager' : 'lazy';
+    },
+    getImageFetchPriority(index) {
+      return this.eager && index === 0 ? 'high' : 'auto';
+    },
     getSubText(item) {
       if (this.subText === 'copywriter') return item.copywriter;
       if (this.subText === 'description') return item.description;
