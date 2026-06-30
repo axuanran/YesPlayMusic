@@ -1,35 +1,9 @@
 import store from '@/store';
-import { resolveAudioByBackend, isResolverEnabled } from '@/api/audioResolver';
 import { pluginEvents } from '@/plugins/events';
+import { getResolverQuality } from './quality';
 
 const audioProviders = new Map();
 const providerErrors = new Map();
-
-function getResolverQuality() {
-  const quality = store.state.settings?.musicQuality ?? 320000;
-  switch (quality) {
-    case 'standard':
-    case 'exhigh':
-    case 'lossless':
-    case 'hires':
-    case 'jyeffect':
-    case 'sky':
-    case 'jymaster':
-      return quality;
-    case 128000:
-      return 'standard';
-    case 192000:
-    case 320000:
-      return 'exhigh';
-    case 'flac':
-    case 350000:
-      return 'lossless';
-    case 999000:
-      return 'hires';
-    default:
-      return 'standard';
-  }
-}
 
 function normalizeProvider(provider) {
   if (!provider?.id || typeof provider.resolve !== 'function') {
@@ -110,17 +84,3 @@ export async function resolveTrackSourceWithProviders(track, qualityOverride) {
 
   return null;
 }
-
-registerAudioProvider({
-  id: 'resolver-audio-provider',
-  name: 'Resolver Audio Provider',
-  priority: 1000,
-  enabled: () => isResolverEnabled(),
-  async resolve(track, quality) {
-    const trackId = typeof track === 'object' ? track.id : track;
-    const result = await resolveAudioByBackend(trackId, quality, {
-      track: typeof track === 'object' ? track : undefined,
-    });
-    return result.playUrl;
-  },
-});

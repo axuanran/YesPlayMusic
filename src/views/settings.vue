@@ -679,7 +679,7 @@ import { getResolverConfig, updateResolverConfig } from '@/api/audioResolver';
 import pkg from '../../package.json';
 import { isElectron } from '@/utils/env';
 import { isLinux, isMac } from '@/utils/platform';
-import { getBuiltinPlugins, syncPlugins } from '@/plugins';
+import { getBuiltinPlugins, setPluginEnabled, syncPlugins } from '@/plugins';
 
 const electronSettings = window.electronAPI?.settings;
 
@@ -1092,17 +1092,7 @@ export default {
       return saved?.enabled ?? plugin.enabledByDefault === true;
     },
     togglePlugin(plugin, enabled) {
-      const plugins = {
-        ...(this.settings.plugins || {}),
-        [plugin.id]: {
-          ...(this.settings.plugins?.[plugin.id] || {}),
-          enabled,
-        },
-      };
-      this.$store.commit('updateSettings', {
-        key: 'plugins',
-        value: plugins,
-      });
+      setPluginEnabled(this.$store, plugin.id, enabled);
       this.builtinPlugins = getBuiltinPlugins();
       if (window.yesplaymusicPluginContext) {
         syncPlugins(window.yesplaymusicPluginContext);

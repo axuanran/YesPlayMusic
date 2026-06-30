@@ -1,5 +1,6 @@
 import * as audioResolver from '@/api/audioResolver';
 import { pluginEvents } from './events';
+import { getSetting, setSetting } from './settings';
 
 export function createPluginContext({ router, store } = {}) {
   return {
@@ -9,11 +10,10 @@ export function createPluginContext({ router, store } = {}) {
     audioResolver,
     settings: {
       get(key, fallbackValue) {
-        const value = store?.state?.settings?.[key];
-        return value === undefined ? fallbackValue : value;
+        return getSetting(store, key, fallbackValue);
       },
       set(key, value) {
-        store?.commit('updateSettings', { key, value });
+        setSetting(store, key, value);
       },
     },
   };

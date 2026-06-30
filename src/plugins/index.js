@@ -10,3 +10,4 @@ export {
 
 export { createPluginContext } from './context';
 export { pluginEvents } from './events';
+export { setPluginEnabled } from './settings';

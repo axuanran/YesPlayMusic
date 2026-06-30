@@ -9,81 +9,24 @@
         <p>音频解析服务管理入口</p>
       </div>
 
-      <div class="item">
-        <div class="left">
-          <div class="title">启用音频解析</div>
-          <div class="description">由音频解析服务接管播放地址解析。</div>
-        </div>
-        <div class="right">
-          <div class="toggle">
-            <input
-              id="plugin-use-audio-resolver"
-              v-model="useAudioResolver"
-              type="checkbox"
-              name="plugin-use-audio-resolver"
-            />
-            <label for="plugin-use-audio-resolver"></label>
-          </div>
-        </div>
-      </div>
-
-      <div class="item vertical">
-        <div class="left">
-          <div class="title">Resolver 地址</div>
-          <div class="description">默认地址为 http://127.0.0.1:27232。</div>
-        </div>
-        <div class="resolver-actions">
-          <input
-            v-model="audioResolverUrl"
-            type="text"
-            placeholder="http://127.0.0.1:27232"
-          />
-          <button @click="openResolverAdminPanel">打开管理面板</button>
-          <button @click="syncFrontendCookieToResolver">
-            从前端获取 Cookie
-          </button>
-          <button @click="clearResolverBackendCache">清后端缓存</button>
-        </div>
-      </div>
-
-      <div class="item vertical">
-        <div class="left">
-          <div class="title">Provider 状态</div>
-          <div class="description">当前音频 Provider 按优先级执行。</div>
-        </div>
-        <div class="provider-list">
-          <div
-            v-for="provider in providerStatus"
-            :key="provider.id"
-            class="provider-row"
-          >
-            <span>{{ provider.name }}</span>
-            <span>{{ provider.active ? '启用' : '停用' }}</span>
-            <span>优先级 {{ provider.priority }}</span>
-            <span v-if="provider.lastError" class="error">
-              {{ provider.lastError }}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div class="item vertical">
-        <div class="left">
-          <div class="title">测试解析</div>
-          <div class="description">输入 trackId 验证当前 provider 链路。</div>
-        </div>
-        <div class="resolver-actions">
-          <input v-model="testTrackId" type="text" placeholder="trackId" />
-          <select v-model="testQuality">
-            <option value="standard">standard</option>
-            <option value="exhigh">exhigh</option>
-            <option value="lossless">lossless</option>
-            <option value="hires">hires</option>
-          </select>
-          <button @click="testResolve">测试</button>
-        </div>
-        <div v-if="testResult" class="test-result">{{ testResult }}</div>
-      </div>
+      <resolver-controls
+        :use-audio-resolver="useAudioResolver"
+        :audio-resolver-url="audioResolverUrl"
+        @update:use-audio-resolver="useAudioResolver = $event"
+        @update:audio-resolver-url="audioResolverUrl = $event"
+        @open-admin="openResolverAdminPanel"
+        @sync-cookie="syncFrontendCookieToResolver"
+        @clear-cache="clearResolverBackendCache"
+      />
+      <provider-status :providers="providerStatus" />
+      <resolve-tester
+        :track-id="testTrackId"
+        :quality="testQuality"
+        :result="testResult"
+        @update:track-id="testTrackId = $event"
+        @update:quality="testQuality = $event"
+        @test="testResolve"
+      />
     </div>
   </div>
 </template>
@@ -99,6 +42,9 @@ import {
   getAudioProviderStatus,
   resolveTrackSourceWithProviders,
 } from '@/plugins/providers/audio';
+import ProviderStatus from './components/ProviderStatus.vue';
+import ResolverControls from './components/ResolverControls.vue';
+import ResolveTester from './components/ResolveTester.vue';
 
 const setting = (key, defaultValue) => ({
   get() {
@@ -112,6 +58,11 @@ const setting = (key, defaultValue) => ({
 
 export default {
   name: 'ResolverAdminPlugin',
+  components: {
+    ProviderStatus,
+    ResolverControls,
+    ResolveTester,
+  },
   data() {
     return {
       testTrackId: '',
@@ -219,149 +170,153 @@ export default {
     opacity: 0.68;
   }
 }
+</style>
 
-.item {
-  margin: 24px 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--color-text);
+<style lang="scss">
+.plugin-page {
+  .item {
+    margin: 24px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--color-text);
 
-  &.vertical {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 16px;
+    &.vertical {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .title {
+      font-size: 16px;
+      font-weight: 500;
+      opacity: 0.78;
+    }
+
+    .description {
+      font-size: 14px;
+      margin-top: 0.5em;
+      opacity: 0.7;
+    }
   }
 
-  .title {
-    font-size: 16px;
-    font-weight: 500;
+  .resolver-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    input {
+      width: 320px;
+      max-width: 100%;
+    }
+  }
+
+  .provider-list {
+    width: 100%;
+  }
+
+  .provider-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: var(--color-text);
+    background: var(--color-secondary-bg);
+
+    & + .provider-row {
+      margin-top: 8px;
+    }
+
+    .error {
+      color: #e04f5f;
+    }
+  }
+
+  .test-result {
+    max-width: 100%;
+    word-break: break-all;
+    color: var(--color-text);
     opacity: 0.78;
   }
 
-  .description {
-    font-size: 14px;
-    margin-top: 0.5em;
-    opacity: 0.7;
-  }
-}
-
-.resolver-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-
-  input {
-    width: 320px;
-    max-width: 100%;
-  }
-}
-
-.provider-list {
-  width: 100%;
-}
-
-.provider-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 12px;
-  border-radius: 8px;
-  color: var(--color-text);
-  background: var(--color-secondary-bg);
-
-  & + .provider-row {
-    margin-top: 8px;
+  button,
+  input,
+  select {
+    color: var(--color-text);
+    background: var(--color-secondary-bg);
+    padding: 8px 12px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
   }
 
-  .error {
-    color: #e04f5f;
-  }
-}
+  button {
+    transition: 0.2s;
 
-.test-result {
-  max-width: 100%;
-  word-break: break-all;
-  color: var(--color-text);
-  opacity: 0.78;
-}
+    &:hover {
+      transform: scale(1.06);
+    }
 
-button,
-input,
-select {
-  color: var(--color-text);
-  background: var(--color-secondary-bg);
-  padding: 8px 12px;
-  font-weight: 600;
-  border: none;
-  border-radius: 8px;
-}
-
-button {
-  transition: 0.2s;
-
-  &:hover {
-    transform: scale(1.06);
+    &:active {
+      transform: scale(0.94);
+    }
   }
 
-  &:active {
-    transform: scale(0.94);
+  .toggle input {
+    opacity: 0;
+    position: absolute;
   }
-}
 
-.toggle input {
-  opacity: 0;
-  position: absolute;
-}
+  .toggle input + label {
+    position: relative;
+    display: inline-block;
+    user-select: none;
+    transition: 0.4s ease;
+    height: 32px;
+    width: 52px;
+    background: var(--color-secondary-bg);
+    border-radius: 8px;
+  }
 
-.toggle input + label {
-  position: relative;
-  display: inline-block;
-  user-select: none;
-  transition: 0.4s ease;
-  height: 32px;
-  width: 52px;
-  background: var(--color-secondary-bg);
-  border-radius: 8px;
-}
+  .toggle input + label:before {
+    content: '';
+    position: absolute;
+    display: block;
+    transition: 0.2s cubic-bezier(0.24, 0, 0.5, 1);
+    height: 32px;
+    width: 52px;
+    top: 0;
+    left: 0;
+    border-radius: 8px;
+  }
 
-.toggle input + label:before {
-  content: '';
-  position: absolute;
-  display: block;
-  transition: 0.2s cubic-bezier(0.24, 0, 0.5, 1);
-  height: 32px;
-  width: 52px;
-  top: 0;
-  left: 0;
-  border-radius: 8px;
-}
+  .toggle input + label:after {
+    content: '';
+    position: absolute;
+    display: block;
+    box-shadow:
+      0 0 0 1px hsla(0, 0%, 0%, 0.02),
+      0 4px 0px 0 hsla(0, 0%, 0%, 0.01),
+      0 4px 9px hsla(0, 0%, 0%, 0.08),
+      0 3px 3px hsla(0, 0%, 0%, 0.03);
+    transition: 0.35s cubic-bezier(0.54, 1.6, 0.5, 1);
+    background: #fff;
+    height: 20px;
+    width: 20px;
+    top: 6px;
+    left: 6px;
+    border-radius: 6px;
+  }
 
-.toggle input + label:after {
-  content: '';
-  position: absolute;
-  display: block;
-  box-shadow:
-    0 0 0 1px hsla(0, 0%, 0%, 0.02),
-    0 4px 0px 0 hsla(0, 0%, 0%, 0.01),
-    0 4px 9px hsla(0, 0%, 0%, 0.08),
-    0 3px 3px hsla(0, 0%, 0%, 0.03);
-  transition: 0.35s cubic-bezier(0.54, 1.6, 0.5, 1);
-  background: #fff;
-  height: 20px;
-  width: 20px;
-  top: 6px;
-  left: 6px;
-  border-radius: 6px;
-}
+  .toggle input:checked + label:before {
+    background: var(--color-primary-gradient);
+    transition: width 0.2s cubic-bezier(0, 0, 0, 0.1);
+  }
 
-.toggle input:checked + label:before {
-  background: var(--color-primary-gradient);
-  transition: width 0.2s cubic-bezier(0, 0, 0, 0.1);
-}
-
-.toggle input:checked + label:after {
-  left: 26px;
+  .toggle input:checked + label:after {
+    left: 26px;
+  }
 }
 </style>

@@ -77,3 +77,16 @@ const dispose = registerAudioProvider({
 Providers run from highest priority to lowest. Returning `null` or throwing an
 error lets the next provider run. If every provider fails, playback falls back
 to the legacy resolver path.
+
+## Internal Layout
+
+- `manifest.js`: manifest validation and normalization.
+- `settings.js`: plugin state and settings helpers.
+- `runtime.js`: setup, dispose, and sync lifecycle.
+- `routes.js`: route collection.
+- `providers/audio/`: experimental audio provider registry.
+- `playerEvents.js`: notification-only player event helper.
+
+Built-in plugin pages can be split into local components under their own
+`pages/components/` directory. Keep plugin UI state inside the plugin unless it
+must be persisted through `ctx.settings` or Vuex.
