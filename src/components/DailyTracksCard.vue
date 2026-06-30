@@ -24,6 +24,7 @@ import { dailyRecommendTracks } from '@/api/playlist';
 import { isAccountLoggedIn } from '@/utils/auth';
 import sample from 'lodash/sample';
 
+const DAILY_CARD_COVER_SIZE = 640;
 const defaultCovers = [
   'https://p2.music.126.net/0-Ybpa8FrDfRgKYCTJD8Xg==/109951164796696795.jpg',
   'https://p2.music.126.net/QxJA2mr4hhb9DZyucIOIQw==/109951165422200291.jpg',
@@ -40,7 +41,7 @@ export default {
     coverUrl() {
       return `${
         this.dailyTracks[0]?.al.picUrl || sample(defaultCovers)
-      }?param=1024y1024`;
+      }?param=${DAILY_CARD_COVER_SIZE}y${DAILY_CARD_COVER_SIZE}`;
     },
   },
   created() {
