@@ -10,7 +10,7 @@ import { getCookie } from '@/utils/auth';
 import saveToLocalStorage from './plugins/localStorage';
 import { getSendSettingsPlugin } from './plugins/sendSettings';
 
-const PROGRESS_UI_INTERVAL = 500;
+const PROGRESS_UI_INTERVAL = 1000;
 
 function installPlayerPerformancePatch() {
   Player.prototype._startProgressLoop = function () {
