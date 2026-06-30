@@ -2,14 +2,12 @@
   <div
     class="cover"
     :class="{ 'cover-hover': coverHover }"
-    @mouseover="focus = true"
-    @mouseleave="focus = false"
     @click="clickCoverToPlay ? play() : goTo()"
   >
     <div class="cover-container">
       <div class="shade">
         <button
-          v-show="focus"
+          v-if="alwaysShowPlayButton"
           class="play-button"
           :style="playButtonStyles"
           @click.stop="play()"
@@ -23,13 +21,12 @@
         :fetchpriority="imageFetchPriority"
         decoding="async"
       />
-      <transition v-if="coverHover || alwaysShowShadow" name="fade">
-        <div
-          v-show="focus || alwaysShowShadow"
-          class="shadow"
-          :style="shadowStyles"
-        ></div>
-      </transition>
+      <div
+        v-if="coverHover || alwaysShowShadow"
+        class="shadow"
+        :class="{ 'always-show-shadow': alwaysShowShadow }"
+        :style="shadowStyles"
+      ></div>
     </div>
   </div>
 </template>
@@ -50,11 +47,6 @@ export default {
     radius: { type: Number, default: 12 },
     imageLoading: { type: String, default: 'lazy' },
     imageFetchPriority: { type: String, default: 'auto' },
-  },
-  data() {
-    return {
-      focus: false,
-    };
   },
   computed: {
     imageStyles() {
@@ -135,6 +127,7 @@ img {
   justify-content: center;
   align-items: center;
   z-index: 1;
+  pointer-events: none;
 }
 .play-button {
   display: flex;
@@ -148,7 +141,13 @@ img {
   width: 22%;
   border-radius: 50%;
   cursor: default;
-  transition: 0.2s;
+  opacity: 0;
+  transform: scale(0.96);
+  transition:
+    opacity 0.2s,
+    transform 0.2s,
+    background 0.2s;
+  pointer-events: auto;
   .svg-icon {
     width: 50%;
     margin: {
@@ -159,8 +158,14 @@ img {
     background: rgba(255, 255, 255, 0.28);
   }
   &:active {
-    transform: scale(0.94);
+    transform: scale(0.9);
   }
+}
+
+.cover-hover:hover .play-button,
+.cover-hover:focus-within .play-button {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .shadow {
@@ -174,13 +179,13 @@ img {
   background-size: cover;
   border-radius: 0.75em;
   aspect-ratio: 1 / 1;
-}
-
-.fade-enter-active,
-.fade-leave-active {
+  opacity: 0;
   transition: opacity 0.3s;
 }
-.fade-enter, .fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
-  opacity: 0;
+
+.cover-hover:hover .shadow,
+.cover-hover:focus-within .shadow,
+.shadow.always-show-shadow {
+  opacity: 1;
 }
 </style>
