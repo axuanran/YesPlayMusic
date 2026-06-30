@@ -11,8 +11,51 @@ import saveToLocalStorage from './plugins/localStorage';
 import { getSendSettingsPlugin } from './plugins/sendSettings';
 
 const PROGRESS_UI_INTERVAL = 1000;
+const PROGRESS_IMMEDIATE_DELTA = 0.9;
+
+function ensureProgressPatchState(player) {
+  if (!Object.prototype.hasOwnProperty.call(player, '_lastProgressUiSyncAt')) {
+    Object.defineProperty(player, '_lastProgressUiSyncAt', {
+      value: 0,
+      writable: true,
+      configurable: true,
+      enumerable: false,
+    });
+  }
+}
 
 function installPlayerPerformancePatch() {
+  Player.prototype._syncProgress = function (force = false) {
+    if (!this._audio) return;
+
+    ensureProgressPatchState(this);
+
+    const now = Date.now();
+    const duration = this.currentTrackDuration;
+    const nextProgress = Math.min(this._audio.currentTime(), duration);
+    const progressDelta = Math.abs(nextProgress - (this._progress || 0));
+
+    if (
+      !force &&
+      progressDelta < PROGRESS_IMMEDIATE_DELTA &&
+      now - this._lastProgressUiSyncAt < PROGRESS_UI_INTERVAL
+    ) {
+      return;
+    }
+
+    this._lastProgressUiSyncAt = now;
+    this._progress = nextProgress;
+
+    if (this._progressSyncTimer === null) {
+      this._progressSyncTimer = setTimeout(() => {
+        this._progressSyncTimer = null;
+        localStorage.setItem('playerCurrentTrackTime', this._progress);
+      }, PROGRESS_UI_INTERVAL);
+    }
+
+    this._schedulePersist();
+  };
+
   Player.prototype._startProgressLoop = function () {
     if (this._progressFrame !== null) return;
 
