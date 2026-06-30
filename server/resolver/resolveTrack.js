@@ -22,6 +22,9 @@ export async function resolveTrack(trackId, context = {}) {
   const providerOrder = Array.isArray(context.providerOrder)
     ? context.providerOrder
     : config.audio?.providerOrder || ['netease', 'unblock', 'fallback'];
+  const skipProviders = new Set(
+    Array.isArray(context.skipProviders) ? context.skipProviders : []
+  );
   const qualityOrder = getQualityCandidates(requestedQuality);
 
   const startTime = Date.now();
@@ -30,6 +33,7 @@ export async function resolveTrack(trackId, context = {}) {
   for (const currentQuality of qualityOrder) {
     // Check cache for each provider in order
     for (const providerName of providerOrder) {
+      if (skipProviders.has(providerName) || context.bypassCache) continue;
       const cached = getCached(trackId, currentQuality, providerName);
       if (cached) {
         logEntry({
@@ -55,6 +59,15 @@ export async function resolveTrack(trackId, context = {}) {
 
     // Try each provider in order
     for (const providerName of providerOrder) {
+      if (skipProviders.has(providerName)) {
+        tried.push({
+          provider: providerName,
+          errorCode: 'PROVIDER_SKIPPED',
+          quality: currentQuality,
+        });
+        continue;
+      }
+
       const provider = providerManager.get(providerName);
       if (!provider) {
         tried.push({
@@ -81,6 +94,7 @@ export async function resolveTrack(trackId, context = {}) {
             trackId,
             quality: currentQuality,
             source: result.source || providerName,
+            provider: providerName,
             url: result.url,
             mime: result.mime || 'audio/mpeg',
             br: result.br,
@@ -222,8 +236,9 @@ function buildResponse(cacheEntry, useProxy) {
     ok: true,
     trackId: cacheEntry.trackId,
     mode: canProxy ? 'proxy' : 'direct',
-    source: cacheEntry.source,
-    quality: cacheEntry.quality,
+      source: cacheEntry.source,
+      provider: cacheEntry.provider || cacheEntry.source,
+      quality: cacheEntry.quality,
     expiresAt: cacheEntry.expiresAt,
   };
 
@@ -233,6 +248,11 @@ function buildResponse(cacheEntry, useProxy) {
       trackId: cacheEntry.trackId,
       quality: cacheEntry.quality,
       source: cacheEntry.source,
+      provider: cacheEntry.provider || cacheEntry.source,
+      br: cacheEntry.br,
+      size: cacheEntry.size,
+      md5: cacheEntry.md5,
+      urlExt: cacheEntry.urlExt,
     });
     base.playUrl = `/api/audio/stream/${token}`;
   } else {

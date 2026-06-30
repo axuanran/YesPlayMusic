@@ -58,6 +58,15 @@ export function setCache(trackId, quality, provider, value) {
   writeCache(data);
 }
 
+export function deleteCache(trackId, quality, provider) {
+  const data = readCache();
+  const key = cacheKey(trackId, quality, provider);
+  if (!data[key]) return false;
+  delete data[key];
+  writeCache(data);
+  return true;
+}
+
 export function clearCache() {
   writeCache({});
 }

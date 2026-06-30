@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { resolveTrack } from '../resolver/resolveTrack.js';
-import { resolveStreamToken, proxyStream } from '../resolver/streamProxy.js';
+import { deleteCache } from '../resolver/cache.js';
+import {
+  deleteStreamToken,
+  resolveStreamToken,
+  proxyStream,
+} from '../resolver/streamProxy.js';
 
 const router = Router();
 
@@ -59,7 +64,32 @@ router.get('/audio/stream/:token', async (req, res) => {
       });
     }
 
-    await proxyStream(entry.url, req, res);
+    const proxyResult = await proxyStream(entry.url, req, res);
+    if (!proxyResult?.retryable || res.headersSent || !entry.trackId) return;
+
+    const provider = entry.provider || entry.source;
+    deleteStreamToken(token);
+    if (provider) {
+      deleteCache(entry.trackId, entry.quality, provider);
+    }
+
+    const fallback = await resolveTrack(Number(entry.trackId), {
+      quality: entry.quality || 'standard',
+      bypassCache: true,
+      skipProviders: provider ? [provider] : [],
+      useProxy: true,
+    });
+
+    if (fallback.ok && fallback.playUrl) {
+      return res.redirect(307, fallback.playUrl);
+    }
+
+    res.status(502).json({
+      ok: false,
+      code: proxyResult.code || fallback.code || 'STREAM_SOURCE_EXPIRED',
+      message: fallback.message || '播放源已失效，且没有可用替代源',
+      tried: fallback.tried,
+    });
   } catch {
     if (!res.headersSent) {
       res.status(502).json({

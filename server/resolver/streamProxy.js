@@ -39,6 +39,11 @@ export function createStreamToken(realUrl, metadata = {}) {
     trackId: metadata.trackId,
     quality: metadata.quality,
     source: metadata.source,
+    provider: metadata.provider,
+    br: metadata.br,
+    size: metadata.size,
+    md5: metadata.md5,
+    urlExt: metadata.urlExt,
     expiresAt: Date.now() + TOKEN_TTL_MS,
   });
 
@@ -65,6 +70,18 @@ export function resolveStreamToken(token) {
     return null;
   }
   return entry;
+}
+
+export function deleteStreamToken(token) {
+  return tokenStore.delete(token);
+}
+
+function getProxyErrorCode(error) {
+  return error?.response?.status || error?.code || 'PROXY_FAILED';
+}
+
+function isRetryableProxyError(error) {
+  return [403, 404, 410].includes(Number(error?.response?.status));
 }
 
 /**
@@ -111,7 +128,7 @@ res.set('Access-Control-Allow-Origin', '*');
       source: 'streamProxy',
       trackId: entry?.trackId,
       quality: entry?.quality,
-      provider: entry?.source,
+      provider: entry?.provider || entry?.source,
       br: entry?.br,
       size: entry?.size,
       md5: entry?.md5,
@@ -147,7 +164,7 @@ res.set('Access-Control-Allow-Origin', '*');
       source: 'streamProxy',
       trackId: entry?.trackId,
       quality: entry?.quality,
-      provider: entry?.source,
+      provider: entry?.provider || entry?.source,
       br: entry?.br,
       size: entry?.size,
       md5: entry?.md5,
@@ -158,21 +175,26 @@ res.set('Access-Control-Allow-Origin', '*');
     });
   } catch (error) {
     if (!res.headersSent) {
+      const errorCode = getProxyErrorCode(error);
         logEntry({
           result: 'fail',
           source: 'streamProxy',
           trackId: entry?.trackId,
           quality: entry?.quality,
-          provider: entry?.source,
+          provider: entry?.provider || entry?.source,
           br: entry?.br,
           size: entry?.size,
           md5: entry?.md5,
           urlExt: entry?.urlExt,
-          errorCode: error?.response?.status || error?.code || 'PROXY_FAILED',
+          errorCode,
           durationMs: Date.now() - startTime,
           note: `${realUrl} ${error?.message || ''}`.trim(),
         });
+      if (isRetryableProxyError(error)) {
+        return { ok: false, retryable: true, code: errorCode };
+      }
       res.status(502).json({ ok: false, code: 'PROXY_FAILED', reason: '代理流失败' });
     }
   }
+  return { ok: true };
 }
