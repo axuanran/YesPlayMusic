@@ -1,5 +1,5 @@
 <template>
-  <div v-show="show" class="home">
+  <div class="home">
     <div
       v-if="settings.showPlaylistsByAppleMusic !== false"
       class="index-row first-row"
@@ -25,7 +25,7 @@
         sub-text="copywriter"
       />
     </div>
-    <div class="index-row">
+    <div class="index-row for-you-section">
       <div class="title"> For You </div>
       <div class="for-you-row">
         <DailyTracksCard ref="DailyTracksCard" />
@@ -85,7 +85,7 @@ export default {
   components: { CoverRow, FMCard, DailyTracksCard },
   data() {
     return {
-      show: false,
+      show: true,
       recommendPlaylist: { items: [] },
       newReleasesAlbum: { items: [] },
       topList: {
@@ -110,13 +110,9 @@ export default {
   },
   methods: {
     loadData() {
-      setTimeout(() => {
-        if (!this.show) NProgress.start();
-      }, 1000);
       getRecommendPlayList(10, false).then(items => {
         this.recommendPlaylist.items = items;
         NProgress.done();
-        this.show = true;
       });
       newAlbums({
         area: this.settings.musicLanguage ?? 'ALL',
@@ -159,9 +155,13 @@ export default {
 <style lang="scss" scoped>
 .index-row {
   margin-top: 54px;
+  min-height: 300px;
 }
 .index-row.first-row {
   margin-top: 32px;
+}
+.for-you-section {
+  min-height: 330px;
 }
 .playlists {
   display: flex;
@@ -200,6 +200,7 @@ footer {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
+  min-height: 198px;
   margin-bottom: 78px;
 }
 </style>
