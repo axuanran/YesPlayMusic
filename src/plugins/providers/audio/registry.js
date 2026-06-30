@@ -124,3 +124,8 @@ export async function resolveTrackSourceWithProviders(track, qualityOverride) {
 
   return null;
 }
+
+export function resetAudioProvidersForTest() {
+  audioProviders.clear();
+  providerStatus.clear();
+}

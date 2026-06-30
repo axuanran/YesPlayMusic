@@ -53,3 +53,7 @@ export function syncPlugins(plugins, ctx) {
 export function getInstalledPlugins() {
   return Array.from(installedPlugins.values());
 }
+
+export function resetPluginRuntimeForTest() {
+  installedPlugins.clear();
+}
