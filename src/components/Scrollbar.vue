@@ -24,7 +24,8 @@
 </template>
 
 <script>
-const POSITION_SAVE_INTERVAL = 250;
+const SCROLLBAR_SYNC_INTERVAL = 100;
+const POSITION_SAVE_INTERVAL = 500;
 
 export default {
   name: 'Scrollbar',
@@ -33,7 +34,7 @@ export default {
       active: false,
       show: false,
       hideTimer: null,
-      scrollFrame: null,
+      scrollSyncTimer: null,
       positionSaveTimer: null,
       pendingRoutePosition: null,
       isOnDrag: false,
@@ -65,11 +66,11 @@ export default {
 
   methods: {
     handleScroll() {
-      if (this.scrollFrame !== null) return;
-      this.scrollFrame = requestAnimationFrame(() => {
-        this.scrollFrame = null;
+      if (this.scrollSyncTimer !== null) return;
+      this.scrollSyncTimer = setTimeout(() => {
+        this.scrollSyncTimer = null;
         this.syncScrollState();
-      });
+      }, SCROLLBAR_SYNC_INTERVAL);
     },
     syncScrollState() {
       const main = this.main;
@@ -184,10 +185,10 @@ export default {
     },
     clearTimers() {
       if (this.hideTimer !== null) clearTimeout(this.hideTimer);
-      if (this.scrollFrame !== null) cancelAnimationFrame(this.scrollFrame);
+      if (this.scrollSyncTimer !== null) clearTimeout(this.scrollSyncTimer);
       if (this.positionSaveTimer !== null) clearTimeout(this.positionSaveTimer);
       this.hideTimer = null;
-      this.scrollFrame = null;
+      this.scrollSyncTimer = null;
       this.positionSaveTimer = null;
     },
     restorePosition() {
