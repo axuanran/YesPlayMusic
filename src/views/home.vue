@@ -10,6 +10,7 @@
         :items="byAppleMusic"
         sub-text="appleMusic"
         :image-size="1024"
+        eager
       />
     </div>
     <div class="index-row">
