@@ -1,6 +1,7 @@
 @font-face {
   font-family: 'Barlow';
   font-weight: normal;
+  font-display: swap;
   src:
     url('@/assets/fonts/Barlow-Regular.woff2') format('woff2'),
     url('@/assets/fonts/Barlow-Regular.ttf') format('truetype');
@@ -8,6 +9,7 @@
 @font-face {
   font-family: 'Barlow';
   font-weight: medium;
+  font-display: swap;
   src:
     url('@/assets/fonts/Barlow-Medium.woff2') format('woff2'),
     url('@/assets/fonts/Barlow-Medium.ttf') format('truetype');
@@ -15,6 +17,7 @@
 @font-face {
   font-family: 'Barlow';
   font-weight: 600;
+  font-display: swap;
   src:
     url('@/assets/fonts/Barlow-SemiBold.woff2') format('woff2'),
     url('@/assets/fonts/Barlow-SemiBold.ttf') format('truetype');
@@ -22,6 +25,7 @@
 @font-face {
   font-family: 'Barlow';
   font-weight: bold;
+  font-display: swap;
   src:
     url('@/assets/fonts/Barlow-Bold.woff2') format('woff2'),
     url('@/assets/fonts/Barlow-Bold.ttf') format('truetype');
@@ -29,6 +33,7 @@
 @font-face {
   font-family: 'Barlow';
   font-weight: 800;
+  font-display: swap;
   src:
     url('@/assets/fonts/Barlow-ExtraBold.woff2') format('woff2'),
     url('@/assets/fonts/Barlow-ExtraBold.ttf') format('truetype');
@@ -36,6 +41,7 @@
 @font-face {
   font-family: 'Barlow';
   font-weight: 900;
+  font-display: swap;
   src:
     url('@/assets/fonts/Barlow-Black.woff2') format('woff2'),
     url('@/assets/fonts/Barlow-Black.ttf') format('truetype');
