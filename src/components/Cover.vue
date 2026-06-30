@@ -16,7 +16,13 @@
           ><svg-icon icon-class="play" />
         </button>
       </div>
-      <img :src="imageUrl" :style="imageStyles" loading="lazy" />
+      <img
+        :src="imageUrl"
+        :style="imageStyles"
+        :loading="imageLoading"
+        :fetchpriority="imageFetchPriority"
+        decoding="async"
+      />
       <transition v-if="coverHover || alwaysShowShadow" name="fade">
         <div
           v-show="focus || alwaysShowShadow"
@@ -42,6 +48,8 @@ export default {
     clickCoverToPlay: { type: Boolean, default: false },
     shadowMargin: { type: Number, default: 12 },
     radius: { type: Number, default: 12 },
+    imageLoading: { type: String, default: 'lazy' },
+    imageFetchPriority: { type: String, default: 'auto' },
   },
   data() {
     return {
