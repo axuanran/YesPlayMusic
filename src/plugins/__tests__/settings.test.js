@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getPluginEnabled,
   getPluginSettings,
@@ -8,6 +8,10 @@ import {
 } from '../settings';
 
 describe('plugin settings', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('reads settings with fallback', () => {
     const store = { state: { settings: { theme: 'dark' } } };
 
@@ -33,6 +37,21 @@ describe('plugin settings', () => {
     expect(getPluginEnabled({ id: 'demo', enabledByDefault: true }, {})).toBe(
       true
     );
+  });
+
+  it('reads plugin settings from localStorage fallback', () => {
+    localStorage.setItem(
+      'settings',
+      JSON.stringify({ plugins: { demo: { enabled: true } } })
+    );
+
+    expect(getPluginSettings()).toEqual({ demo: { enabled: true } });
+  });
+
+  it('handles invalid localStorage settings', () => {
+    localStorage.setItem('settings', '{bad-json');
+
+    expect(getPluginSettings()).toEqual({});
   });
 
   it('sets plugin enabled state without dropping existing state', () => {

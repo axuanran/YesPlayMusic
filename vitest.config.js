@@ -7,6 +7,7 @@ export default defineConfig({
     globals: true,
     clearMocks: true,
     restoreMocks: true,
+    setupFiles: ['./src/plugins/__tests__/setup.js'],
   },
   resolve: {
     alias: {

@@ -92,12 +92,22 @@ diagnostics.
 
 - `manifest.js`: manifest validation and normalization.
 - `settings.js`: plugin state and settings helpers.
-- `runtime.js`: setup, dispose, and sync lifecycle.
+- `runtime.js`: setup, dispose, and sync lifecycle. Use
+  `createPluginRuntime()` for isolated tests; the module also exports the app
+  singleton methods.
 - `routes.js`: route collection.
-- `providers/audio/`: experimental audio provider registry.
+- `providers/audio/`: experimental audio provider registry. Use
+  `createAudioProviderRegistry()` for isolated tests; `providers/audio/index.js`
+  exports the app singleton.
 - `playerEvents.js`: notification-only player event helper.
 - `logger.js`: shared plugin logger.
 
 Built-in plugin pages can be split into local components under their own
 `pages/components/` directory. Keep plugin UI state inside the plugin unless it
 must be persisted through `ctx.settings` or Vuex.
+
+## Checks
+
+- `yarn test`: run Vitest tests.
+- `yarn test:watch`: run Vitest in watch mode.
+- `yarn verify`: run lint, tests, and build.

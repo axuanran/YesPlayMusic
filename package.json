@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify": "yarn lint && yarn test && yarn build",
     "lint": "eslint \"src/**/*.{js,vue}\"",
     "electron:build": "yarn desktop:build",
     "electron:build-all": "electron-vite build && electron-builder -mwl",
