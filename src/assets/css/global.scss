@@ -200,13 +200,6 @@ nav {
   box-shadow: 0 18px 34px rgba(0, 0, 0, 0.2);
 }
 
-// Skip rendering off-screen content-heavy rows/cards while scrolling.
-.index-row,
-.cover-row .item {
-  content-visibility: auto;
-  contain-intrinsic-size: 260px;
-}
-
 // Temporary low-cost visual mode during active scrolling. This preserves the normal
 // look at rest, but removes paint-heavy decoration while the viewport is moving.
 #app.is-scrolling {
