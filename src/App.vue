@@ -5,7 +5,7 @@
     <main
       ref="main"
       :style="{ overflow: enableScrolling ? 'auto' : 'hidden' }"
-      @scroll="handleScroll"
+      @scroll.passive="handleScroll"
     >
       <router-view v-slot="{ Component }">
         <keep-alive :include="keepAliveComponents">
@@ -115,7 +115,7 @@ export default {
       }
     },
     handleScroll() {
-      this.$refs.scrollbar.handleScroll();
+      this.$refs.scrollbar?.handleScroll?.();
     },
   },
 };
@@ -124,7 +124,9 @@ export default {
 <style lang="scss">
 #app {
   width: 100%;
-  transition: all 0.4s;
+  transition:
+    background-color 0.4s,
+    color 0.4s;
 }
 
 main {
