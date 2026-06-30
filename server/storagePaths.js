@@ -20,11 +20,7 @@ export function getStorageDir() {
     return process.env.YPM_RESOLVER_STORAGE_DIR;
   }
 
-  if (__dirname.includes('.asar')) {
-    return path.join(getAppDataDir(), 'YesPlayMusic', 'resolver-storage');
-  }
-
-  return path.join(__dirname, 'storage');
+  return path.join(getAppDataDir(), 'YesPlayMusic', 'resolver-storage');
 }
 
 export function ensureStorageDir() {

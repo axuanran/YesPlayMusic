@@ -16,7 +16,7 @@ const DEFAULT_CONFIG = {
     proxyStream: true,
     defaultQuality: 'standard',
     cacheTtl: 1800,
-    providerOrder: ['netease', 'unblock', 'fallback'],
+    providerOrder: ['netease', 'lx', 'unblock', 'fallback'],
     fallbackToLegacy: true,
     unblock: {
       enabled: true,
@@ -28,6 +28,14 @@ const DEFAULT_CONFIG = {
       qqCookie: '',
       ytDlExe: '',
     },
+    lx: {
+      enabled: false,
+      source: 'kw',
+      scriptUrl: '',
+      timeoutMs: 15000,
+      cacheMs: 600000,
+      sources: [],
+    },
   },
 };
 
@@ -38,9 +46,10 @@ export function loadConfig() {
   ensureStorageDir();
   try {
     const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
-    _config = deepMerge(DEFAULT_CONFIG, JSON.parse(raw));
+    _config = normalizeConfig(JSON.parse(raw));
+    saveConfig(_config);
   } catch {
-    _config = { ...DEFAULT_CONFIG };
+    _config = normalizeConfig({});
     saveConfig(_config);
   }
   return _config;
@@ -48,8 +57,8 @@ export function loadConfig() {
 
 export function saveConfig(config) {
   ensureStorageDir();
-  _config = config;
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
+  _config = normalizeConfig(config);
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(_config, null, 2), 'utf-8');
 }
 
 export function getConfig() {
@@ -59,6 +68,24 @@ export function getConfig() {
 export function reloadConfig() {
   _config = null;
   return loadConfig();
+}
+
+export function getConfigPath() {
+  return CONFIG_PATH;
+}
+
+function normalizeConfig(config) {
+  const normalized = deepMerge(DEFAULT_CONFIG, config || {});
+  if (normalized.audio?.lx) {
+    delete normalized.audio.lx.scriptPath;
+    if (Array.isArray(normalized.audio.lx.sources)) {
+      normalized.audio.lx.sources = normalized.audio.lx.sources.map(source => {
+        const { scriptPath: _scriptPath, ...rest } = source || {};
+        return rest;
+      });
+    }
+  }
+  return normalized;
 }
 
 function deepMerge(base, override) {

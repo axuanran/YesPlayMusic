@@ -22,6 +22,7 @@ import {
 import { NETEASE_API_PORT, startNeteaseMusicApi } from '../electron/services';
 import { registerProvider } from '../../server/resolver/providerManager.js';
 import * as neteaseProvider from '../../server/providers/netease.js';
+import * as lxProvider from '../../server/providers/lx.js';
 import * as unblockProvider from '../../server/providers/unblock.js';
 import * as fallbackProvider from '../../server/providers/fallback.js';
 import { initIpcMain } from '../electron/ipcMain.js';
@@ -35,8 +36,9 @@ import * as devtoolsInstaller from 'electron-devtools-installer';
 import { EventEmitter } from 'events';
 import express from 'express';
 import expressProxy from 'express-http-proxy';
+import { reloadConfig } from '../../server/config.js';
 import audioRoutes from '../../server/routes/audio.js';
-import adminRoutes from '../../server/routes/admin.js';
+import adminRoutes, { setRestartHandler } from '../../server/routes/admin.js';
 import StoreModule from 'electron-store';
 import { spawn } from 'child_process';
 import clc from 'cli-color';
@@ -174,9 +176,11 @@ class Background {
 
     // Register audio resolver providers
     registerProvider(neteaseProvider);
+    registerProvider(lxProvider);
     registerProvider(unblockProvider);
     registerProvider(fallbackProvider);
-    log('audio resolver providers registered');
+    log('audio resolver providers registered: netease, lx, unblock, fallback');
+    setRestartHandler(() => this.restartExpressApp());
 
     // create Express app
     this.createExpressApp();
@@ -281,6 +285,35 @@ class Background {
     });
 
     this.expressApp = expressApp.listen(27232, '127.0.0.1');
+  }
+
+  restartExpressApp() {
+    log('restarting express app');
+    reloadConfig();
+    const server = this.expressApp;
+    this.expressApp = null;
+
+    setTimeout(() => {
+      if (!server) {
+        this.createExpressApp();
+        return;
+      }
+      let restarted = false;
+      const restart = () => {
+        if (restarted) return;
+        restarted = true;
+        this.createExpressApp();
+      };
+      server.close(error => {
+        if (error) {
+          log(`Failed to stop express app: ${error.message}`);
+        }
+        restart();
+      });
+      server.closeIdleConnections?.();
+      server.closeAllConnections?.();
+      setTimeout(restart, 1000);
+    }, 100);
   }
 
   createWindow() {
@@ -575,7 +608,9 @@ class Background {
     });
 
     app.on('quit', () => {
-      this.expressApp.close();
+      if (this.expressApp) {
+        this.expressApp.close();
+      }
     });
 
     app.on('will-quit', () => {

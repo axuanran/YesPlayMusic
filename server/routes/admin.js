@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getConfig, saveConfig } from '../config.js';
+import { getConfig, getConfigPath, saveConfig } from '../config.js';
 import { resolveTrack } from '../resolver/resolveTrack.js';
 import { clearCache, cacheSize } from '../resolver/cache.js';
 import { getLogs, clearLogs } from '../storage/logger.js';
@@ -7,6 +7,11 @@ import { providerManager } from '../resolver/providerManager.js';
 import { saveCookie, clearCookie, hasCookie } from '../storage/cookieStore.js';
 
 const router = Router();
+let restartHandler = null;
+
+export function setRestartHandler(handler) {
+  restartHandler = typeof handler === 'function' ? handler : null;
+}
 
 // Simple admin token check middleware
 function adminAuth(req, res, next) {
@@ -23,7 +28,7 @@ router.use(adminAuth);
 
 // GET /api/admin/config
 router.get('/config', (_req, res) => {
-  res.json({ ok: true, config: getConfig() });
+  res.json({ ok: true, config: getConfig(), configPath: getConfigPath() });
 });
 
 // POST /api/admin/config
@@ -35,6 +40,22 @@ router.post('/config', (req, res) => {
     }
     saveConfig(newConfig);
     res.json({ ok: true, config: getConfig() });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+// POST /api/admin/restart
+router.post('/restart', (req, res) => {
+  if (!restartHandler) {
+    return res.status(501).json({
+      ok: false,
+      message: 'Resolver restart is not available in this runtime',
+    });
+  }
+  try {
+    restartHandler();
+    res.json({ ok: true, message: 'Resolver restart requested' });
   } catch (error) {
     res.status(500).json({ ok: false, message: error.message });
   }
@@ -68,13 +89,15 @@ router.delete('/cookie', (_req, res) => {
 // POST /api/admin/test-resolve
 router.post('/test-resolve', async (req, res) => {
   try {
-    const { trackId, quality, trackName, useProxy } = req.body;
+    const { trackId, quality, trackName, useProxy, provider } = req.body;
     if (!trackId) {
       return res.status(400).json({ ok: false, message: '缺少 trackId' });
     }
     const result = await resolveTrack(Number(trackId), {
       quality: quality || 'standard',
+      track: trackName ? { id: Number(trackId), name: trackName } : undefined,
       useProxy,
+      providerOrder: provider ? [provider] : undefined,
     });
     res.json({ ...result, trackName: trackName || undefined });
   } catch (error) {
@@ -121,7 +144,9 @@ router.post('/providers', (req, res) => {
   try {
     const { providerOrder } = req.body;
     if (!Array.isArray(providerOrder)) {
-      return res.status(400).json({ ok: false, message: 'Invalid providerOrder' });
+      return res
+        .status(400)
+        .json({ ok: false, message: 'Invalid providerOrder' });
     }
     const config = getConfig();
     const nextConfig = {

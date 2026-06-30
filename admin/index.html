@@ -148,6 +148,19 @@
       button.secondary:hover {
         background: #484f58;
       }
+      button:disabled,
+      button:disabled:hover {
+        background: #30363d;
+        color: #8b949e;
+        cursor: not-allowed;
+      }
+      .provider-source {
+        padding: 12px;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        margin: 12px 0;
+        background: #0d1117;
+      }
       .badge {
         display: inline-block;
         padding: 2px 8px;
@@ -282,6 +295,12 @@
         return `${(size / (1024 * 1024)).toFixed(2)} MB`;
       }
 
+      function uniqueList(items) {
+        return Array.from(
+          new Set(items.map(item => String(item || '').trim()).filter(Boolean))
+        );
+      }
+
       const DEFAULT_UNBLOCK_CONFIG = {
         enabled: true,
         source: 'ytdl, bilibili, pyncm, kugou',
@@ -293,6 +312,16 @@
         ytDlExe: '',
       };
 
+      const DEFAULT_LX_CONFIG = {
+        enabled: false,
+        source: 'kw',
+        scriptUrl: '',
+        timeoutMs: 15000,
+        cacheMs: 600000,
+        sources: [],
+      };
+      const BUILTIN_PROVIDER_NAMES = ['netease', 'lx', 'unblock', 'fallback'];
+
       function createDefaultConfig() {
         return {
           server: { host: '127.0.0.1', port: 27232 },
@@ -301,10 +330,11 @@
             proxyStream: true,
             defaultQuality: 'standard',
             cacheTtl: 1800,
-            providerOrder: ['netease', 'unblock', 'fallback'],
+            providerOrder: ['netease', 'lx', 'unblock', 'fallback'],
             fallbackToLegacy: true,
             useCookie: true,
             unblock: { ...DEFAULT_UNBLOCK_CONFIG },
+            lx: { ...DEFAULT_LX_CONFIG },
           },
         };
       }
@@ -327,8 +357,50 @@
             ...DEFAULT_UNBLOCK_CONFIG,
             ...(config?.audio?.unblock || {}),
           },
+          lx: normalizeLxConfig(config?.audio?.lx),
         };
         return nextConfig;
+      }
+
+      function normalizeLxConfig(config) {
+        const lx = {
+          ...DEFAULT_LX_CONFIG,
+          ...(config || {}),
+        };
+        const configuredSources = Array.isArray(config?.sources)
+          ? config.sources
+          : [];
+        const migratedSources =
+          configuredSources.length === 0 && lx.scriptUrl
+            ? [
+                {
+                  enabled: true,
+                  name: lx.source || 'kw',
+                  source: lx.source || 'kw',
+                  scriptUrl: lx.scriptUrl || '',
+                },
+              ]
+            : configuredSources;
+        lx.sources = migratedSources.map((source, index) => ({
+          enabled: source.enabled !== false,
+          name: source.name || `LX Source ${index + 1}`,
+          source: source.source || lx.source || 'kw',
+          scriptUrl: source.scriptUrl || '',
+        }));
+        return lx;
+      }
+
+      async function postJson(url, payload) {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.ok === false) {
+          throw new Error(data.message || `Request failed: ${response.status}`);
+        }
+        return data;
       }
 
       const app = createApp({
@@ -513,6 +585,7 @@
       </div>
       <div style="margin-top:12px">
         <button @click="save">Save Config</button>
+        <button class="secondary" @click="restartResolver" style="margin-left:8px">Restart Resolver</button>
         <button class="secondary" @click="load" style="margin-left:8px">Reload</button>
       </div>
     </div>
@@ -534,19 +607,25 @@
 
           async function save() {
             try {
-              await fetch(api + '/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(normalizeConfig(cfg)),
-              });
+              await postJson(api + '/config', normalizeConfig(cfg));
               toast('Config saved');
             } catch (e) {
-              toast('Failed to save', 'err');
+              toast(`Failed to save: ${e.message}`, 'err');
+            }
+          }
+
+          async function restartResolver() {
+            try {
+              await postJson(api + '/restart', {});
+              toast('Resolver restart requested');
+              setTimeout(load, 500);
+            } catch (e) {
+              toast(`Failed to restart resolver: ${e.message}`, 'err');
             }
           }
 
           onMounted(load);
-          return { cfg, save, load };
+          return { cfg, save, restartResolver, load };
         },
       };
 
@@ -591,6 +670,42 @@
         <input v-model="cfg.audio.unblock.qqCookie" placeholder="uin=...; qm_keyst=...">
         <label>yt-dlp Path</label>
         <input v-model="cfg.audio.unblock.ytDlExe" placeholder="yt-dlp">
+      </div>
+      <div class="card">
+        <h3>LX Provider</h3>
+        <label>Status</label>
+        <select v-model="cfg.audio.lx.enabled">
+          <option :value="true">Enabled</option>
+          <option :value="false">Disabled</option>
+        </select>
+        <div class="subtle" style="margin:10px 0 0">Resolver tries LX sources from top to bottom inside the single <code>lx</code> provider.</div>
+        <div v-for="(source, index) in cfg.audio.lx.sources" :key="index" class="provider-source">
+          <div class="flex-row">
+            <div>
+              <label>Name</label>
+              <input v-model="source.name" placeholder="LX Source">
+            </div>
+            <div>
+              <label>Source ID</label>
+              <input v-model="source.source" placeholder="kw">
+            </div>
+            <div>
+              <label>Status</label>
+              <select v-model="source.enabled">
+                <option :value="true">Enabled</option>
+                <option :value="false">Disabled</option>
+              </select>
+            </div>
+          </div>
+          <label>Script URL</label>
+          <input v-model="source.scriptUrl" placeholder="https://example.com/lx-source.js or T:\\Data\\lx-source.js">
+          <div style="margin-top:10px">
+            <button class="secondary" @click="moveLxSource(index, -1)" :disabled="index === 0">Up</button>
+            <button class="secondary" @click="moveLxSource(index, 1)" :disabled="index === cfg.audio.lx.sources.length - 1" style="margin-left:8px">Down</button>
+            <button class="danger" @click="removeLxSource(index)" style="margin-left:8px">Remove</button>
+          </div>
+        </div>
+        <button class="secondary" @click="addLxSource">Add LX Source</button>
       </div>
       <div class="card">
         <h3>Registered Providers</h3>
@@ -639,15 +754,31 @@
           async function save() {
             try {
               cfg.audio.providerOrder = providerOrder.value;
-              await fetch(api + '/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(normalizeConfig(cfg)),
-              });
+              await postJson(api + '/config', normalizeConfig(cfg));
               toast('Providers saved');
             } catch (e) {
-              toast('Failed to save providers', 'err');
+              toast(`Failed to save providers: ${e.message}`, 'err');
             }
+          }
+
+          function addLxSource() {
+            cfg.audio.lx.sources.push({
+              enabled: true,
+              name: `LX Source ${cfg.audio.lx.sources.length + 1}`,
+              source: cfg.audio.lx.source || 'kw',
+              scriptUrl: '',
+            });
+          }
+
+          function removeLxSource(index) {
+            cfg.audio.lx.sources.splice(index, 1);
+          }
+
+          function moveLxSource(index, direction) {
+            const target = index + direction;
+            if (target < 0 || target >= cfg.audio.lx.sources.length) return;
+            const [item] = cfg.audio.lx.sources.splice(index, 1);
+            cfg.audio.lx.sources.splice(target, 0, item);
           }
 
           onMounted(load);
@@ -656,6 +787,9 @@
             providers,
             providerOrderStr,
             providerOrder,
+            addLxSource,
+            removeLxSource,
+            moveLxSource,
             save,
             load,
           };
@@ -671,11 +805,21 @@
         <div class="flex-row">
           <div><label>Track ID</label><input v-model="trackId" placeholder="e.g. 405998841"></div>
           <div><label>Song Name</label><input v-model="trackName" placeholder="e.g. Down to Earth"></div>
+          <div><label>Provider</label>
+            <select v-model="provider">
+              <option value="">Provider Chain</option>
+              <option v-for="item in providers" :key="item" :value="item">{{ item }}</option>
+            </select>
+          </div>
           <div><label>Quality</label>
             <select v-model="quality">
               <option value="standard">Standard</option>
-              <option value="higher">Higher</option>
+              <option value="exhigh">Ex High</option>
               <option value="lossless">Lossless</option>
+              <option value="hires">Hi-Res</option>
+              <option value="jyeffect">JY Effect</option>
+              <option value="sky">Sky</option>
+              <option value="jymaster">JY Master</option>
             </select>
           </div>
           <div><label>Use Proxy</label>
@@ -704,11 +848,37 @@
         setup() {
           const trackId = ref('');
           const trackName = ref('');
+          const provider = ref('');
+          const providers = ref([]);
           const quality = ref('standard');
           const useProxy = ref(true);
           const loading = ref(false);
           const result = ref(null);
           const api = inject('api');
+
+          async function loadProviders() {
+            try {
+              const [providersResponse, configResponse] = await Promise.all([
+                fetch(api + '/providers'),
+                fetch(api + '/config'),
+              ]);
+              const providersData = providersResponse.ok
+                ? await providersResponse.json()
+                : {};
+              const configData = configResponse.ok
+                ? await configResponse.json()
+                : {};
+              const config = normalizeConfig(configData.config);
+              providers.value = uniqueList([
+                ...(providersData.providers || []),
+                ...(providersData.providerOrder || []),
+                ...(config.audio?.providerOrder || []),
+                ...BUILTIN_PROVIDER_NAMES,
+              ]);
+            } catch {
+              providers.value = [...BUILTIN_PROVIDER_NAMES];
+            }
+          }
 
           async function test() {
             loading.value = true;
@@ -720,6 +890,7 @@
                 body: JSON.stringify({
                   trackId: Number(trackId.value),
                   trackName: trackName.value,
+                  provider: provider.value || undefined,
                   quality: quality.value,
                   useProxy: useProxy.value,
                 }),
@@ -733,9 +904,12 @@
             loading.value = false;
           }
 
+          onMounted(loadProviders);
           return {
             trackId,
             trackName,
+            provider,
+            providers,
             quality,
             useProxy,
             loading,
