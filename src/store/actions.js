@@ -75,13 +75,13 @@ export default {
       // TODO:搜索ID登录的用户
     }
   },
-   fetchLikedSongsWithDetails: ({ state, commit }) => {
-     return getPlaylistDetail(state.data.likedSongPlaylistID, true).then(
-       result => {
-         if (!result.playlist?.trackIds?.length) {
-           return new Promise(resolve => {
-             resolve();
-           });
+  fetchLikedSongsWithDetails: ({ state, commit }) => {
+    return getPlaylistDetail(state.data.likedSongPlaylistID, true).then(
+      result => {
+        if (!result.playlist?.trackIds?.length) {
+          return new Promise(resolve => {
+            resolve();
+          });
         }
         return getTrackDetail(
           result.playlist.trackIds

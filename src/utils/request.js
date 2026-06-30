@@ -1,5 +1,10 @@
 import router from '@/router';
-import { doLogout, getCookieString, setCookies, syncCookiesFromDocument } from '@/utils/auth';
+import {
+  doLogout,
+  getCookieString,
+  setCookies,
+  syncCookiesFromDocument,
+} from '@/utils/auth';
 import { refreshCookie } from '@/api/auth';
 import { env } from '@/utils/env';
 import store from '@/store';
@@ -111,7 +116,12 @@ service.interceptors.request.use(function (config) {
 service.interceptors.response.use(
   async response => {
     const res = response.data;
-    if (res?.code === 301 && res?.msg === '需要登录' && response.config.url !== '/logout' && !response.config._retried) {
+    if (
+      res?.code === 301 &&
+      res?.msg === '需要登录' &&
+      response.config.url !== '/logout' &&
+      !response.config._retried
+    ) {
       try {
         await runTokenRefresh();
         response.config._retried = true;

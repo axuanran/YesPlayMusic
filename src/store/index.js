@@ -1,14 +1,14 @@
-import { createStore } from "vuex";
-import state from "./state";
-import mutations from "./mutations";
-import actions from "./actions";
-import { changeAppearance, changeThemeColor } from "@/utils/common";
-import Player from "@/utils/Player";
-import { isElectron } from "@/utils/env";
-import { getCookie } from "@/utils/auth";
+import { createStore } from 'vuex';
+import state from './state';
+import mutations from './mutations';
+import actions from './actions';
+import { changeAppearance, changeThemeColor } from '@/utils/common';
+import Player from '@/utils/Player';
+import { isElectron } from '@/utils/env';
+import { getCookie } from '@/utils/auth';
 // vuex 自定义插件
-import saveToLocalStorage from "./plugins/localStorage";
-import { getSendSettingsPlugin } from "./plugins/sendSettings";
+import saveToLocalStorage from './plugins/localStorage';
+import { getSendSettingsPlugin } from './plugins/sendSettings';
 
 let plugins = [saveToLocalStorage];
 if (isElectron) {
@@ -32,28 +32,28 @@ if (getCookie('MUSIC_U') && !store.state.data.loginMode) {
 }
 
 if ([undefined, null].includes(store.state.settings.lang)) {
-  const defaultLang = "en";
+  const defaultLang = 'en';
   const langMapper = new Map()
-    .set("zh", "zh-CN")
-    .set("zh-TW", "zh-TW")
-    .set("en", "en")
-    .set("tr", "tr");
+    .set('zh', 'zh-CN')
+    .set('zh-TW', 'zh-TW')
+    .set('en', 'en')
+    .set('tr', 'tr');
   store.state.settings.lang =
     langMapper.get(
       langMapper.has(navigator.language)
         ? navigator.language
         : navigator.language.slice(0, 2)
     ) || defaultLang;
-  localStorage.setItem("settings", JSON.stringify(store.state.settings));
+  localStorage.setItem('settings', JSON.stringify(store.state.settings));
 }
 
 changeAppearance(store.state.settings.appearance);
 changeThemeColor(store.state.settings.themeColor);
 
 window
-  .matchMedia("(prefers-color-scheme: dark)")
-  .addEventListener("change", () => {
-    if (store.state.settings.appearance === "auto") {
+  .matchMedia('(prefers-color-scheme: dark)')
+  .addEventListener('change', () => {
+    if (store.state.settings.appearance === 'auto') {
       changeAppearance(store.state.settings.appearance);
       changeThemeColor(store.state.settings.themeColor);
     }

@@ -59,7 +59,8 @@ async function initTracksCacheBytes() {
       0
     );
     deleteExcessCache();
-  } catch (err) {
+  } catch {
+    // ignore cache warmup errors
   }
 }
 
@@ -77,7 +78,8 @@ async function deleteExcessCache() {
     await db.trackSources.delete(delCache.id);
     tracksCacheBytes -= delCache.source.byteLength;
     deleteExcessCache();
-  } catch (error) {
+  } catch {
+    // ignore cache eviction errors
   }
 }
 

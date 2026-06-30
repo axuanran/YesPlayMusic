@@ -21,6 +21,8 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
+        __APP_ENV__: 'readonly',
+        __APP_PLATFORM__: 'readonly',
         ipcRenderer: 'off',
       },
     },

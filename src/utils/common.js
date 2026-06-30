@@ -1,6 +1,5 @@
 import { isAccountLoggedIn } from './auth';
 import { refreshCookie } from '@/api/auth';
-import dayjs from 'dayjs';
 import store from '@/store';
 
 const themeColorPresets = {
@@ -175,22 +174,22 @@ export function updateHttps(url) {
   return url.replace(/^http:/, 'https:');
 }
 
- export function dailyTask() {
-   const now = Date.now();
-   const last = store.state.data.lastRefreshCookieTime;
-   const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
-   if (
-     isAccountLoggedIn() &&
-     (last === undefined || now - last > REFRESH_INTERVAL)
-   ) {
-     refreshCookie().then(() => {
-       store.commit('updateData', {
-         key: 'lastRefreshCookieTime',
-         value: now,
-       });
-     });
-   }
- }
+export function dailyTask() {
+  const now = Date.now();
+  const last = store.state.data.lastRefreshCookieTime;
+  const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
+  if (
+    isAccountLoggedIn() &&
+    (last === undefined || now - last > REFRESH_INTERVAL)
+  ) {
+    refreshCookie().then(() => {
+      store.commit('updateData', {
+        key: 'lastRefreshCookieTime',
+        value: now,
+      });
+    });
+  }
+}
 
 export function changeAppearance(appearance) {
   if (appearance === 'auto' || appearance === undefined) {

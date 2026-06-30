@@ -140,7 +140,12 @@ import QRCode from 'qrcode';
 import md5 from 'crypto-js/md5';
 import NProgress from 'nprogress';
 import { mapMutations } from 'vuex';
-import { normalizeCookieString, removeCookie, setCookies, getCookieString } from '@/utils/auth';
+import {
+  normalizeCookieString,
+  removeCookie,
+  setCookies,
+  getCookieString,
+} from '@/utils/auth';
 import { userAccountWithCookie } from '@/api/user';
 import nativeAlert from '@/utils/nativeAlert';
 import { isElectron } from '@/utils/env';
@@ -258,7 +263,10 @@ export default {
         // Sync cookie to resolver backend for persistence
         const cookie = getCookieString();
         if (cookie) {
-          syncCookieToResolverWithRetry(cookie, { timeoutMs: 10000, intervalMs: 1000 }).catch(error => {
+          syncCookieToResolverWithRetry(cookie, {
+            timeoutMs: 10000,
+            intervalMs: 1000,
+          }).catch(error => {
             console.warn('Failed to sync cookie after password login', error);
           });
         }
@@ -299,7 +307,10 @@ export default {
           // Sync cookie to resolver backend for persistence
           const cookieStr = getCookieString();
           if (cookieStr) {
-            syncCookieToResolverWithRetry(cookieStr, { timeoutMs: 10000, intervalMs: 1000 }).catch(error => {
+            syncCookieToResolverWithRetry(cookieStr, {
+              timeoutMs: 10000,
+              intervalMs: 1000,
+            }).catch(error => {
               console.warn('Failed to sync cookie after cookie login', error);
             });
           }

@@ -6,4 +6,3 @@ export const env = appEnv;
 export const platform = appPlatform;
 export const isElectron = env.IS_ELECTRON === true;
 export const isDevelopment = env.NODE_ENV === 'development';
-
