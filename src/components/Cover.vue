@@ -95,13 +95,20 @@ export default {
 }
 .cover-container {
   position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
 }
 img {
+  position: absolute;
+  inset: 0;
+  display: block;
   border-radius: 0.75em;
   width: 100%;
+  height: 100%;
+  object-fit: cover;
   user-select: none;
-  aspect-ratio: 1 / 1;
   border: 1px solid rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
 }
 
 .cover-hover {
@@ -113,13 +120,13 @@ img {
 
 .shade {
   position: absolute;
-  top: 0;
-  height: calc(100% - 3px);
+  inset: 0;
   width: 100%;
   background: transparent;
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 1;
 }
 .play-button {
   display: flex;
