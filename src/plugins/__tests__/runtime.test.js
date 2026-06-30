@@ -6,6 +6,7 @@ describe('plugin runtime', () => {
 
   beforeEach(() => {
     runtime = createPluginRuntime();
+    vi.spyOn(Date, 'now').mockReturnValue(1000);
   });
 
   it('installs plugins and runs setup once', () => {
@@ -18,6 +19,9 @@ describe('plugin runtime', () => {
     expect(setup).toHaveBeenCalledTimes(1);
     expect(setup).toHaveBeenCalledWith({ value: 1 });
     expect(runtime.getInstalledPlugins()).toHaveLength(1);
+    expect(runtime.getPluginHealth('demo')).toMatchObject({
+      installedAt: 1000,
+    });
   });
 
   it('disposes cleanup functions', () => {
@@ -28,6 +32,9 @@ describe('plugin runtime', () => {
 
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(runtime.getInstalledPlugins()).toHaveLength(0);
+    expect(runtime.getPluginHealth('demo')).toMatchObject({
+      disposedAt: 1000,
+    });
   });
 
   it('sync removes disabled plugins and installs enabled plugins', () => {
@@ -60,5 +67,27 @@ describe('plugin runtime', () => {
     expect(runtime.getInstalledPlugins().map(item => item.plugin.id)).toEqual([
       'good',
     ]);
+    expect(runtime.getPluginHealth('bad')).toMatchObject({
+      setupError: 'boom',
+      setupErrorAt: 1000,
+    });
+  });
+
+  it('stores dispose errors without throwing', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    runtime.installPlugin({
+      id: 'bad-cleanup',
+      setup: () => {
+        return () => {
+          throw new Error('cleanup failed');
+        };
+      },
+    });
+
+    expect(() => runtime.disposePlugin('bad-cleanup')).not.toThrow();
+    expect(runtime.getPluginHealth('bad-cleanup')).toMatchObject({
+      disposeError: 'cleanup failed',
+      disposeErrorAt: 1000,
+    });
   });
 });

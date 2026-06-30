@@ -1,5 +1,6 @@
 import store from '@/store';
 import { pluginEvents } from '@/plugins/events';
+import { AUDIO_PROVIDER_EVENTS } from '@/plugins/eventsCatalog';
 import { createPluginLogger } from '@/plugins/logger';
 import { getResolverQuality } from './quality';
 
@@ -75,13 +76,14 @@ export function createAudioProviderRegistry({
       active: provider.active,
       lastError: provider.lastError,
       lastErrorAt: provider.lastErrorAt,
+      lastResult: provider.lastResult,
       lastSuccessAt: provider.lastSuccessAt,
     }));
   }
 
   async function resolveTrackSourceWithProviders(track, qualityOverride) {
     const quality = qualityOverride || getQuality();
-    events.emit('audio:resolve:start', { track, quality });
+    events.emit(AUDIO_PROVIDER_EVENTS.RESOLVE_START, { track, quality });
 
     for (const provider of getAudioProviders()) {
       if (!provider.active) continue;
@@ -106,7 +108,7 @@ export function createAudioProviderRegistry({
             playUrl: normalizedResult.playUrl,
           },
         });
-        events.emit('audio:resolve:success', {
+        events.emit(AUDIO_PROVIDER_EVENTS.RESOLVE_SUCCESS, {
           track,
           quality,
           providerId: provider.id,
@@ -118,7 +120,7 @@ export function createAudioProviderRegistry({
           lastError: message,
           lastErrorAt: Date.now(),
         });
-        events.emit('audio:resolve:error', {
+        events.emit(AUDIO_PROVIDER_EVENTS.RESOLVE_ERROR, {
           track,
           quality,
           providerId: provider.id,

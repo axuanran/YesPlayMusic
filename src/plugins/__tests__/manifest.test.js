@@ -11,6 +11,7 @@ describe('plugin manifest', () => {
         type: 'builtin',
       })
     ).toMatchObject({
+      capabilities: [],
       enabledByDefault: false,
       routes: [],
     });

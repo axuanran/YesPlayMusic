@@ -17,6 +17,10 @@
         <span v-if="provider.lastSuccessAt">
           最近成功 {{ formatTime(provider.lastSuccessAt) }}
         </span>
+        <span v-if="provider.lastResult">
+          {{ provider.lastResult.providerId }} /
+          {{ provider.lastResult.quality }}
+        </span>
         <span v-if="provider.lastErrorAt">
           最近失败 {{ formatTime(provider.lastErrorAt) }}
         </span>

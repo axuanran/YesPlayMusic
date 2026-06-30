@@ -216,6 +216,12 @@
           <div class="description">
             {{ plugin.description }}
           </div>
+          <div v-if="plugin.capabilities.length" class="plugin-meta">
+            能力：{{ plugin.capabilities.join(' / ') }}
+          </div>
+          <div v-if="getPluginHealthMessage(plugin)" class="plugin-error">
+            {{ getPluginHealthMessage(plugin) }}
+          </div>
         </div>
         <div class="right plugin-actions">
           <button
@@ -1091,6 +1097,15 @@ export default {
       const saved = this.settings.plugins?.[plugin.id];
       return saved?.enabled ?? plugin.enabledByDefault === true;
     },
+    getPluginHealthMessage(plugin) {
+      if (plugin.health?.setupError) {
+        return `启动失败：${plugin.health.setupError}`;
+      }
+      if (plugin.health?.disposeError) {
+        return `清理失败：${plugin.health.disposeError}`;
+      }
+      return '';
+    },
     togglePlugin(plugin, enabled) {
       setPluginEnabled(this.$store, plugin.id, enabled);
       this.builtinPlugins = getBuiltinPlugins();
@@ -1324,6 +1339,18 @@ h3 {
     font-size: 14px;
     margin-top: 0.5em;
     opacity: 0.7;
+  }
+
+  .plugin-meta {
+    font-size: 13px;
+    margin-top: 0.5em;
+    opacity: 0.58;
+  }
+
+  .plugin-error {
+    font-size: 13px;
+    margin-top: 0.5em;
+    color: #e04f5f;
   }
 }
 

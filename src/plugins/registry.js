@@ -3,6 +3,7 @@ import { normalizePluginManifest, validatePluginManifest } from './manifest';
 import { getPluginState } from './settings';
 import {
   disposePlugin as disposeRuntimePlugin,
+  getPluginHealth,
   installPlugins as installRuntimePlugins,
   syncPlugins as syncRuntimePlugins,
 } from './runtime';
@@ -17,6 +18,7 @@ export function getBuiltinPlugins() {
     .filter(plugin => validatePluginManifest(plugin, seenIds))
     .map(plugin => ({
       ...plugin,
+      health: getPluginHealth(plugin.id),
       state: getPluginState(plugin),
     }));
 }

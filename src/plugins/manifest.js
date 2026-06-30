@@ -32,6 +32,7 @@ export function validatePluginManifest(plugin, seenIds = new Set()) {
 
 export function normalizePluginManifest(plugin) {
   return {
+    capabilities: [],
     enabledByDefault: false,
     routes: [],
     ...plugin,

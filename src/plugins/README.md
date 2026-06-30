@@ -14,6 +14,7 @@ export default {
   description: 'Audio resolver administration',
   version: '0.1.0',
   type: 'builtin',
+  capabilities: ['routes', 'settings'],
   enabledByDefault: true,
   routes: [],
   setup(ctx) {
@@ -23,6 +24,8 @@ export default {
 ```
 
 Required fields are `id`, `name`, `version`, and `type`.
+Use `capabilities` to declare what the plugin touches, such as `routes`,
+`settings`, `audioProvider`, or `playerEvents`.
 
 ## Context
 
@@ -86,7 +89,8 @@ above. Returning `null` or throwing an error lets the next provider run. If
 every provider fails, playback falls back to the legacy resolver path.
 
 Provider status includes `lastSuccessAt`, `lastErrorAt`, and `lastError` for
-diagnostics.
+diagnostics. Successful resolutions also expose `lastResult` with `providerId`,
+`quality`, and `playUrl`.
 
 ## Internal Layout
 
@@ -100,6 +104,7 @@ diagnostics.
   `createAudioProviderRegistry()` for isolated tests; `providers/audio/index.js`
   exports the app singleton.
 - `playerEvents.js`: notification-only player event helper.
+- `eventsCatalog.js`: shared event-name constants.
 - `logger.js`: shared plugin logger.
 
 Built-in plugin pages can be split into local components under their own

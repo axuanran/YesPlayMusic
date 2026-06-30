@@ -4,6 +4,7 @@ export default {
   description: '音频解析服务管理入口',
   version: '0.1.0',
   type: 'builtin',
+  capabilities: ['routes', 'settings', 'audioProvider'],
   enabledByDefault: true,
   routes: [
     {

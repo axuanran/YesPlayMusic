@@ -2,6 +2,14 @@ import { warnPlugin } from './manifest';
 
 export function createPluginRuntime() {
   const installedPlugins = new Map();
+  const pluginHealth = new Map();
+
+  function setPluginHealth(pluginId, patch) {
+    pluginHealth.set(pluginId, {
+      ...pluginHealth.get(pluginId),
+      ...patch,
+    });
+  }
 
   function installPlugin(plugin, ctx) {
     if (installedPlugins.has(plugin.id)) return installedPlugins.get(plugin.id);
@@ -13,9 +21,18 @@ export function createPluginRuntime() {
         cleanup,
       };
       installedPlugins.set(plugin.id, installedPlugin);
+      setPluginHealth(plugin.id, {
+        setupError: undefined,
+        setupErrorAt: undefined,
+        installedAt: Date.now(),
+      });
       return installedPlugin;
     } catch (error) {
       warnPlugin(plugin.id, 'setup failed', error);
+      setPluginHealth(plugin.id, {
+        setupError: error?.message || String(error),
+        setupErrorAt: Date.now(),
+      });
       return null;
     }
   }
@@ -31,8 +48,17 @@ export function createPluginRuntime() {
 
     try {
       installedPlugin.cleanup?.();
+      setPluginHealth(pluginId, {
+        disposeError: undefined,
+        disposeErrorAt: undefined,
+        disposedAt: Date.now(),
+      });
     } catch (error) {
       warnPlugin(pluginId, 'dispose failed', error);
+      setPluginHealth(pluginId, {
+        disposeError: error?.message || String(error),
+        disposeErrorAt: Date.now(),
+      });
     } finally {
       installedPlugins.delete(pluginId);
     }
@@ -55,8 +81,13 @@ export function createPluginRuntime() {
     return Array.from(installedPlugins.values());
   }
 
+  function getPluginHealth(pluginId) {
+    return pluginHealth.get(pluginId) || {};
+  }
+
   return {
     disposePlugin,
+    getPluginHealth,
     getInstalledPlugins,
     installPlugin,
     installPlugins,
@@ -68,6 +99,7 @@ const defaultPluginRuntime = createPluginRuntime();
 
 export const {
   disposePlugin,
+  getPluginHealth,
   getInstalledPlugins,
   installPlugin,
   installPlugins,

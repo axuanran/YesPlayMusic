@@ -1,15 +1,11 @@
 import { pluginEvents } from './events';
+import { AUDIO_PROVIDER_EVENTS, PLAYER_EVENTS } from './eventsCatalog';
 import { createPluginLogger } from './logger';
 
 const logger = createPluginLogger('player-events');
 
-export const PLAYER_EVENTS = {
-  TRACK_CHANGE: 'track:change',
-  AUDIO_LOADED: 'audio:loaded',
-  AUDIO_ERROR: 'audio:error',
-  PLAYBACK_PLAY: 'playback:play',
-  PLAYBACK_PAUSE: 'playback:pause',
-};
+export { PLAYER_EVENTS };
+export { AUDIO_PROVIDER_EVENTS };
 
 function normalizeError(error) {
   if (!error) return undefined;

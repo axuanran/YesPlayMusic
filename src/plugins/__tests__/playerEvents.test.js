@@ -20,10 +20,12 @@ vi.mock('../logger', () => ({
 }));
 
 import {
+  AUDIO_PROVIDER_EVENTS,
   createPlayerEventPayload,
   emitPlayerEvent,
   PLAYER_EVENTS,
 } from '../playerEvents';
+import { AUDIO_PROVIDER_EVENTS as CATALOG_AUDIO_PROVIDER_EVENTS } from '../eventsCatalog';
 
 describe('player events', () => {
   beforeEach(() => {
@@ -41,6 +43,10 @@ describe('player events', () => {
       trackId: 123,
       at: 1000,
     });
+  });
+
+  it('exports shared audio provider event names', () => {
+    expect(AUDIO_PROVIDER_EVENTS).toBe(CATALOG_AUDIO_PROVIDER_EVENTS);
   });
 
   it('normalizes errors', () => {
