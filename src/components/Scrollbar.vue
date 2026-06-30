@@ -24,6 +24,9 @@
 </template>
 
 <script>
+const SCROLLBAR_SYNC_INTERVAL = 80;
+const POSITION_SAVE_INTERVAL = 250;
+
 export default {
   name: 'Scrollbar',
   data() {
@@ -33,6 +36,9 @@ export default {
       active: false,
       show: false,
       hideTimer: null,
+      scrollSyncTimer: null,
+      positionSaveTimer: null,
+      pendingRoutePosition: null,
       isOnDrag: false,
       onDragClientY: 0,
       positions: {
@@ -59,11 +65,32 @@ export default {
     });
   },
 
+  beforeUnmount() {
+    this.clearTimers();
+    document.removeEventListener('mousemove', this.handleDragMove);
+    document.removeEventListener('mouseup', this.handleDragEnd);
+  },
+
   methods: {
     handleScroll() {
+      if (this.scrollSyncTimer !== null) return;
+      this.scrollSyncTimer = setTimeout(() => {
+        this.scrollSyncTimer = null;
+        this.syncScrollState();
+      }, SCROLLBAR_SYNC_INTERVAL);
+    },
+    syncScrollState() {
+      if (!this.main) return;
+
       const clintHeight = this.main.clientHeight - 128;
       const scrollHeight = this.main.scrollHeight - 128;
       const scrollTop = this.main.scrollTop;
+
+      if (clintHeight <= 0 || scrollHeight <= 0 || scrollHeight <= clintHeight) {
+        if (this.show) this.show = false;
+        return;
+      }
+
       let top = ~~((scrollTop / scrollHeight) * clintHeight);
       let thumbHeight = ~~((clintHeight / scrollHeight) * clintHeight);
 
@@ -71,16 +98,35 @@ export default {
       if (top > clintHeight - thumbHeight) {
         top = clintHeight - thumbHeight;
       }
-      this.top = top;
-      this.thumbHeight = thumbHeight;
 
-      if (!this.show && clintHeight !== thumbHeight) this.show = true;
+      if (this.top !== top) this.top = top;
+      if (this.thumbHeight !== thumbHeight) this.thumbHeight = thumbHeight;
+      if (!this.show) this.show = true;
+
       this.setScrollbarHideTimeout();
-
+      this.scheduleRoutePositionSave(scrollTop);
+    },
+    scheduleRoutePositionSave(scrollTop) {
       const route = this.$route;
-      if (route.meta.savePosition) {
-        this.positions[route.name] = { scrollTop, params: route.params };
-      }
+      if (!route.meta.savePosition) return;
+
+      this.pendingRoutePosition = {
+        name: route.name,
+        scrollTop,
+        params: route.params,
+      };
+
+      if (this.positionSaveTimer !== null) return;
+      this.positionSaveTimer = setTimeout(() => {
+        this.positionSaveTimer = null;
+        const position = this.pendingRoutePosition;
+        this.pendingRoutePosition = null;
+        if (!position) return;
+        this.positions[position.name] = {
+          scrollTop: position.scrollTop,
+          params: position.params,
+        };
+      }, POSITION_SAVE_INTERVAL);
     },
     handleMouseenter() {
       this.active = true;
@@ -97,7 +143,7 @@ export default {
       document.addEventListener('mouseup', this.handleDragEnd);
     },
     handleDragMove(e) {
-      if (!this.isOnDrag) return;
+      if (!this.isOnDrag || !this.main) return;
       const clintHeight = this.main.clientHeight - 128;
       const scrollHeight = this.main.scrollHeight - 128;
       const clientY = e.clientY;
@@ -115,6 +161,7 @@ export default {
       this.$parent.userSelectNone = false;
       document.removeEventListener('mousemove', this.handleDragMove);
       document.removeEventListener('mouseup', this.handleDragEnd);
+      this.syncScrollState();
     },
     handleClick(e) {
       let scrollTop;
@@ -135,6 +182,14 @@ export default {
         this.hideTimer = null;
       }, 4000);
     },
+    clearTimers() {
+      if (this.hideTimer !== null) clearTimeout(this.hideTimer);
+      if (this.scrollSyncTimer !== null) clearTimeout(this.scrollSyncTimer);
+      if (this.positionSaveTimer !== null) clearTimeout(this.positionSaveTimer);
+      this.hideTimer = null;
+      this.scrollSyncTimer = null;
+      this.positionSaveTimer = null;
+    },
     restorePosition() {
       const route = this.$route;
       if (
@@ -145,6 +200,7 @@ export default {
         return;
       }
       this.main.scrollTo({ top: this.positions[route.name].scrollTop });
+      this.syncScrollState();
     },
   },
 };
