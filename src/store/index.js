@@ -10,6 +10,31 @@ import { getCookie } from '@/utils/auth';
 import saveToLocalStorage from './plugins/localStorage';
 import { getSendSettingsPlugin } from './plugins/sendSettings';
 
+const PROGRESS_UI_INTERVAL = 500;
+
+function installPlayerPerformancePatch() {
+  Player.prototype._startProgressLoop = function () {
+    if (this._progressFrame !== null) return;
+
+    this._progressFrame = setInterval(() => {
+      const player = this._getReactiveSelf();
+      if (!player.playing) {
+        player._stopProgressLoop();
+        return;
+      }
+      player._syncProgress();
+    }, PROGRESS_UI_INTERVAL);
+  };
+
+  Player.prototype._stopProgressLoop = function () {
+    if (this._progressFrame === null) return;
+    clearInterval(this._progressFrame);
+    this._progressFrame = null;
+  };
+}
+
+installPlayerPerformancePatch();
+
 let plugins = [saveToLocalStorage];
 if (isElectron) {
   let sendSettings = getSendSettingsPlugin();
