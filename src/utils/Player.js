@@ -13,12 +13,11 @@ import { isElectron } from '@/utils/env';
 import shuffle from 'lodash/shuffle';
 import { resolveTrackSource } from '@/utils/resolveAudioSource';
 import { getOuterAudioUrl } from '@/utils/resolveAudioSource';
+import { pluginEvents } from '@/plugins/events';
 // MPRIS disabled during Electron 42 migration
 const isCreateMpris = false;
 
 const PLAY_PAUSE_FADE_DURATION = 200;
-
-const INDEX_IN_PLAY_NEXT = -1;
 
 /**
  * @readonly
@@ -68,6 +67,14 @@ function setTitle(track) {
 function setTrayLikeState(isLiked) {
   if (isCreateTray) {
     electronPlayer?.updateTrayLikeState(isLiked);
+  }
+}
+
+function emitPlayerEvent(event, payload) {
+  try {
+    pluginEvents.emit(event, payload);
+  } catch (error) {
+    console.warn(`[plugins] player event failed: ${event}`, error);
   }
 }
 
@@ -352,6 +359,7 @@ export default class {
     this._currentTrack = track;
     this.persist();
     store.commit('bumpPlayerVersion');
+    emitPlayerEvent('track:change', { track });
   }
   _syncProgress() {
     if (!this._audio) return;
@@ -381,6 +389,10 @@ export default class {
     this._progressFrame = null;
   }
   _handleAudioError(error) {
+    emitPlayerEvent('audio:error', {
+      error,
+      track: this._currentTrack,
+    });
     const errorCode = error?.code;
     // https://developer.mozilla.org/en-US/docs/Web/API/MediaError/code
     if (errorCode === 3) {
@@ -456,6 +468,11 @@ export default class {
       `[debug][Player.js] loadAudioSource => ${formatTrackDebugLabel(this._currentTrack)} source:${source}`
     );
     this._audio.load(source, this._audioToken);
+    emitPlayerEvent('audio:loaded', {
+      source,
+      track: this._currentTrack,
+      autoplay,
+    });
     if (autoplay) {
       this.play();
       if (this._currentTrack.name) {
@@ -844,6 +861,7 @@ export default class {
       this._stopProgressLoop();
       setTitle(null);
       this._pauseDiscordPresence(this._currentTrack);
+      emitPlayerEvent('playback:pause', { track: this._currentTrack });
     });
   }
   play() {
@@ -858,6 +876,7 @@ export default class {
       .then(() => {
         this._setPlaying(true);
         this._startProgressLoop();
+        emitPlayerEvent('playback:play', { track: this._currentTrack });
         if (this._currentTrack.name) {
           setTitle(this._currentTrack);
         }

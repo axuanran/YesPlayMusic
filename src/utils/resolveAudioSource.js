@@ -1,40 +1,6 @@
-import store from '@/store';
-import { resolveAudioByBackend, isResolverEnabled } from '@/api/audioResolver';
 import { getMP3 } from '@/api/track';
 import { isAccountLoggedIn } from '@/utils/auth';
-
-function getResolverQuality() {
-  const quality = store.state.settings?.musicQuality ?? 320000;
-  switch (quality) {
-    case 'standard':
-      return 'standard';
-    case 'exhigh':
-      return 'exhigh';
-    case 'lossless':
-      return 'lossless';
-    case 'hires':
-      return 'hires';
-    case 'jyeffect':
-      return 'jyeffect';
-    case 'sky':
-      return 'sky';
-    case 'jymaster':
-      return 'jymaster';
-    case 128000:
-      return 'standard';
-    case 192000:
-      return 'exhigh';
-    case 320000:
-      return 'exhigh';
-    case 'flac':
-    case 350000:
-      return 'lossless';
-    case 999000:
-      return 'hires';
-    default:
-      return 'standard';
-  }
-}
+import { resolveTrackSourceWithProviders } from '@/plugins/providers/audio';
 
 /**
  * Resolve audio source for a track.
@@ -45,22 +11,9 @@ function getResolverQuality() {
  */
 export async function resolveTrackSource(track) {
   const trackId = typeof track === 'object' ? track.id : track;
-  if (isResolverEnabled()) {
-    try {
-      const result = await resolveAudioByBackend(
-        trackId,
-        getResolverQuality(),
-        {
-          track: typeof track === 'object' ? track : undefined,
-        }
-      );
-      return result.playUrl;
-    } catch (error) {
-      console.warn(
-        '[resolver] backend failed, fallback to legacy:',
-        error.message
-      );
-    }
+  const providerSource = await resolveTrackSourceWithProviders(track);
+  if (providerSource) {
+    return providerSource;
   }
 
   return resolveFromLegacy(trackId);

@@ -11,6 +11,7 @@ import { dailyTask } from '@/utils/common';
 import { installDevErrorReporter } from '@/utils/devErrorReporter';
 import { getCookieString, hydrateCookiesToDocument } from '@/utils/auth';
 import { syncCookieToResolverWithRetry } from '@/api/audioResolver';
+import { createPluginContext, installPlugins } from '@/plugins';
 import '@/assets/css/global.scss';
 import NProgress from 'nprogress';
 import '@/assets/css/nprogress.css';
@@ -56,8 +57,14 @@ const syncCookieFromStartup = async () => {
       startupCookieTimer = null;
     }
   } catch (error) {
-    console.warn('[resolver] Failed to sync cookie on startup:', error?.message || error);
-    store.dispatch('showToast', '启动时同步网易云 Cookie 失败，请检查 resolver 面板');
+    console.warn(
+      '[resolver] Failed to sync cookie on startup:',
+      error?.message || error
+    );
+    store.dispatch(
+      'showToast',
+      '启动时同步网易云 Cookie 失败，请检查 resolver 面板'
+    );
   }
 };
 
@@ -79,5 +86,9 @@ app.use(VueGtag, {
   config: { id: 'G-KMJJCFZDKF' },
   router,
 });
+
+const pluginContext = createPluginContext({ router, store });
+window.yesplaymusicPluginContext = pluginContext;
+installPlugins(pluginContext);
 
 app.mount('#app');

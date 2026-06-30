@@ -5,6 +5,7 @@ import {
 } from 'vue-router';
 import { isLooseLoggedIn, isAccountLoggedIn } from '@/utils/auth';
 import { isElectron } from '@/utils/env';
+import { getPluginRoutes } from '@/plugins';
 
 const routes = [
   {
@@ -135,6 +136,7 @@ const routes = [
     name: 'lastfmCallback',
     component: () => import('@/views/lastfmCallback.vue'),
   },
+  ...getPluginRoutes(),
 ];
 
 const router = createRouter({

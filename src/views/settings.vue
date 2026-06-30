@@ -205,54 +205,35 @@
         </div>
       </div>
 
-      <h3 v-if="isElectron">音频解析</h3>
-      <div v-if="isElectron" class="item">
+      <h3>插件中心</h3>
+      <div
+        v-for="plugin in builtinPlugins"
+        :key="plugin.id"
+        class="item plugin-item"
+      >
         <div class="left">
-          <div class="title">启用音频解析</div>
-        </div>
-        <div class="right">
-          <div class="toggle">
-            <input
-              id="use-audio-resolver"
-              v-model="useAudioResolver"
-              type="checkbox"
-              name="use-audio-resolver"
-            />
-            <label for="use-audio-resolver"></label>
+          <div class="title">{{ plugin.name }}</div>
+          <div class="description">
+            {{ plugin.description }}
           </div>
         </div>
-      </div>
-      <div v-if="isElectron" class="item">
-        <div class="left">
-          <div class="title">Resolver 地址</div>
-        </div>
-        <div class="right">
-          <div
-            style="
-              display: flex;
-              gap: 8px;
-              align-items: center;
-              flex-wrap: wrap;
-            "
+        <div class="right plugin-actions">
+          <button
+            v-if="plugin.routes && plugin.routes.length"
+            :disabled="!isPluginEnabled(plugin)"
+            @click="$router.push({ name: plugin.routes[0].name })"
           >
+            打开
+          </button>
+          <div class="toggle">
             <input
-              v-model="audioResolverUrl"
-              type="text"
-              placeholder="http://127.0.0.1:27232"
-              style="width: 320px"
+              :id="`plugin-${plugin.id}`"
+              :checked="isPluginEnabled(plugin)"
+              type="checkbox"
+              :name="`plugin-${plugin.id}`"
+              @change="togglePlugin(plugin, $event.target.checked)"
             />
-            <button
-              class="secondary"
-              title="左键用默认浏览器打开，右键用内置浏览器打开"
-              @click="openResolverAdminPanel"
-              @contextmenu.prevent="openResolverAdminPanelInApp"
-            >
-              打开管理面板
-            </button>
-            <button @click="syncFrontendCookieToResolver"
-              >从前端获取Cookie</button
-            >
-            <button @click="clearResolverBackendCache">清后端缓存</button>
+            <label :for="`plugin-${plugin.id}`"></label>
           </div>
         </div>
       </div>
@@ -686,7 +667,7 @@
 
 <script>
 import { mapState, mapActions } from 'vuex';
-import { isLooseLoggedIn, doLogout, getCookieString } from '@/utils/auth';
+import { isLooseLoggedIn, doLogout } from '@/utils/auth';
 import { auth as lastfmAuth } from '@/api/lastfm';
 import {
   changeAppearance,
@@ -694,15 +675,11 @@ import {
   bytesToSize,
 } from '@/utils/common';
 import { countDBSize, clearDB } from '@/utils/db';
-import {
-  clearResolverCache,
-  getResolverConfig,
-  syncCookieToResolverWithRetry,
-  updateResolverConfig,
-} from '@/api/audioResolver';
+import { getResolverConfig, updateResolverConfig } from '@/api/audioResolver';
 import pkg from '../../package.json';
 import { isElectron } from '@/utils/env';
 import { isLinux, isMac } from '@/utils/platform';
+import { getBuiltinPlugins, syncPlugins } from '@/plugins';
 
 const electronSettings = window.electronAPI?.settings;
 
@@ -791,6 +768,7 @@ export default {
         recording: false,
       },
       recordedShortcut: [],
+      builtinPlugins: getBuiltinPlugins(),
     };
   },
   computed: {
@@ -997,8 +975,6 @@ export default {
     enableGlobalShortcut: setting('enableGlobalShortcut'),
     showLibraryDefault: setting('showLibraryDefault', false),
     cacheLimit: setting('cacheLimit', false),
-    useAudioResolver: setting('useAudioResolver', false),
-    audioResolverUrl: setting('audioResolverUrl', 'http://127.0.0.1:27232'),
     proxyProtocol: {
       get() {
         return this.settings.proxyConfig?.protocol || 'noProxy';
@@ -1111,53 +1087,27 @@ export default {
         this.countDBSize();
       });
     },
-    async clearResolverBackendCache() {
-      try {
-        await clearResolverCache();
-        this.showToast('已清除 resolver 后端缓存');
-      } catch (error) {
-        this.showToast(`清除后端缓存失败：${error.message || error}`);
-      }
+    isPluginEnabled(plugin) {
+      const saved = this.settings.plugins?.[plugin.id];
+      return saved?.enabled ?? plugin.enabledByDefault === true;
     },
-    async syncFrontendCookieToResolver() {
-      try {
-        const cookie = getCookieString();
-        if (!cookie) {
-          this.showToast('前端没有可同步的 Cookie');
-          return;
-        }
-        await syncCookieToResolverWithRetry(cookie, {
-          timeoutMs: 10000,
-          intervalMs: 1000,
-        });
-        this.showToast('已从前端同步 Cookie 到 resolver');
-      } catch (error) {
-        this.showToast(`同步 Cookie 失败：${error.message || error}`);
+    togglePlugin(plugin, enabled) {
+      const plugins = {
+        ...(this.settings.plugins || {}),
+        [plugin.id]: {
+          ...(this.settings.plugins?.[plugin.id] || {}),
+          enabled,
+        },
+      };
+      this.$store.commit('updateSettings', {
+        key: 'plugins',
+        value: plugins,
+      });
+      this.builtinPlugins = getBuiltinPlugins();
+      if (window.yesplaymusicPluginContext) {
+        syncPlugins(window.yesplaymusicPluginContext);
       }
-    },
-    openResolverAdminPanel() {
-      const base = (this.audioResolverUrl || 'http://127.0.0.1:27232').replace(
-        /\/+$/,
-        ''
-      );
-      const url = `${base}/admin/#/`;
-      if (window.electronAPI?.app?.openExternalUrl) {
-        window.electronAPI.app.openExternalUrl(url);
-        return;
-      }
-      window.open(url, '_blank', 'noopener');
-    },
-    async openResolverAdminPanelInApp() {
-      const base = (this.audioResolverUrl || 'http://127.0.0.1:27232').replace(
-        /\/+$/,
-        ''
-      );
-      const url = `${base}/admin/#/`;
-      if (window.electronAPI?.app?.openResolverAdminPanel) {
-        await window.electronAPI.app.openResolverAdminPanel(url);
-        return;
-      }
-      window.open(url, '_blank', 'noopener');
+      this.showToast('插件状态已保存，路由类插件刷新或重启后完全生效');
     },
     lastfmConnect() {
       lastfmAuth();
