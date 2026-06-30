@@ -13,9 +13,21 @@ import axios from 'axios';
 // Token refresh state: prevents concurrent refreshes.
 let refreshPromise = null;
 
+function getRequestUrl(config) {
+  return config.url || '';
+}
+
+function readSettings() {
+  try {
+    return JSON.parse(localStorage.getItem('settings')) || {};
+  } catch {
+    return {};
+  }
+}
+
 function refreshRequestCookies(config) {
   if (!config.params) config.params = {};
-  if (!config.url.includes('/login')) {
+  if (!getRequestUrl(config).includes('/login')) {
     const cookie = getCookieString();
     if (cookie) {
       config.params.cookie = cookie;
@@ -81,8 +93,11 @@ const service = axios.create({
 
 service.interceptors.request.use(function (config) {
   if (!config.params) config.params = {};
+  const requestUrl = getRequestUrl(config);
+  const settings = readSettings();
+
   if (baseURL.length) {
-    if (!env.IS_ELECTRON && !config.url.includes('/login')) {
+    if (!env.IS_ELECTRON && !requestUrl.includes('/login')) {
       const cookie = getCookieString();
       if (cookie && !config.params.cookie) config.params.cookie = cookie;
     }
@@ -90,22 +105,20 @@ service.interceptors.request.use(function (config) {
     console.error("You must set up the baseURL in the service's config");
   }
 
-  if (!env.IS_ELECTRON && !config.url.includes('/login')) {
+  if (!env.IS_ELECTRON && !requestUrl.includes('/login')) {
     config.params.realIP = '211.161.244.70';
   }
 
   // Force real_ip
-  const enableRealIP = JSON.parse(
-    localStorage.getItem('settings')
-  ).enableRealIP;
-  const realIP = JSON.parse(localStorage.getItem('settings')).realIP;
+  const enableRealIP = settings.enableRealIP;
+  const realIP = settings.realIP;
   if (env.VUE_APP_REAL_IP) {
     config.params.realIP = env.VUE_APP_REAL_IP;
   } else if (enableRealIP) {
     config.params.realIP = realIP;
   }
 
-  const proxy = JSON.parse(localStorage.getItem('settings')).proxyConfig;
+  const proxy = settings.proxyConfig || {};
   if (['HTTP', 'HTTPS'].includes(proxy.protocol)) {
     config.params.proxy = `${proxy.protocol}://${proxy.server}:${proxy.port}`;
   }
