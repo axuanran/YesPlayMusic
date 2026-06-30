@@ -39,6 +39,8 @@
 import Cover from '@/components/Cover.vue';
 import ExplicitSymbol from '@/components/ExplicitSymbol.vue';
 
+const ROW_COVER_IMAGE_SIZE = 320;
+
 export default {
   name: 'CoverRow',
   components: {
@@ -105,11 +107,11 @@ export default {
         img1v1ID = img1v1ID[img1v1ID.length - 1];
         if (img1v1ID === '5639395138885805.jpg') {
           // 没有头像的歌手，网易云返回的img1v1Url并不是正方形的 😅😅😅
-          return 'https://p2.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg?param=512y512';
+          return `https://p2.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg?param=${ROW_COVER_IMAGE_SIZE}y${ROW_COVER_IMAGE_SIZE}`;
         }
       }
       let img = item.img1v1Url || item.picUrl || item.coverImgUrl;
-      return `${img?.replace('http://', 'https://')}?param=512y512`;
+      return `${img?.replace('http://', 'https://')}?param=${ROW_COVER_IMAGE_SIZE}y${ROW_COVER_IMAGE_SIZE}`;
     },
   },
 };
