@@ -126,7 +126,8 @@ a {
   }
 }
 
-.low-performance-mode {
+.performance-mode-balanced,
+.performance-mode-aggressive {
   nav,
   .player,
   .play-button,
@@ -198,6 +199,35 @@ a {
   .play-button,
   .back-to-current-lyric {
     box-shadow: none !important;
+  }
+}
+
+.performance-mode-aggressive {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  img,
+  .cover,
+  .cover img,
+  .playing .container img,
+  .daily-recommend-card,
+  .fm {
+    -webkit-filter: none !important;
+    filter: none !important;
+    box-shadow: none !important;
+  }
+
+  .cover .shade,
+  .cover .shadow,
+  .dynamic-background,
+  .lyrics-background .top-right,
+  .lyrics-background .bottom-left {
+    display: none !important;
   }
 }
 

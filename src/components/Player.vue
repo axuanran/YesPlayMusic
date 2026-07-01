@@ -17,8 +17,11 @@
         :step="1"
         :style="progressRangeStyle"
         :aria-label="$t('player.progress')"
+        @pointerdown="handleProgressPointerDown"
         @input="handleProgressInput"
-        @change="handleProgressInput"
+        @change="commitProgressInput"
+        @pointerup="commitProgressInput"
+        @pointercancel="resetProgressInput"
         @mousedown.stop
         @click.stop
       />
@@ -198,6 +201,8 @@ export default {
   data() {
     return {
       mouseDownTarget: null,
+      isProgressDragging: false,
+      localProgress: 0,
     };
   },
   computed: {
@@ -219,6 +224,7 @@ export default {
       return this.player.playing;
     },
     progressValue() {
+      if (this.isProgressDragging) return this.localProgress;
       return Math.min(
         this.player.progress || 0,
         this.player.currentTrackDuration || 0
@@ -258,8 +264,26 @@ export default {
     handleMouseDown(event) {
       this.mouseDownTarget = event.target;
     },
+    normalizeProgressInput(value) {
+      const duration = this.player.currentTrackDuration || 0;
+      return Math.min(duration, Math.max(0, Number(value) || 0));
+    },
+    handleProgressPointerDown(event) {
+      this.isProgressDragging = true;
+      this.localProgress = this.normalizeProgressInput(event.target.value);
+    },
     handleProgressInput(event) {
-      this.player.progress = Number(event.target.value);
+      this.localProgress = this.normalizeProgressInput(event.target.value);
+    },
+    commitProgressInput(event) {
+      if (!this.isProgressDragging && event.type !== 'change') return;
+      this.localProgress = this.normalizeProgressInput(event.target.value);
+      this.player.progress = this.localProgress;
+      this.isProgressDragging = false;
+    },
+    resetProgressInput() {
+      this.isProgressDragging = false;
+      this.localProgress = this.progressValue;
     },
     playPrevTrack() {
       this.player.playPrevTrack();

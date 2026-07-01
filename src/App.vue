@@ -3,7 +3,8 @@
     id="app"
     :class="{
       'user-select-none': userSelectNone,
-      'low-performance-mode': settings.lowPerformanceMode,
+      'performance-mode-balanced': performanceMode === 'balanced',
+      'performance-mode-aggressive': performanceMode === 'aggressive',
     }"
   >
     <Scrollbar v-show="!showLyrics" ref="scrollbar" />
@@ -44,8 +45,6 @@ import Lyrics from './views/lyrics.vue';
 import { mapState } from 'vuex';
 import { isElectron } from '@/utils/env';
 
-const LOW_PERFORMANCE_SETTING_ID = 'low-performance-mode-setting';
-
 export default {
   name: 'App',
   components: {
@@ -75,6 +74,10 @@ export default {
   },
   computed: {
     ...mapState(['showLyrics', 'settings', 'player', 'enableScrolling']),
+    performanceMode() {
+      if (this.settings.performanceMode) return this.settings.performanceMode;
+      return this.settings.lowPerformanceMode ? 'balanced' : 'off';
+    },
     isAccountLoggedIn() {
       return isAccountLoggedIn();
     },
@@ -96,20 +99,6 @@ export default {
       return this.$route.name !== 'lastfmCallback';
     },
   },
-  watch: {
-    '$route.name': {
-      immediate: true,
-      handler() {
-        this.$nextTick(this.syncLowPerformanceSettingItem);
-      },
-    },
-    'settings.lowPerformanceMode'() {
-      this.$nextTick(this.syncLowPerformanceSettingItem);
-    },
-    'settings.lang'() {
-      this.$nextTick(this.syncLowPerformanceSettingItem);
-    },
-  },
   created() {
     if (this.isElectron) ipcRenderer(this);
     window.addEventListener('keydown', this.handleKeydown);
@@ -117,7 +106,6 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
-    document.getElementById(LOW_PERFORMANCE_SETTING_ID)?.remove();
   },
   methods: {
     handleKeydown(e) {
@@ -142,57 +130,6 @@ export default {
     },
     handleScroll() {
       this.$refs.scrollbar?.handleScroll?.();
-    },
-    syncLowPerformanceSettingItem() {
-      const existing = document.getElementById(LOW_PERFORMANCE_SETTING_ID);
-      if (this.$route.name !== 'settings') {
-        existing?.remove();
-        return;
-      }
-
-      const container = document.querySelector('.settings-page .container');
-      if (!container) return;
-
-      const customizationTitle = Array.from(container.querySelectorAll('h3')).find(
-        element => element.textContent.trim() === this.$t('settings.customization')
-      );
-      if (!customizationTitle) return;
-
-      const item = existing || document.createElement('div');
-      item.id = LOW_PERFORMANCE_SETTING_ID;
-      item.className = 'item';
-      item.innerHTML = `
-        <div class="left">
-          <div class="title"></div>
-          <div class="description"></div>
-        </div>
-        <div class="right">
-          <div class="toggle">
-            <input id="low-performance-mode" type="checkbox" name="low-performance-mode" />
-            <label for="low-performance-mode"></label>
-          </div>
-        </div>
-      `;
-
-      if (!item.parentElement) {
-        customizationTitle.after(item);
-      }
-
-      item.querySelector('.title').textContent = this.$t(
-        'settings.lowPerformanceMode.title'
-      );
-      item.querySelector('.description').textContent = this.$t(
-        'settings.lowPerformanceMode.description'
-      );
-
-      const input = item.querySelector('input');
-      input.checked = this.settings.lowPerformanceMode === true;
-      input.onchange = event => {
-        this.$store.commit('updateSettings', {
-          key: 'lowPerformanceMode',
-          value: event.target.checked,
-        });
-      };
     },
   },
 };

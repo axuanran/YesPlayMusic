@@ -115,6 +115,7 @@ export default {
     play: 'Oynat',
     pause: 'Durdur',
     mute: 'Sesi kapat',
+    progress: 'Oynatma ilerlemesi',
     nextUp: 'Sıradaki',
     translationLyric: 'şarkı sözleri (çeviri)',
     PronunciationLyric: 'şarkı sözleri (çeviri)',
@@ -195,6 +196,19 @@ export default {
     subTitleDefault: 'Show Alias for Subtitle by default',
     enableReversedMode: 'Enable Reversed Mode (Experimental)',
     enableCustomTitlebar: 'Enable custom title bar (Need restart)',
+    lowPerformanceMode: {
+      title: 'Düşük performans görsel modu',
+      description:
+        'GPU kullanımını azaltmak için bulanıklığı, dinamik arka planları, kapak gölgelerini ve sürekli animasyonları kapatır.',
+    },
+    performanceMode: {
+      title: 'Performans modu',
+      description:
+        'Bu cihaz için görsel efektleri ve oynatma ilerleme yenileme hızını ayarlar.',
+      off: 'Kapalı',
+      balanced: 'Dengeli',
+      aggressive: 'Agresif',
+    },
     lyricsBackground: {
       text: 'Şarkı Sözleri Arka Planını Göster',
       off: 'kapalı',
