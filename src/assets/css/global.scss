@@ -126,6 +126,81 @@ a {
   }
 }
 
+.low-performance-mode {
+  nav,
+  .player,
+  .play-button,
+  .back-to-current-lyric {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  nav,
+  .player {
+    background:
+      linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.08),
+        rgba(255, 255, 255, 0)
+      ),
+      var(--color-navbar-bg) !important;
+  }
+
+  nav {
+    border-bottom: 1px solid rgba(128, 128, 128, 0.12);
+    box-shadow: none !important;
+  }
+
+  .player {
+    border-top: 1px solid rgba(128, 128, 128, 0.12);
+    box-shadow: none !important;
+  }
+
+  .lyrics-background {
+    -webkit-filter: none !important;
+    filter: none !important;
+    background:
+      radial-gradient(
+        circle at 78% 18%,
+        var(--color-primary-bg-for-transparent),
+        transparent 34%
+      ),
+      radial-gradient(
+        circle at 12% 82%,
+        var(--color-secondary-bg-for-transparent),
+        transparent 42%
+      ),
+      linear-gradient(135deg, var(--color-body-bg), var(--color-secondary-bg));
+  }
+
+  .lyrics-background .top-right,
+  .lyrics-background .bottom-left {
+    display: none !important;
+  }
+
+  .dynamic-background > div,
+  .daily-recommend-card img {
+    animation: none !important;
+  }
+
+  .cover .shadow {
+    display: none !important;
+  }
+
+  .cover .shade,
+  .play-button {
+    transition: none !important;
+  }
+
+  .playing .container img,
+  .daily-recommend-card,
+  .fm,
+  .play-button,
+  .back-to-current-lyric {
+    box-shadow: none !important;
+  }
+}
+
 [data-electron='yes'] {
   button,
   .navigation-links a,
