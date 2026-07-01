@@ -74,6 +74,11 @@ const routes = [
     },
   },
   {
+    path: '/tui',
+    name: 'tui',
+    component: () => import('@/views/tui.vue'),
+  },
+  {
     path: '/search/:keywords?',
     name: 'search',
     component: () => import('@/views/search.vue'),

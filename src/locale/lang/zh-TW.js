@@ -7,6 +7,7 @@ export default {
     home: '首頁',
     explore: '發現',
     library: '音樂庫',
+    tui: 'TUI',
     search: '搜尋',
     github: 'GitHub Repo',
   },

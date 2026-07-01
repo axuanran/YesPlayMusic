@@ -25,6 +25,9 @@
           :class="{ active: $route.name === 'library' }"
           >{{ $t('nav.library') }}</router-link
         >
+        <router-link to="/tui" :class="{ active: $route.name === 'tui' }">
+          {{ $t('nav.tui') }}
+        </router-link>
       </div>
       <div class="right-part">
         <div class="search-box">
