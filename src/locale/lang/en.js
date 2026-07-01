@@ -7,7 +7,6 @@ export default {
     home: 'Home',
     explore: 'Explore',
     library: 'Library',
-    tui: 'TUI',
     search: 'Search',
     github: 'GitHub Repo',
   },
