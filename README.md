@@ -1,4 +1,5 @@
 special thank：codex
+
 ---
 
 <br />
@@ -25,6 +26,7 @@ special thank：codex
 ## axuanran's fork
 
  - 将技术栈从vue2 重构为 vite+vue3
+ - 添加网页登录功能，可供填写cookie或者通过内置浏览器登录网页版网易云
  - 添加音频resolver、独立音频解析、插件式添加provider
  - 添加lx音源（尽管试下来并不怎么好用）
  - 优化播放器性能、添加低性能模式
