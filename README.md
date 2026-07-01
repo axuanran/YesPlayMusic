@@ -82,12 +82,8 @@ TUI 依赖mpv进行播放
 
 Electron 版本由 [@hawtim](https://github.com/hawtim) 和 [@qier222](https://github.com/qier222) 适配并维护，支持 macOS、Windows、Linux。
 
-访问本项目的 [Releases](https://github.com/qier222/YesPlayMusic/releases)
-页面下载安装包。
-
-- macOS 用户可以通过 Homebrew 来安装：`brew install --cask yesplaymusic`
-
-- Windows 用户可以通过 Scoop 来安装：`scoop install extras/yesplaymusic`
+访问本项目的 [Releases](https://github.com/axuanran/YesPlayMusic/releases/latest)
+页面下载系统对应的安装包。
 
 ## 同类项目（排名无先后）
 
