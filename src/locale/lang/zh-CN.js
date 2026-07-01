@@ -200,6 +200,11 @@ export default {
     subTitleDefault: '副标题使用别名',
     enableReversedMode: '启用倒序播放功能 (实验性功能)',
     enableCustomTitlebar: '启用自定义标题栏 (重启后生效)',
+    lowPerformanceMode: {
+      title: '低性能视觉模式',
+      description:
+        '关闭毛玻璃、动态背景、封面阴影和常驻视觉动画，以降低 GPU 占用。',
+    },
     lyricsBackground: {
       text: '显示歌词背景',
       off: '关闭',
