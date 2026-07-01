@@ -34,10 +34,20 @@
 
 [![Library][library-screenshot]](https://music.qier222.com)
 
-## 全新版本
+## axuanran's fork
 
-全新 2.0 Alpha 测试版已发布，欢迎前往 [Releases](https://github.com/qier222/YesPlayMusic/releases) 页面下载。
-当前版本将会进入维护模式，除重大 bug 修复外，不会再更新新功能。
+将技术栈从vue2 重构为 vite+vue3
+添加音频resolver、独立音频解析、插件式添加provider
+添加lx音源（尽管试下来并不怎么好用）
+优化播放器性能、添加低性能模式
+添加tui，支持私人漫游、终端登录、同步cookie、搜索
+
+具体功能实现查看[wiki](https://github.com/axuanran/YesPlayMusic/wiki/YesPlayMusic-%E5%88%86%E6%94%AF%E5%8A%9F%E8%83%BD%E8%AF%B4%E6%98%8E)
+
+---
+
+移植过程中暂时删除内容：
+Mpris
 
 ## ✨ 特性
 
@@ -60,6 +70,12 @@
 - ⌨️ 自定义快捷键和全局快捷键
 - 🎧 支持 Mpris
 - 🛠 更多特性开发中
+
+## TUI
+
+TUI 依赖mpv进行播放
+通过 `mpv --version` 检查系统内是否安装mpv
+
 
 ## 📦️ 安装
 
@@ -271,6 +287,7 @@ API 源代码来自 [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryif
 
 ## 🖼️ 截图
 
+<img width="1679" height="595" alt="2026_July_01_19_46_27 Code" src="https://github.com/user-attachments/assets/7193d0ef-5bef-462e-b2e7-332d2e08de68" />
 ![lyrics][lyrics-screenshot]
 ![library-dark][library-dark-screenshot]
 ![album][album-screenshot]
