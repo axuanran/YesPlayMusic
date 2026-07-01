@@ -200,6 +200,11 @@ export default {
     subTitleDefault: 'Show Alias for Subtitle by default',
     enableReversedMode: 'Enable Reversed Mode (Experimental)',
     enableCustomTitlebar: 'Enable custom title bar (Need restart)',
+    lowPerformanceMode: {
+      title: 'Low performance visual mode',
+      description:
+        'Disable blur, dynamic backgrounds, cover shadows, and persistent visual animations to reduce GPU usage.',
+    },
     showLyricsTime: 'Display current time',
     lyricsBackground: {
       text: 'Show Lyrics Background',
