@@ -1,17 +1,4 @@
-<div align="center">
-	<a href="http://go.warp.dev/YesPlayMusic" target="_blank">
-		<sup>Special thanks to:</sup>
-		<br>
-		<img alt="Warp sponsorship" width="400" src="https://github.com/warpdotdev/brand-assets/blob/main/Github/Sponsor/Warp-Github-LG-03.png?raw=true">
-		<br>
-		<h>Warp is built for coding with multiple AI agents</b>
-		<br>
-		<sup>Available for macOS, Linux and Windows</sup>
-	</a>
-</div>
-
-<br>
-
+special thank：codex
 ---
 
 <br />
@@ -26,7 +13,8 @@
     <br />
     <a href="https://music.qier222.com" target="blank"><strong>🌎 访问DEMO</strong></a>&nbsp;&nbsp;|&nbsp;&nbsp;
     <a href="#%EF%B8%8F-安装" target="blank"><strong>📦️ 下载安装包</strong></a>&nbsp;&nbsp;|&nbsp;&nbsp;
-    <a href="https://t.me/yesplaymusic" target="blank"><strong>💬 加入交流群</strong></a>
+    <a href="https://t.me/yesplaymusic" target="blank"><strong>💬 加入交流群</strong></a>&nbsp;&nbsp;|&nbsp;&nbsp;
+    <a href="https://t.me/axuanran target="blank"><strong>Telegram 频道（axuanran）</strong></a>
     <br />
     <br />
   </p>
@@ -48,6 +36,17 @@
 
 移植过程中暂时删除内容：
 Mpris
+
+TUI截图：
+<img width="1679" height="595" alt="2026_July_01_19_46_27 Code" src="https://github.com/user-attachments/assets/7193d0ef-5bef-462e-b2e7-332d2e08de68" />
+
+---
+
+有问题在issue中提出，或者tg询问
+
+以下为上游readme
+
+---
 
 ## ✨ 特性
 
@@ -287,7 +286,6 @@ API 源代码来自 [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryif
 
 ## 🖼️ 截图
 
-<img width="1679" height="595" alt="2026_July_01_19_46_27 Code" src="https://github.com/user-attachments/assets/7193d0ef-5bef-462e-b2e7-332d2e08de68" />
 ![lyrics][lyrics-screenshot]
 ![library-dark][library-dark-screenshot]
 ![album][album-screenshot]
