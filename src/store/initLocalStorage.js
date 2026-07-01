@@ -21,6 +21,7 @@ let localStorage = {
     cacheLimit: 8192,
     enableReversedMode: false,
     nyancatStyle: false,
+    lowPerformanceMode: false,
     showLyricsTranslation: true,
     lyricsBackground: true,
     lyricsAutoResumeDelay: 4000,
