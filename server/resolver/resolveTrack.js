@@ -36,6 +36,14 @@ export async function resolveTrack(trackId, context = {}) {
       if (skipProviders.has(providerName) || context.bypassCache) continue;
       const cached = getCached(trackId, currentQuality, providerName);
       if (cached) {
+        if (isUnsafeFallbackOuterUrl(cached)) {
+          tried.push({
+            provider: providerName,
+            errorCode: 'UNSAFE_FALLBACK_CACHE_SKIPPED',
+            quality: currentQuality,
+          });
+          continue;
+        }
         logEntry({
           trackId,
           requestedQuality,
@@ -190,6 +198,13 @@ function getUrlExt(url) {
   }
 }
 
+function isUnsafeFallbackOuterUrl(cacheEntry) {
+  return (
+    (cacheEntry.provider === 'fallback' || cacheEntry.source === 'fallback') &&
+    String(cacheEntry.url || '').includes('music.163.com/song/media/outer/url')
+  );
+}
+
 function getQualityCandidates(quality) {
   const order = [
     'standard',
@@ -236,9 +251,9 @@ function buildResponse(cacheEntry, useProxy) {
     ok: true,
     trackId: cacheEntry.trackId,
     mode: canProxy ? 'proxy' : 'direct',
-      source: cacheEntry.source,
-      provider: cacheEntry.provider || cacheEntry.source,
-      quality: cacheEntry.quality,
+    source: cacheEntry.source,
+    provider: cacheEntry.provider || cacheEntry.source,
+    quality: cacheEntry.quality,
     expiresAt: cacheEntry.expiresAt,
   };
 

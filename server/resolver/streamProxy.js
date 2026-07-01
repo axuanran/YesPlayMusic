@@ -81,7 +81,29 @@ function getProxyErrorCode(error) {
 }
 
 function isRetryableProxyError(error) {
-  return [403, 404, 410].includes(Number(error?.response?.status));
+  return (
+    [403, 404, 410].includes(Number(error?.response?.status)) ||
+    error?.code === 'INVALID_STREAM_CONTENT_TYPE'
+  );
+}
+
+function isPlayableContentType(contentType = '') {
+  const normalized = contentType.toLowerCase();
+  return (
+    !normalized ||
+    normalized.includes('audio/') ||
+    normalized.includes('application/octet-stream')
+  );
+}
+
+function createInvalidContentTypeError(contentType, realUrl) {
+  const error = new Error(
+    `Invalid stream content-type: ${contentType || 'empty'}`
+  );
+  error.code = 'INVALID_STREAM_CONTENT_TYPE';
+  error.streamContentType = contentType;
+  error.url = realUrl;
+  return error;
 }
 
 /**
@@ -103,7 +125,8 @@ export async function proxyStream(realUrl, req, res) {
         validateStatus: () => true,
       });
 
-      const contentLength = parseInt(headResponse.headers['content-length'], 10) || 0;
+      const contentLength =
+        parseInt(headResponse.headers['content-length'], 10) || 0;
       const acceptRanges = headResponse.headers['accept-ranges'];
 
       if (acceptRanges === 'bytes' && contentLength > 0) {
@@ -113,30 +136,36 @@ export async function proxyStream(realUrl, req, res) {
           timeout: 30000,
           validateStatus: status => status === 200 || status === 206,
         });
+        const contentType =
+          proxyResponse.headers['content-type'] || 'audio/mpeg';
+        if (!isPlayableContentType(contentType)) {
+          proxyResponse.data.destroy();
+          throw createInvalidContentTypeError(contentType, realUrl);
+        }
 
         res.status(proxyResponse.status);
-        res.set('Content-Type', proxyResponse.headers['content-type'] || 'audio/mpeg');
+        res.set('Content-Type', contentType);
         res.set('Content-Length', proxyResponse.headers['content-length']);
         res.set('Content-Range', proxyResponse.headers['content-range']);
         res.set('Accept-Ranges', 'bytes');
         res.set('Cache-Control', 'public, max-age=3600');
-res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Origin', '*');
 
-    proxyResponse.data.pipe(res);
-    logEntry({
-      result: 'ok',
-      source: 'streamProxy',
-      trackId: entry?.trackId,
-      quality: entry?.quality,
-      provider: entry?.provider || entry?.source,
-      br: entry?.br,
-      size: entry?.size,
-      md5: entry?.md5,
-      urlExt: entry?.urlExt,
-      durationMs: Date.now() - startTime,
-      errorCode: undefined,
-      note: `range ${proxyResponse.status} ${proxyResponse.headers['content-type'] || 'audio/mpeg'} ${realUrl}`,
-    });
+        proxyResponse.data.pipe(res);
+        logEntry({
+          result: 'ok',
+          source: 'streamProxy',
+          trackId: entry?.trackId,
+          quality: entry?.quality,
+          provider: entry?.provider || entry?.source,
+          br: entry?.br,
+          size: entry?.size,
+          md5: entry?.md5,
+          urlExt: entry?.urlExt,
+          durationMs: Date.now() - startTime,
+          errorCode: undefined,
+          note: `range ${proxyResponse.status} ${contentType} ${realUrl}`,
+        });
         return;
       }
     }
@@ -148,9 +177,14 @@ res.set('Access-Control-Allow-Origin', '*');
       timeout: 30000,
       validateStatus: status => status === 200,
     });
+    const contentType = proxyResponse.headers['content-type'] || 'audio/mpeg';
+    if (!isPlayableContentType(contentType)) {
+      proxyResponse.data.destroy();
+      throw createInvalidContentTypeError(contentType, realUrl);
+    }
 
     res.status(200);
-    res.set('Content-Type', proxyResponse.headers['content-type'] || 'audio/mpeg');
+    res.set('Content-Type', contentType);
     if (proxyResponse.headers['content-length']) {
       res.set('Content-Length', proxyResponse.headers['content-length']);
     }
@@ -171,29 +205,31 @@ res.set('Access-Control-Allow-Origin', '*');
       urlExt: entry?.urlExt,
       durationMs: Date.now() - startTime,
       errorCode: undefined,
-      note: `full ${proxyResponse.status} ${proxyResponse.headers['content-type'] || 'audio/mpeg'} ${realUrl}`,
+      note: `full ${proxyResponse.status} ${contentType} ${realUrl}`,
     });
   } catch (error) {
     if (!res.headersSent) {
       const errorCode = getProxyErrorCode(error);
-        logEntry({
-          result: 'fail',
-          source: 'streamProxy',
-          trackId: entry?.trackId,
-          quality: entry?.quality,
-          provider: entry?.provider || entry?.source,
-          br: entry?.br,
-          size: entry?.size,
-          md5: entry?.md5,
-          urlExt: entry?.urlExt,
-          errorCode,
-          durationMs: Date.now() - startTime,
-          note: `${realUrl} ${error?.message || ''}`.trim(),
-        });
+      logEntry({
+        result: 'fail',
+        source: 'streamProxy',
+        trackId: entry?.trackId,
+        quality: entry?.quality,
+        provider: entry?.provider || entry?.source,
+        br: entry?.br,
+        size: entry?.size,
+        md5: entry?.md5,
+        urlExt: entry?.urlExt,
+        errorCode,
+        durationMs: Date.now() - startTime,
+        note: `${realUrl} ${error?.message || ''}`.trim(),
+      });
       if (isRetryableProxyError(error)) {
         return { ok: false, retryable: true, code: errorCode };
       }
-      res.status(502).json({ ok: false, code: 'PROXY_FAILED', reason: '代理流失败' });
+      res
+        .status(502)
+        .json({ ok: false, code: 'PROXY_FAILED', reason: '代理流失败' });
     }
   }
   return { ok: true };

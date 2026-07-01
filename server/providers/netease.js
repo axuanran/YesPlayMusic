@@ -1,7 +1,8 @@
-import axios from 'axios';
+import { createRequire } from 'node:module';
 import { loadCookie } from '../storage/cookieStore.js';
 
-const NETEASE_API_BASE = 'http://127.0.0.1:10754';
+const require = createRequire(import.meta.url);
+const neteaseApi = require('@neteasecloudmusicapienhanced/api/main.js');
 const QUALITY_LEVELS = new Set([
   'standard',
   'exhigh',
@@ -24,23 +25,34 @@ export async function resolve(trackId, context = {}) {
   const cookie = loadCookie();
 
   try {
-    const response = await axios.get(`${NETEASE_API_BASE}/song/url/v1`, {
-      params: { id: trackId, level },
-      timeout: 10000,
-      headers: cookie ? { Cookie: cookie } : {},
+    const response = await neteaseApi.song_url_v1({
+      id: trackId,
+      level,
+      cookie: cookie || undefined,
     });
 
-    const data = response.data;
+    const data = response.body || response;
 
     if (data.code === 301) {
       return { ok: false, errorCode: 'NEED_LOGIN', errorMessage: '需要登录' };
     }
 
     if (!data.data || !data.data[0] || !data.data[0].url) {
-      if (data.data?.[0]?.freeTrialInfo !== null && data.data?.[0]?.freeTrialInfo !== undefined) {
-        return { ok: false, errorCode: 'VIP_REQUIRED', errorMessage: '需要有效权益' };
+      if (
+        data.data?.[0]?.freeTrialInfo !== null &&
+        data.data?.[0]?.freeTrialInfo !== undefined
+      ) {
+        return {
+          ok: false,
+          errorCode: 'VIP_REQUIRED',
+          errorMessage: '需要有效权益',
+        };
       }
-      return { ok: false, errorCode: 'NO_SOURCE', errorMessage: '没有可用音源' };
+      return {
+        ok: false,
+        errorCode: 'NO_SOURCE',
+        errorMessage: '没有可用音源',
+      };
     }
 
     const song = data.data[0];
@@ -59,10 +71,22 @@ export async function resolve(trackId, context = {}) {
       expiresAt: Date.now() + 30 * 60 * 1000,
     };
   } catch (error) {
-    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-      return { ok: false, errorCode: 'PROVIDER_TIMEOUT', errorMessage: '音源超时' };
+    if (
+      error.code === 'ECONNABORTED' ||
+      error.code === 'ETIMEDOUT' ||
+      error.code === 'UND_ERR_CONNECT_TIMEOUT'
+    ) {
+      return {
+        ok: false,
+        errorCode: 'PROVIDER_TIMEOUT',
+        errorMessage: '音源超时',
+      };
     }
-    return { ok: false, errorCode: 'PROVIDER_FAILED', errorMessage: error.message };
+    return {
+      ok: false,
+      errorCode: 'PROVIDER_FAILED',
+      errorMessage: error.message,
+    };
   }
 }
 
