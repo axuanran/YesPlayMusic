@@ -119,6 +119,7 @@ export default {
     play: '播放',
     pause: '暂停',
     mute: '静音',
+    progress: '播放进度',
     nextUp: '播放列表',
     translationLyric: '歌词(译)',
     PronunciationLyric: '歌词(音)',
@@ -204,6 +205,13 @@ export default {
       title: '低性能视觉模式',
       description:
         '关闭毛玻璃、动态背景、封面阴影和常驻视觉动画，以降低 GPU 占用。',
+    },
+    performanceMode: {
+      title: '性能模式',
+      description: '根据设备性能调整视觉效果和播放进度刷新率。',
+      off: '关闭',
+      balanced: '均衡',
+      aggressive: '激进',
     },
     lyricsBackground: {
       text: '显示歌词背景',

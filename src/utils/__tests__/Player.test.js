@@ -170,22 +170,39 @@ describe('Player audio source flow', () => {
 
   it('uses resolver source without touching legacy fallback', async () => {
     const player = await createPlayer();
-    const legacy = vi.spyOn(player, '_getAudioSourceLegacy');
 
-    await expect(player._getAudioSource({ id: 1 })).resolves.toBe('resolver:1');
+    await expect(player._resolver.resolveSource({ id: 1 })).resolves.toBe(
+      'resolver:1'
+    );
 
-    expect(mocks.resolveTrackSource).toHaveBeenCalledWith({ id: 1 });
-    expect(legacy).not.toHaveBeenCalled();
+    expect(mocks.resolveTrackSource).toHaveBeenCalledWith(
+      { id: 1 },
+      expect.any(Object)
+    );
+    expect(mocks.getTrackSource).not.toHaveBeenCalled();
+    expect(mocks.getMP3).not.toHaveBeenCalled();
   });
 
-  it('falls back to legacy source when resolver fails', async () => {
+  it('falls back to legacy outer source when resolver fails while logged out', async () => {
     mocks.resolveTrackSource.mockRejectedValue(new Error('resolver down'));
     const player = await createPlayer();
-    vi.spyOn(player, '_getAudioSourceLegacy').mockResolvedValue('legacy:1');
 
-    await expect(player._getAudioSource({ id: 1 })).resolves.toBe('legacy:1');
+    await expect(player._resolver.resolveSource({ id: 1 })).resolves.toBe(
+      'outer:1'
+    );
 
-    expect(player._getAudioSourceLegacy).toHaveBeenCalledWith({ id: 1 });
+    expect(mocks.getOuterAudioUrl).toHaveBeenCalledWith(1);
+  });
+
+  it('does not fall back to outer html when logged-in netease source fails', async () => {
+    mocks.resolveTrackSource.mockRejectedValue(new Error('resolver down'));
+    mocks.isAccountLoggedIn.mockReturnValue(true);
+    mocks.getMP3.mockRejectedValue(new Error('netease down'));
+    const player = await createPlayer();
+
+    await expect(player._resolver.resolveSource({ id: 1 })).resolves.toBeNull();
+
+    expect(mocks.getOuterAudioUrl).not.toHaveBeenCalled();
   });
 
   it('ignores stale audio callbacks after a newer source loads', async () => {

@@ -119,6 +119,7 @@ export default {
     play: 'Play',
     pause: 'Pause',
     mute: 'Mute',
+    progress: 'Playback progress',
     nextUp: 'Next Up',
     translationLyric: 'lyric (trans)',
     PronunciationLyric: 'lyric (pronounce)',
@@ -204,6 +205,14 @@ export default {
       title: 'Low performance visual mode',
       description:
         'Disable blur, dynamic backgrounds, cover shadows, and persistent visual animations to reduce GPU usage.',
+    },
+    performanceMode: {
+      title: 'Performance mode',
+      description:
+        'Adjust visual effects and playback progress refresh rate for this device.',
+      off: 'Off',
+      balanced: 'Balanced',
+      aggressive: 'Aggressive',
     },
     showLyricsTime: 'Display current time',
     lyricsBackground: {

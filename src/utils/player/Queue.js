@@ -27,6 +27,39 @@ export default class PlayerQueue {
     this.playNextList = playNextList;
   }
 
+  importState({
+    list = this.list,
+    current = this.current,
+    shuffledList = this.shuffledList,
+    shuffledCurrent = this.shuffledCurrent,
+    shuffleEnabled = this.shuffleEnabled,
+    repeatMode = this.repeatMode,
+    reversed = this.reversed,
+    playNextList = this.playNextList,
+  } = {}) {
+    this.list = list;
+    this.current = current;
+    this.shuffledList = shuffledList;
+    this.shuffledCurrent = shuffledCurrent;
+    this.shuffleEnabled = shuffleEnabled;
+    this.repeatMode = repeatMode;
+    this.reversed = reversed;
+    this.playNextList = playNextList;
+  }
+
+  exportState() {
+    return {
+      list: this.list,
+      current: this.current,
+      shuffledList: this.shuffledList,
+      shuffledCurrent: this.shuffledCurrent,
+      shuffleEnabled: this.shuffleEnabled,
+      repeatMode: this.repeatMode,
+      reversed: this.reversed,
+      playNextList: this.playNextList,
+    };
+  }
+
   get activeList() {
     return this.shuffleEnabled ? this.shuffledList : this.list;
   }
@@ -52,6 +85,7 @@ export default class PlayerQueue {
     if (currentTrackId !== 'first') {
       this.activeCurrent = this.activeList.indexOf(currentTrackId);
     }
+    if (this.activeCurrent < 0) this.activeCurrent = 0;
     return this.activeList[this.activeCurrent];
   }
 
@@ -68,7 +102,10 @@ export default class PlayerQueue {
   }
 
   syncCurrentToTrack(trackId) {
-    this.activeCurrent = this.activeList.indexOf(trackId);
+    const index = this.activeList.indexOf(trackId);
+    if (index < 0) return false;
+    this.activeCurrent = index;
+    return true;
   }
 
   getSibling(forward) {

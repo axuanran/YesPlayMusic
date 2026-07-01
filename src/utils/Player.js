@@ -3,26 +3,25 @@ import { getArtist } from '@/api/artist';
 import { trackScrobble, trackUpdateNowPlaying } from '@/api/lastfm';
 import { fmTrash, personalFM } from '@/api/others';
 import { getPlaylistDetail, intelligencePlaylist } from '@/api/playlist';
-import { getLyric, getMP3, getTrackDetail, scrobble } from '@/api/track';
+import { getLyric, scrobble } from '@/api/track';
 import store from '@/store';
 import AudioEngine from '@/utils/AudioEngine';
-import { isAccountLoggedIn } from '@/utils/auth';
-import { cacheTrackSource, getTrackSource } from '@/utils/db';
 import { isCreateTray } from '@/utils/platform';
 import { isElectron } from '@/utils/env';
-import shuffle from 'lodash/shuffle';
-import { resolveTrackSource } from '@/utils/resolveAudioSource';
-import { getOuterAudioUrl } from '@/utils/resolveAudioSource';
 import { emitPlayerEvent, PLAYER_EVENTS } from '@/plugins/playerEvents';
 import PlayerQueue from '@/utils/player/Queue';
 import { createActor } from 'xstate';
 import { createPlayerMachine } from '@/player/playerMachine';
+import PlayerResolver, { isCanceledRequest } from '@/player/playerResolver';
 // MPRIS disabled during Electron 42 migration
 const isCreateMpris = false;
 
 const PLAY_PAUSE_FADE_DURATION = 200;
 const PROGRESS_PERSIST_INTERVAL = 5000;
-const PROGRESS_SYNC_INTERVAL = 250;
+const PROGRESS_UI_INTERVAL = 16;
+const LOW_PERFORMANCE_PROGRESS_UI_INTERVAL = 40;
+const PROGRESS_STORAGE_INTERVAL = 1000;
+const PROGRESS_IMMEDIATE_DELTA = 0.005;
 
 /**
  * @readonly
@@ -79,8 +78,14 @@ function getRuntimeStore() {
   return globalThis?.yesplaymusicStore || null;
 }
 
-function isCanceledRequest(error) {
-  return error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED';
+function getProgressUiInterval() {
+  const settings = store.state.settings;
+  const mode =
+    settings.performanceMode ||
+    (settings.lowPerformanceMode ? 'balanced' : 'off');
+  if (mode === 'aggressive') return 100;
+  if (mode === 'balanced') return LOW_PERFORMANCE_PROGRESS_UI_INTERVAL;
+  return PROGRESS_UI_INTERVAL;
 }
 
 function createPendingTrack(id) {
@@ -123,16 +128,21 @@ export default class {
     this._currentAudioSource = ''; // 当前播放音频地址，用于展示来源信息
     this._audioToken = 0; // 防止旧音频回调污染新的播放源
     this._trackRequestToken = 0; // 防止旧切歌请求污染当前播放状态
+    this._trackLoadResolve = null;
     this._prefetchToken = 0;
     this._prefetchingTrackId = null;
     this._trackSwitchTimer = null;
     this._trackRequestAbortController = null;
     this._reactiveSelf = this; // Vuex Proxy 创建后会回绑，用于音频事件触发响应式更新
     this._progressFrame = null;
+    this._lastProgressUiSyncAt = 0;
     this._progressSyncTimer = null;
     this._progressPersistTimer = null;
     this._playNextList = []; // 当这个list不为空时，会优先播放这个list的歌
     this._queue = new PlayerQueue();
+    this._resolver = new PlayerResolver({
+      createBlobUrl: data => this._getAudioSourceBlobURL(data),
+    });
     this._trackActor = createActor(
       createPlayerMachine({
         loadTarget: this._loadTrackTarget.bind(this),
@@ -174,10 +184,16 @@ export default class {
     Object.defineProperty(this, '_queue', {
       enumerable: false,
     });
+    Object.defineProperty(this, '_resolver', {
+      enumerable: false,
+    });
     Object.defineProperty(this, '_trackActor', {
       enumerable: false,
     });
     Object.defineProperty(this, '_trackRequestToken', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_trackLoadResolve', {
       enumerable: false,
     });
     Object.defineProperty(this, '_prefetchToken', {
@@ -196,6 +212,9 @@ export default class {
       enumerable: false,
     });
     Object.defineProperty(this, '_progressFrame', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_lastProgressUiSyncAt', {
       enumerable: false,
     });
     Object.defineProperty(this, '_progressSyncTimer', {
@@ -255,18 +274,33 @@ export default class {
 
   _syncQueueState() {
     if (!this._queue) return;
-    this._queue.list = this._list;
-    this._queue.current = this._current;
-    this._queue.shuffledList = this._shuffledList;
-    this._queue.shuffledCurrent = this._shuffledCurrent;
-    this._queue.shuffleEnabled = this._shuffle;
-    this._queue.repeatMode = this._repeatMode;
-    this._queue.reversed = this._reversed;
-    this._queue.playNextList = this._playNextList;
+    this._queue.importState({
+      list: this._list,
+      current: this._current,
+      shuffledList: this._shuffledList,
+      shuffledCurrent: this._shuffledCurrent,
+      shuffleEnabled: this._shuffle,
+      repeatMode: this._repeatMode,
+      reversed: this._reversed,
+      playNextList: this._playNextList,
+    });
+  }
+
+  _exportQueueState() {
+    if (!this._queue) return;
+    const state = this._queue.exportState();
+    this._list = state.list;
+    this._current = state.current;
+    this._shuffledList = state.shuffledList;
+    this._shuffledCurrent = state.shuffledCurrent;
+    this._shuffle = state.shuffleEnabled;
+    this._repeatMode = state.repeatMode;
+    this._reversed = state.reversed;
+    this._playNextList = state.playNextList;
   }
 
   get repeatMode() {
-    return this._repeatMode;
+    return this._queue?.repeatMode ?? this._repeatMode;
   }
   set repeatMode(mode) {
     if (this._guardNotPersonalFM()) return;
@@ -274,12 +308,12 @@ export default class {
       console.warn("repeatMode: invalid args, must be 'on' | 'off' | 'one'");
       return;
     }
-    this._repeatMode = mode;
-    this._syncQueueState();
+    this._queue.repeatMode = mode;
+    this._exportQueueState();
     this.persist();
   }
   get shuffle() {
-    return this._shuffle;
+    return this._queue?.shuffleEnabled ?? this._shuffle;
   }
   set shuffle(shuffle) {
     if (this._guardNotPersonalFM()) return;
@@ -287,17 +321,17 @@ export default class {
       console.warn('shuffle: invalid args, must be Boolean');
       return;
     }
-    this._shuffle = shuffle;
+    this._queue.shuffleEnabled = shuffle;
     if (shuffle) {
       this._shuffleTheList();
     }
     // 同步当前歌曲在列表中的下标
     this.current = this.list.indexOf(this.currentTrackID);
-    this._syncQueueState();
+    this._exportQueueState();
     this.persist();
   }
   get reversed() {
-    return this._reversed;
+    return this._queue?.reversed ?? this._reversed;
   }
   set reversed(reversed) {
     if (this._guardNotPersonalFM()) return;
@@ -305,8 +339,8 @@ export default class {
       console.warn('reversed: invalid args, must be Boolean');
       return;
     }
-    this._reversed = reversed;
-    this._syncQueueState();
+    this._queue.reversed = reversed;
+    this._exportQueueState();
     this.persist();
   }
   get volume() {
@@ -318,22 +352,24 @@ export default class {
     this.persist();
   }
   get list() {
-    return this.shuffle ? this._shuffledList : this._list;
+    return (
+      this._queue?.activeList ??
+      (this.shuffle ? this._shuffledList : this._list)
+    );
   }
   set list(list) {
-    this._list = list;
-    this._syncQueueState();
+    this._queue.list = list;
+    this._exportQueueState();
   }
   get current() {
-    return this.shuffle ? this._shuffledCurrent : this._current;
+    return (
+      this._queue?.activeCurrent ??
+      (this.shuffle ? this._shuffledCurrent : this._current)
+    );
   }
   set current(current) {
-    if (this.shuffle) {
-      this._shuffledCurrent = current;
-    } else {
-      this._current = current;
-    }
-    this._syncQueueState();
+    this._queue.activeCurrent = current;
+    this._exportQueueState();
   }
   get enabled() {
     return this._enabled;
@@ -363,7 +399,7 @@ export default class {
     return this._playlistSource;
   }
   get playNextList() {
-    return this._playNextList;
+    return this._queue?.playNextList ?? this._playNextList;
   }
   get isPersonalFM() {
     return this._isPersonalFM;
@@ -472,15 +508,30 @@ export default class {
     this._progress = 0;
     getRuntimeStore()?.commit('bumpPlayerVersion');
   }
-  _syncProgress() {
+  _syncProgress(force = false) {
     if (!this._audio) return;
+    const now = Date.now();
+    const progressUiInterval = getProgressUiInterval();
     const duration = this.currentTrackDuration;
-    this._progress = Math.min(this._audio.currentTime(), duration);
+    const nextProgress = Math.min(this._audio.currentTime(), duration);
+    const progressDelta = Math.abs(nextProgress - (this._progress || 0));
+
+    if (
+      !force &&
+      progressDelta < PROGRESS_IMMEDIATE_DELTA &&
+      now - this._lastProgressUiSyncAt < progressUiInterval
+    ) {
+      return;
+    }
+
+    this._lastProgressUiSyncAt = now;
+    this._progress = nextProgress;
+
     if (this._progressSyncTimer === null) {
       this._progressSyncTimer = setTimeout(() => {
         this._progressSyncTimer = null;
         localStorage.setItem('playerCurrentTrackTime', this._progress);
-      }, PROGRESS_SYNC_INTERVAL);
+      }, PROGRESS_STORAGE_INTERVAL);
     }
     this._schedulePersist();
     if (isCreateMpris) {
@@ -493,16 +544,16 @@ export default class {
       const player = this._getReactiveSelf();
       player._syncProgress();
       if (player.playing) {
-        player._progressFrame = requestAnimationFrame(tick);
-      } else {
-        player._progressFrame = null;
+        player._progressFrame = setTimeout(tick, getProgressUiInterval());
+        return;
       }
+      player._stopProgressLoop();
     };
-    this._progressFrame = requestAnimationFrame(tick);
+    this._progressFrame = setTimeout(tick, getProgressUiInterval());
   }
   _stopProgressLoop() {
     if (this._progressFrame === null) return;
-    cancelAnimationFrame(this._progressFrame);
+    clearTimeout(this._progressFrame);
     this._progressFrame = null;
   }
   _handleAudioError(error) {
@@ -534,10 +585,8 @@ export default class {
     return this._queue.getSibling(forward);
   }
   async _shuffleTheList(firstTrackID = this.currentTrackID) {
-    let list = this._list.filter(tid => tid !== firstTrackID);
-    if (firstTrackID === 'first') list = this._list;
-    this._shuffledList = shuffle(list);
-    if (firstTrackID !== 'first') this._shuffledList.unshift(firstTrackID);
+    this._queue.shuffle(firstTrackID);
+    this._exportQueueState();
   }
   async _scrobble(track, time, completed = false) {
     console.debug(
@@ -566,6 +615,11 @@ export default class {
     }
   }
   _playAudioSource(source, autoplay = true) {
+    if (!source || typeof source !== 'string') {
+      store.dispatch('showToast', `无法播放: 无可用音源`);
+      this._playNextTrack(this._isPersonalFM);
+      return;
+    }
     this._progress = 0;
     this._currentAudioSource = source;
     this._audioToken += 1;
@@ -604,52 +658,27 @@ export default class {
 
     return source;
   }
-  _getAudioSourceFromCache(id) {
-    return getTrackSource(id).then(t => {
-      if (!t) return null;
-      return this._getAudioSourceBlobURL(t.source);
-    });
-  }
-  _getAudioSourceFromNetease(track, options = {}) {
-    if (isAccountLoggedIn()) {
-      return getMP3(track.id, options)
-        .then(result => {
-          if (!result.data[0]) return null;
-          if (!result.data[0].url) return null;
-          if (result.data[0].freeTrialInfo !== null) return null; // 跳过只能试听的歌曲
-          const source = result.data[0].url.replace(/^http:/, 'https:');
-          if (store.state.settings.automaticallyCacheSongs) {
-            cacheTrackSource(track, source, result.data[0].br);
-          }
-          return source;
-        })
-        .catch(error => {
-          if (isCanceledRequest(error)) throw error;
-          return getOuterAudioUrl(track.id);
-        });
-    } else {
-      return Promise.resolve(getOuterAudioUrl(track.id));
-    }
-  }
-  _getAudioSource(track, options = {}) {
-    // Stage 1: Try resolver backend first
-    return resolveTrackSource(track, options).catch(error => {
-      if (isCanceledRequest(error)) throw error;
-      // Stage 2: Fall back to full legacy chain
-      return this._getAudioSourceLegacy(track, options);
-    });
-  }
-  _getAudioSourceLegacy(track, options = {}) {
-    return this._getAudioSourceFromCache(String(track.id)).then(source => {
-      return source ?? this._getAudioSourceFromNetease(track, options);
-    });
-  }
   _isTrackRequestCurrent(token) {
     return token === undefined || token === this._trackRequestToken;
   }
   _abortTrackRequest() {
     this._trackRequestAbortController?.abort();
     this._trackRequestAbortController = null;
+  }
+  _syncQueueCurrentToTrack(trackId) {
+    if (!this._queue?.syncCurrentToTrack(trackId)) return false;
+    this._exportQueueState();
+    return true;
+  }
+  _startTrackLoadWaiter() {
+    this._trackLoadResolve?.(false);
+    return new Promise(resolve => {
+      this._trackLoadResolve = resolve;
+    });
+  }
+  _resolveTrackLoad(result) {
+    this._trackLoadResolve?.(result);
+    this._trackLoadResolve = null;
   }
   _queueReplaceCurrentTrack(
     id,
@@ -663,57 +692,23 @@ export default class {
     this._prefetchToken += 1;
     this._prefetchingTrackId = null;
     this._abortTrackRequest();
+    this._syncQueueCurrentToTrack(id);
     this._setDisplayTrackTarget(id);
+    const loadPromise = this._startTrackLoadWaiter();
     this._trackActor.send({
       type: 'TARGET_CHANGED',
       trackId: id,
       autoplay,
       ifUnplayableThen,
     });
+    return loadPromise;
   }
   _loadTrackTarget({ trackId, autoplay, ifUnplayableThen, signal }) {
     const requestToken = this._trackRequestToken;
-    return getTrackDetail(trackId, { signal }).then(data => {
-      if (!this._isTrackRequestCurrent(requestToken)) return false;
-      const track = data.songs[0];
-      this._setCurrentTrack(track);
-      this._updateMediaSessionMetaData(track);
-      return this._replaceCurrentTrackAudio(
-        track,
-        autoplay,
-        true,
-        ifUnplayableThen,
-        requestToken,
-        signal
-      );
-    });
-  }
-  _replaceCurrentTrack(
-    id,
-    autoplay = true,
-    ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK
-  ) {
-    if (this._trackSwitchTimer !== null) {
-      clearTimeout(this._trackSwitchTimer);
-      this._trackSwitchTimer = null;
-    }
-    const requestToken = ++this._trackRequestToken;
-    this._prefetchToken += 1;
-    this._prefetchingTrackId = null;
-    this._abortTrackRequest();
-    this._setDisplayTrackTarget(id);
-    this._trackRequestAbortController = new AbortController();
-    const signal = this._trackRequestAbortController.signal;
-    console.debug(
-      `[debug][Player.js] replaceCurrentTrack => id:${id} autoplay:${autoplay} current:${formatTrackDebugLabel(this._currentTrack)}`
-    );
-    if (autoplay && this._currentTrack.name) {
-      this._scrobble(this.currentTrack, this.seek(null, false));
-    }
-    return getTrackDetail(id, { signal })
-      .then(data => {
+    return this._resolver
+      .loadTrack(trackId, { signal })
+      .then(track => {
         if (!this._isTrackRequestCurrent(requestToken)) return false;
-        const track = data.songs[0];
         this._setCurrentTrack(track);
         this._updateMediaSessionMetaData(track);
         return this._replaceCurrentTrackAudio(
@@ -725,13 +720,33 @@ export default class {
           signal
         );
       })
+      .then(result => {
+        if (this._isTrackRequestCurrent(requestToken)) {
+          this._resolveTrackLoad(result);
+        }
+        return result;
+      })
       .catch(error => {
         if (isCanceledRequest(error)) return false;
         if (!this._isTrackRequestCurrent(requestToken)) return false;
         console.debug('[debug][Player.js] replaceCurrentTrack failed', error);
         store.dispatch('showToast', `歌曲加载超时，请重试`);
+        this._resolveTrackLoad(false);
         return false;
       });
+  }
+  _replaceCurrentTrack(
+    id,
+    autoplay = true,
+    ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK
+  ) {
+    console.debug(
+      `[debug][Player.js] replaceCurrentTrack => id:${id} autoplay:${autoplay} current:${formatTrackDebugLabel(this._currentTrack)}`
+    );
+    if (autoplay && this._currentTrack.name) {
+      this._scrobble(this.currentTrack, this.seek(null, false));
+    }
+    return this._queueReplaceCurrentTrack(id, autoplay, ifUnplayableThen);
   }
   /**
    * @returns 是否成功加载音频，并使用加载完成的音频替换了当前播放源
@@ -744,7 +759,8 @@ export default class {
     requestToken,
     signal
   ) {
-    return this._getAudioSource(track, { signal })
+    return this._resolver
+      .resolveSource(track, { signal })
       .then(source => {
         if (!this._isTrackRequestCurrent(requestToken)) return false;
         if (source) {
@@ -797,11 +813,11 @@ export default class {
 
     const prefetchToken = ++this._prefetchToken;
     this._prefetchingTrackId = nextTrackID;
-    getTrackDetail(nextTrackID)
-      .then(data => {
+    this._resolver
+      .loadTrack(nextTrackID)
+      .then(track => {
         if (prefetchToken !== this._prefetchToken) return null;
-        let track = data.songs[0];
-        return this._getAudioSource(track);
+        return this._resolver.resolveSource(track);
       })
       .catch(error => {
         console.debug('[debug][Player.js] cacheNextTrack failed', error);
@@ -818,6 +834,7 @@ export default class {
     for (const [key, value] of Object.entries(player)) {
       this[key] = value;
     }
+    this._syncQueueState();
   }
   _initMediaSession() {
     if ('mediaSession' in navigator) {
@@ -964,14 +981,14 @@ export default class {
   }
 
   appendTrack(trackID) {
-    this._syncQueueState();
     this._queue.addPlayNext(trackID);
+    this._exportQueueState();
   }
   playNextTrack() {
     // TODO: 切换歌曲时增加加载中的状态
-    this._syncQueueState();
     if (this._queue.playNextList.length > 0) {
       const trackID = this._queue.takePlayNext();
+      this._exportQueueState();
       this._queueReplaceCurrentTrack(trackID);
       return true;
     }
@@ -1117,6 +1134,10 @@ export default class {
       .catch(error => {
         // AbortError: play() interrupted by pause()/load() during track switch. Normal, not a failure.
         if (error?.name === 'AbortError') return;
+        if (error?.name === 'NotSupportedError') {
+          console.debug('[debug][Player.js] unsupported audio source', error);
+          return;
+        }
         console.error('Failed to play audio', error);
         store.dispatch('showToast', `播放失败`);
       });
@@ -1164,21 +1185,14 @@ export default class {
     autoPlayTrackID = 'first'
   ) {
     this._isPersonalFM = false;
-    this.list = trackIDs;
-    this.current = 0;
     this._playlistSource = {
       type: playlistSourceType,
       id: playlistSourceID,
     };
-    if (this.shuffle) this._shuffleTheList(autoPlayTrackID);
-    if (autoPlayTrackID === 'first') {
-      this._setDisplayTrackTarget(this.list[0]);
-      this._replaceCurrentTrack(this.list[0]);
-    } else {
-      this.current = this.list.indexOf(autoPlayTrackID);
-      this._setDisplayTrackTarget(autoPlayTrackID);
-      this._replaceCurrentTrack(autoPlayTrackID);
-    }
+    const trackID = this._queue.replace(trackIDs, autoPlayTrackID);
+    this._exportQueueState();
+    this._setDisplayTrackTarget(trackID);
+    this._replaceCurrentTrack(trackID);
   }
   playAlbumByID(id, trackID = 'first') {
     getAlbum(id).then(data => {
@@ -1207,7 +1221,7 @@ export default class {
   }
   playTrackOnListByID(id, listName = 'default') {
     if (listName === 'default') {
-      this._current = this._list.findIndex(t => t === id);
+      this.current = this.list.findIndex(t => t === id);
     }
     this._replaceCurrentTrack(id);
   }
@@ -1224,7 +1238,8 @@ export default class {
     });
   }
   addTrackToPlayNext(trackID, playNow = false) {
-    this._playNextList.push(trackID);
+    this._queue.addPlayNext(trackID);
+    this._exportQueueState();
     if (playNow) {
       this.playNextTrack();
     }
@@ -1258,9 +1273,9 @@ export default class {
   }
 
   switchRepeatMode() {
-    if (this._repeatMode === 'on') {
+    if (this.repeatMode === 'on') {
       this.repeatMode = 'one';
-    } else if (this._repeatMode === 'one') {
+    } else if (this.repeatMode === 'one') {
       this.repeatMode = 'off';
     } else {
       this.repeatMode = 'on';
@@ -1280,11 +1295,11 @@ export default class {
   }
 
   clearPlayNextList() {
-    this._syncQueueState();
     this._queue.clearPlayNext();
+    this._exportQueueState();
   }
   removeTrackFromQueue(index) {
-    this._syncQueueState();
     this._queue.removePlayNext(index);
+    this._exportQueueState();
   }
 }

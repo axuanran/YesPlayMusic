@@ -41,6 +41,8 @@ describe('playerMachine', () => {
     expect(loadTarget.mock.calls[1][0].trackId).toBe(2);
     expect(aborted).toEqual(['first']);
     expect(actor.getSnapshot().context.targetTrackId).toBe(2);
+    expect(actor.getSnapshot().context.loadedTrackId).toBe(2);
+    expect(actor.getSnapshot().context.requestId).toBe(2);
   });
 
   it('exposes loading errors in context', async () => {

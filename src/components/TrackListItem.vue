@@ -188,6 +188,8 @@ export default {
       return this.likedSongIds.includes(this.track?.id);
     },
     isPlaying() {
+      // Player mutates internal fields; playerVersion is the reactive invalidation signal.
+      void this.$store.state.playerVersion;
       return this.$store.state.player.displayTrackID === this.track?.id;
     },
     trackClass() {

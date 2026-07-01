@@ -384,6 +384,29 @@
       <div class="item">
         <div class="left">
           <div class="title">
+            {{ $t('settings.performanceMode.title') }}
+          </div>
+          <div class="description">
+            {{ $t('settings.performanceMode.description') }}
+          </div>
+        </div>
+        <div class="right">
+          <select v-model="performanceMode">
+            <option value="off">{{
+              $t('settings.performanceMode.off')
+            }}</option>
+            <option value="balanced">
+              {{ $t('settings.performanceMode.balanced') }}
+            </option>
+            <option value="aggressive">
+              {{ $t('settings.performanceMode.aggressive') }}
+            </option>
+          </select>
+        </div>
+      </div>
+      <div class="item">
+        <div class="left">
+          <div class="title">
             {{
               isLastfmConnected
                 ? `已连接到 Last.fm (${lastfm.name})`
@@ -977,6 +1000,22 @@ export default {
     },
     showPlaylistsByAppleMusic: setting('showPlaylistsByAppleMusic', true),
     nyancatStyle: setting('nyancatStyle', false),
+    performanceMode: {
+      get() {
+        if (this.settings.performanceMode) return this.settings.performanceMode;
+        return this.settings.lowPerformanceMode ? 'balanced' : 'off';
+      },
+      set(value) {
+        this.$store.commit('updateSettings', {
+          key: 'performanceMode',
+          value,
+        });
+        this.$store.commit('updateSettings', {
+          key: 'lowPerformanceMode',
+          value: value !== 'off',
+        });
+      },
+    },
     automaticallyCacheSongs: {
       get() {
         if (this.settings.automaticallyCacheSongs === undefined) return false;

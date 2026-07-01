@@ -6,6 +6,8 @@ export function createPlayerMachine({ loadTarget }) {
     initial: 'idle',
     context: {
       targetTrackId: 0,
+      loadedTrackId: 0,
+      requestId: 0,
       autoplay: true,
       ifUnplayableThen: undefined,
       pending: false,
@@ -38,6 +40,7 @@ export function createPlayerMachine({ loadTarget }) {
           onDone: {
             target: 'ready',
             actions: assign({
+              loadedTrackId: ({ context }) => context.targetTrackId,
               pending: false,
               error: null,
             }),
@@ -80,6 +83,7 @@ export function createPlayerMachine({ loadTarget }) {
 
 const assignTarget = assign({
   targetTrackId: ({ event }) => event.trackId,
+  requestId: ({ context }) => context.requestId + 1,
   autoplay: ({ event }) => event.autoplay ?? true,
   ifUnplayableThen: ({ event }) => event.ifUnplayableThen,
   pending: true,

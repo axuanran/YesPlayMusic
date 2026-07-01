@@ -115,6 +115,7 @@ export default {
     play: '播放',
     pause: '暫停',
     mute: '靜音',
+    progress: '播放進度',
     nextUp: '播放清單',
     translationLyric: '歌詞(譯)',
     PronunciationLyric: '歌詞(音)',
@@ -197,6 +198,18 @@ export default {
     subTitleDefault: '副標題使用別名',
     enableReversedMode: '啟用倒序播放功能 (實驗性功能)',
     enableCustomTitlebar: '啟用自訂標題列（重新啟動後生效）',
+    lowPerformanceMode: {
+      title: '低效能視覺模式',
+      description:
+        '關閉模糊、動態背景、封面陰影與常駐動畫，以降低 GPU 使用量。',
+    },
+    performanceMode: {
+      title: '效能模式',
+      description: '依照裝置效能調整視覺效果與播放進度更新率。',
+      off: '關閉',
+      balanced: '均衡',
+      aggressive: '激進',
+    },
     showLyricsTime: '顯示目前時間',
     lyricsBackground: {
       text: '顯示歌詞背景',
