@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 import QRCode from 'qrcode';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.resolve(SCRIPT_DIR, '..');
+const PROJECT_ROOT = findProjectRoot(SCRIPT_DIR);
 const ERROR_LOG_PATH = path.join(
   os.tmpdir(),
   'yesplaymusic-tui-last-error.log'
@@ -26,6 +26,30 @@ const RESOLVE_CACHE_TTL_MS = 4 * 60 * 1000;
 const AUTO_START_RESOLVER = process.env.YPM_TUI_AUTO_RESOLVER !== '0';
 const require = createRequire(import.meta.url);
 const neteaseApi = require('@neteasecloudmusicapienhanced/api/main.js');
+const RUNNING_IN_ELECTRON = Boolean(process.versions?.electron);
+
+function findProjectRoot(startDir) {
+  let current = startDir;
+  while (current && current !== path.dirname(current)) {
+    if (fs.existsSync(path.join(current, 'server', 'index.js'))) {
+      return current;
+    }
+    current = path.dirname(current);
+  }
+  return path.resolve(startDir, '..');
+}
+
+function nodeScriptSpawnOptions(extraOptions = {}) {
+  if (!RUNNING_IN_ELECTRON) return extraOptions;
+  return {
+    ...extraOptions,
+    env: {
+      ...process.env,
+      ...extraOptions.env,
+      ELECTRON_RUN_AS_NODE: '1',
+    },
+  };
+}
 
 const state = {
   mode: 'home',
@@ -278,11 +302,15 @@ async function ensureResolver() {
   }
   state.message = 'Starting local resolver...';
   render();
-  state.resolverProcess = spawn(process.execPath, ['server/index.js'], {
-    cwd: PROJECT_ROOT,
-    stdio: ['ignore', 'ignore', 'pipe'],
-    windowsHide: true,
-  });
+  state.resolverProcess = spawn(
+    process.execPath,
+    ['server/index.js'],
+    nodeScriptSpawnOptions({
+      cwd: PROJECT_ROOT,
+      stdio: ['ignore', 'ignore', 'pipe'],
+      windowsHide: true,
+    })
+  );
   state.resolverProcess.stderr?.setEncoding('utf8');
   state.resolverProcess.stderr?.on('data', chunk => {
     const text = chunk.trim();

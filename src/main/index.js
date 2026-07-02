@@ -1,6 +1,7 @@
 'use strict';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import net from 'node:net';
 import {
   app,
@@ -58,6 +59,23 @@ process.stderr.on('error', ignoreBrokenPipe);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+function shouldStartTui() {
+  return process.argv.includes('--tui');
+}
+
+async function startTuiEntrypoint() {
+  const builtTuiEntry = path.join(__dirname, '../tui/yesplaymusic-tui.mjs');
+  const sourceTuiEntry = path.join(
+    __dirname,
+    '../../scripts/yesplaymusic-tui.mjs'
+  );
+  const tuiEntry = fs.existsSync(builtTuiEntry)
+    ? builtTuiEntry
+    : sourceTuiEntry;
+
+  await import(pathToFileURL(tuiEntry).href);
+}
 
 // Provide __static for tray.js and touchBar.js (replaces webpack's define plugin)
 global.__static = app.isPackaged
@@ -632,4 +650,11 @@ class Background {
   }
 }
 
-new Background();
+if (shouldStartTui()) {
+  startTuiEntrypoint().catch(error => {
+    console.error(error);
+    process.exit(1);
+  });
+} else {
+  new Background();
+}
