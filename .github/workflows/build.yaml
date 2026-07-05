@@ -4,6 +4,10 @@ permissions:
   contents: write
   actions: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -26,9 +30,6 @@ on:
           - draft
           - prerelease
           - release
-
-env:
-  YARN_INSTALL_NOPT: yarn add --ignore-platform --ignore-engines --non-interactive --no-lockfile --exact
 
 jobs:
   build:
@@ -58,69 +59,12 @@ jobs:
             ~/AppData/Local/electron-builder/Cache
           key: electron-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
-      - name: Install Node.js, NPM and Yarn
-        uses: actions/setup-node@v4
+      - name: Setup build environment
+        uses: ./.github/actions/setup
         with:
-          node-version: 22
-          cache: yarn
-
-      - name: Enable pinned Yarn
-        run: |
-          corepack enable
-          corepack prepare yarn@1.22.22 --activate
-
-      - name: Install Linux system deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y rpm libarchive-tools libopenjp2-tools
-
-      - name: Install Snapcraft
-        if: runner.os == 'Linux'
-        uses: samuelmeuli/action-snapcraft@v3
-
-      - name: Clean broken install state
-        shell: bash
-        run: |
-          rm -rf node_modules
-          rm -f package-lock.json
-
-      - id: get_unm_version
-        name: Install deps and get UNM version
-        shell: bash
-        run: |
-          yarn install --frozen-lockfile --ignore-engines --non-interactive --ignore-scripts
-          unm_version=$(node -e "console.log(require('./node_modules/@unblockneteasemusic/rust-napi/package.json').version)")
-          echo "unmver=${unm_version}" >> "$GITHUB_OUTPUT"
-
-      - name: Install UNM native deps for Windows
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          ${{ env.YARN_INSTALL_NOPT }} \
-            @unblockneteasemusic/rust-napi-win32-x64-msvc@${{ steps.get_unm_version.outputs.unmver }}
-
-      - name: Install UNM native deps for Linux
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          ${{ env.YARN_INSTALL_NOPT }} \
-            @unblockneteasemusic/rust-napi-linux-x64-gnu@${{ steps.get_unm_version.outputs.unmver }} \
-            @unblockneteasemusic/rust-napi-linux-arm64-gnu@${{ steps.get_unm_version.outputs.unmver }}
-
-      - name: Install UNM native deps for macOS
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          ${{ env.YARN_INSTALL_NOPT }} \
-            @unblockneteasemusic/rust-napi-darwin-x64@${{ steps.get_unm_version.outputs.unmver }} \
-            @unblockneteasemusic/rust-napi-darwin-arm64@${{ steps.get_unm_version.outputs.unmver }} \
-            @esbuild/darwin-x64
-
-      - name: Verify Rollup
-        shell: bash
-        run: |
-          node -e "require('rollup'); console.log('rollup ok')"
+          install-package-deps: 'true'
+          install-native-deps: 'true'
+          verify-rollup: 'true'
 
       - name: Build Electron app
         run: yarn electron-vite build

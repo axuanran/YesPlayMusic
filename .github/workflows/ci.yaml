@@ -1,0 +1,60 @@
+name: CI
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - master
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'UPDATE.md'
+  push:
+    branches:
+      - dev
+      - master
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'UPDATE.md'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: lint, test, build
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup build environment
+        uses: ./.github/actions/setup
+        with:
+          install-package-deps: 'false'
+          install-native-deps: 'false'
+          verify-rollup: 'true'
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Test
+        run: yarn test
+
+      - name: Build web app
+        run: yarn build
+        env:
+          VUE_APP_NETEASE_API_URL: /api
+          VUE_APP_ELECTRON_API_URL: /api
+          VUE_APP_ELECTRON_API_URL_DEV: ${{ vars.VUE_APP_ELECTRON_API_URL_DEV || 'http://127.0.0.1:10754' }}
+          VUE_APP_LASTFM_API_KEY: ${{ vars.VUE_APP_LASTFM_API_KEY }}
+          VUE_APP_LASTFM_API_SHARED_SECRET: ${{ secrets.VUE_APP_LASTFM_API_SHARED_SECRET }}

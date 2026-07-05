@@ -4,7 +4,7 @@
       class="progress-bar"
       :class="{
         nyancat: settings.nyancatStyle,
-        'nyancat-stop': settings.nyancatStyle && !player.playing,
+        'nyancat-stop': settings.nyancatStyle && !playing,
       }"
       @click.stop
     >
@@ -91,10 +91,10 @@
           /></button-icon>
           <button-icon
             class="play"
-            :title="$t(player.playing ? 'player.pause' : 'player.play')"
+            :title="$t(playing ? 'player.pause' : 'player.play')"
             @click="playOrPause"
           >
-            <svg-icon :icon-class="player.playing ? 'pause' : 'play'"
+            <svg-icon :icon-class="playing ? 'pause' : 'play'"
           /></button-icon>
           <button-icon :title="$t('player.next')" @click="playNextTrack"
             ><svg-icon icon-class="next"
@@ -221,9 +221,11 @@ export default {
       },
     },
     playing() {
+      void this.playerVersion;
       return this.player.playing;
     },
     progressValue() {
+      void this.playerVersion;
       if (this.isProgressDragging) return this.localProgress;
       return Math.min(
         this.player.progress || 0,

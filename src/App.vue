@@ -102,12 +102,20 @@ export default {
   created() {
     if (this.isElectron) ipcRenderer(this);
     window.addEventListener('keydown', this.handleKeydown);
+    window.addEventListener('focus', this.syncPlaybackState);
+    document.addEventListener('visibilitychange', this.syncPlaybackState);
     this.fetchData();
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
+    window.removeEventListener('focus', this.syncPlaybackState);
+    document.removeEventListener('visibilitychange', this.syncPlaybackState);
   },
   methods: {
+    syncPlaybackState() {
+      if (document.visibilityState === 'hidden') return;
+      this.player.syncPlaybackState?.();
+    },
     handleKeydown(e) {
       if (e.code === 'Space') {
         if (e.target.tagName === 'INPUT') return false;

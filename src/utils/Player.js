@@ -184,6 +184,14 @@ export default class {
         const player = this._getReactiveSelf();
         if (token === player._audioToken) player._clearStallRecoveryTimer();
       },
+      onPlaying: token => {
+        const player = this._getReactiveSelf();
+        if (token === player._audioToken) player._syncNativePlaybackState();
+      },
+      onPause: token => {
+        const player = this._getReactiveSelf();
+        if (token === player._audioToken) player._syncNativePlaybackState();
+      },
       onStalled: token => {
         const player = this._getReactiveSelf();
         if (token === player._audioToken) player._scheduleStallRecovery();
@@ -461,6 +469,10 @@ export default class {
     this.sendSelfToIpcMain();
   }
 
+  syncPlaybackState() {
+    this._syncNativePlaybackState();
+  }
+
   _schedulePersist() {
     if (this._progressPersistTimer !== null) return;
     this._progressPersistTimer = setTimeout(() => {
@@ -505,10 +517,26 @@ export default class {
     }
   }
   _setPlaying(isPlaying) {
+    const changed = this._playing !== isPlaying;
     this._playing = isPlaying;
     this.persist();
+    if (changed) {
+      getRuntimeStore()?.commit('bumpPlayerVersion');
+    }
     if (isCreateTray) {
       electronPlayer?.updateTrayPlayState(this._playing);
+    }
+  }
+  _syncNativePlaybackState() {
+    const isPlaying = this._audio?.playing?.() ?? false;
+    if (isPlaying !== this._playing) {
+      this._setPlaying(isPlaying);
+    }
+    this._syncProgress(true);
+    if (isPlaying) {
+      this._startProgressLoop();
+    } else {
+      this._stopProgressLoop();
     }
   }
   _setCurrentTrack(track) {
@@ -554,6 +582,7 @@ export default class {
 
     this._lastProgressUiSyncAt = now;
     this._progress = nextProgress;
+    getRuntimeStore()?.commit('bumpPlayerVersion');
 
     if (this._progressSyncTimer === null) {
       this._progressSyncTimer = setTimeout(() => {
@@ -1190,7 +1219,10 @@ export default class {
     });
   }
   play() {
-    if (this._audio?.playing()) return;
+    if (this._audio?.playing()) {
+      this._syncNativePlaybackState();
+      return;
+    }
 
     // 播放时确保开启player.
     // 避免因"忘记设置"导致在播放时播放器不显示的Bug
@@ -1230,6 +1262,7 @@ export default class {
       });
   }
   playOrPause() {
+    this._syncNativePlaybackState();
     if (this._audio?.playing()) {
       this.pause();
     } else {

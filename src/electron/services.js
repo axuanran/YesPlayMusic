@@ -1,4 +1,5 @@
 import clc from 'cli-color';
+import '../utils/checkAuthToken';
 import server from '@neteasecloudmusicapienhanced/api/server';
 import generateConfig from '@neteasecloudmusicapienhanced/api/generateConfig';
 

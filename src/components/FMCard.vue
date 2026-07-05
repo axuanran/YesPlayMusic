@@ -50,11 +50,12 @@ export default {
     };
   },
   computed: {
-    ...mapState(['player']),
+    ...mapState(['player', 'playerVersion']),
     track() {
       return this.player.personalFMTrack;
     },
     isPlaying() {
+      void this.playerVersion;
       return this.player.playing && this.player.isPersonalFM;
     },
     artists() {

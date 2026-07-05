@@ -7,6 +7,8 @@ export default class AudioEngine {
     onTimeUpdate,
     onLoadedMetadata,
     onError,
+    onPause,
+    onPlaying,
     onStalled,
     onWaiting,
   } = {}) {
@@ -23,7 +25,11 @@ export default class AudioEngine {
       onLoadedMetadata?.(this.token)
     );
     this.audio.addEventListener('canplay', () => onCanPlay?.(this.token));
-    this.audio.addEventListener('playing', () => onCanPlay?.(this.token));
+    this.audio.addEventListener('playing', () => {
+      onCanPlay?.(this.token);
+      onPlaying?.(this.token);
+    });
+    this.audio.addEventListener('pause', () => onPause?.(this.token));
     this.audio.addEventListener('stalled', () => onStalled?.(this.token));
     this.audio.addEventListener('waiting', () => onWaiting?.(this.token));
     this.audio.addEventListener('error', () =>

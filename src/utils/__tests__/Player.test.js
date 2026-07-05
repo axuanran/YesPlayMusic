@@ -69,6 +69,7 @@ vi.mock('@/utils/AudioEngine', () => ({
   default: vi.fn().mockImplementation(function AudioEngine(handlers) {
     const instance = {
       currentTime: vi.fn(() => 0),
+      fade: vi.fn(() => Promise.resolve()),
       load: vi.fn(),
       pause: vi.fn(),
       play: vi.fn(() => Promise.resolve()),
@@ -257,5 +258,88 @@ describe('Player audio source flow', () => {
     expect(seek).toHaveBeenCalledWith(30, false);
     expect(play).toHaveBeenCalled();
     vi.useRealTimers();
+  });
+
+  it('syncs stale paused UI state when native audio is already playing', async () => {
+    vi.useFakeTimers();
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    audio.playing.mockReturnValue(true);
+    audio.currentTime.mockReturnValue(42);
+    player._playing = false;
+    player._progress = 10;
+    player._audioToken = 7;
+    player._currentTrack = { id: 1, dt: 180000 };
+
+    mocks.audioHandlers[0].onPlaying(7);
+
+    expect(player.playing).toBe(true);
+    expect(player.progress).toBe(42);
+    expect(player._progressFrame).not.toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('refreshes stale UI state before handling a play button click', async () => {
+    vi.useFakeTimers();
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    audio.playing.mockReturnValue(true);
+    audio.currentTime.mockReturnValue(24);
+    player._playing = false;
+    player._progress = 3;
+    player._currentTrack = { id: 1, dt: 180000 };
+
+    player.playOrPause();
+
+    expect(player.playing).toBe(true);
+    expect(player.progress).toBe(24);
+
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(audio.pause).toHaveBeenCalled();
+    expect(player.playing).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('syncs stale playing UI state when native audio pauses', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    audio.playing.mockReturnValue(false);
+    audio.currentTime.mockReturnValue(25);
+    player._playing = true;
+    player._progress = 24;
+    player._audioToken = 9;
+    player._progressFrame = setTimeout(() => {}, 1000);
+    player._currentTrack = { id: 1, dt: 180000 };
+
+    mocks.audioHandlers[0].onPause(9);
+
+    expect(player.playing).toBe(false);
+    expect(player.progress).toBe(25);
+    expect(player._progressFrame).toBeNull();
+  });
+
+  it('bumps player version when playing state changes', async () => {
+    const player = await createPlayer();
+    globalThis.yesplaymusicStore = mocks.store;
+
+    player._setPlaying(true);
+
+    expect(mocks.store.commit).toHaveBeenCalledWith('bumpPlayerVersion');
+    delete globalThis.yesplaymusicStore;
+  });
+
+  it('bumps player version when progress syncs', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    audio.currentTime.mockReturnValue(12);
+    player._currentTrack = { id: 1, dt: 180000 };
+    globalThis.yesplaymusicStore = mocks.store;
+
+    player._syncProgress(true);
+
+    expect(player.progress).toBe(12);
+    expect(mocks.store.commit).toHaveBeenCalledWith('bumpPlayerVersion');
+    delete globalThis.yesplaymusicStore;
   });
 });

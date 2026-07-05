@@ -126,10 +126,10 @@
               </div>
             </div>
             <div class="progress-bar">
-              <span>{{ formatTrackTime(player.progress) || '0:00' }}</span>
+              <span>{{ formatTrackTime(progress) || '0:00' }}</span>
               <div class="slider">
                 <vue-slider
-                  v-model="player.progress"
+                  v-model="progress"
                   :min="0"
                   :max="player.currentTrackDuration"
                   :interval="1"
@@ -181,10 +181,10 @@
                 </button-icon>
                 <button-icon
                   id="play"
-                  :title="$t(player.playing ? 'player.pause' : 'player.play')"
+                  :title="$t(playing ? 'player.pause' : 'player.play')"
                   @click="playOrPause"
                 >
-                  <svg-icon :icon-class="player.playing ? 'pause' : 'play'" />
+                  <svg-icon :icon-class="playing ? 'pause' : 'play'" />
                 </button-icon>
                 <button-icon :title="$t('player.next')" @click="playNextTrack">
                   <svg-icon icon-class="next" />
@@ -378,6 +378,19 @@ export default {
     },
     imageUrl() {
       return this.currentTrack?.al?.picUrl + '?param=1024y1024';
+    },
+    playing() {
+      void this.playerVersion;
+      return this.player.playing;
+    },
+    progress: {
+      get() {
+        void this.playerVersion;
+        return this.player.progress;
+      },
+      set(value) {
+        this.player.progress = value;
+      },
     },
     bgImageUrl() {
       return this.currentTrack?.al?.picUrl + '?param=512y512';
