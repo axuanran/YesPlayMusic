@@ -21,6 +21,7 @@
     "electron:build-all": "electron-vite build && yarn tui:build && electron-builder -mwl",
     "electron:build-mac": "electron-vite build && yarn tui:build && electron-builder -m",
     "electron:build-win": "electron-vite build && yarn tui:build && electron-builder -w",
+    "electron:build-win-portable": "electron-vite build && yarn tui:build && electron-builder -w portable",
     "electron:build-linux": "electron-vite build && yarn tui:build && electron-builder -l",
     "electron:serve": "yarn desktop:dev",
     "electron:publish": "electron-vite build && yarn tui:build && electron-builder -mwl -p always",
@@ -150,6 +151,9 @@
       "perMachine": true,
       "include": "build/installer.nsh",
       "deleteAppDataOnUninstall": true
+    },
+    "portable": {
+      "artifactName": "yesplaymusic.exe"
     }
   },
   "engines": {
