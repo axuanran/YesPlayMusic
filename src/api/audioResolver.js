@@ -46,6 +46,7 @@ export async function resolveAudioByBackend(
     {
       trackId,
       quality,
+      bypassCache: options.bypassCache === true,
       track: options.track,
     },
     {

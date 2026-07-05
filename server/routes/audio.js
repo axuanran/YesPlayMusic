@@ -21,7 +21,7 @@ router.get('/health', (_req, res) => {
 // POST /api/audio/resolve
 router.post('/audio/resolve', async (req, res) => {
   try {
-    const { trackId, quality, track } = req.body;
+    const { trackId, quality, track, bypassCache } = req.body;
 
     if (!trackId) {
       return res.status(400).json({
@@ -34,6 +34,7 @@ router.post('/audio/resolve', async (req, res) => {
     const result = await resolveTrack(Number(trackId), {
       quality: quality || 'standard',
       track,
+      bypassCache: bypassCache === true,
     });
 
     if (!result.ok) {

@@ -129,7 +129,7 @@ export function createAudioProviderRegistry({
   ) {
     const quality = qualityOverride || getQuality();
     const cacheKey = getCacheKey(track, quality);
-    const cachedSource = getCachedSource(cacheKey);
+    const cachedSource = options.bypassCache ? null : getCachedSource(cacheKey);
     if (cachedSource) return cachedSource;
 
     events.emit(AUDIO_PROVIDER_EVENTS.RESOLVE_START, { track, quality });

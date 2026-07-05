@@ -221,4 +221,41 @@ describe('Player audio source flow', () => {
     mocks.audioHandlers[0].onEnded(player._audioToken);
     expect(nextTrack).toHaveBeenCalledTimes(1);
   });
+
+  it('re-resolves the current source when playback stalls without an audio error', async () => {
+    vi.useFakeTimers();
+    const player = await createPlayer();
+    player._playing = true;
+    player._currentTrack = {
+      id: 1,
+      name: 'stalled track',
+      ar: [{ name: 'artist' }],
+      al: { name: 'album' },
+      dt: 180000,
+    };
+    player._currentAudioSource = 'resolver:stale';
+    player._progress = 30;
+    player._audioToken = 1;
+    const replaceAudio = vi
+      .spyOn(player, '_replaceCurrentTrackAudio')
+      .mockResolvedValue(true);
+    const seek = vi.spyOn(player, 'seek').mockImplementation(() => 30);
+    const play = vi.spyOn(player, 'play').mockImplementation(() => {});
+
+    mocks.audioHandlers[0].onWaiting(1);
+    await vi.advanceTimersByTimeAsync(12000);
+
+    expect(replaceAudio).toHaveBeenCalledWith(
+      player.currentTrack,
+      true,
+      false,
+      expect.any(String),
+      expect.any(Number),
+      undefined,
+      { bypassCache: true }
+    );
+    expect(seek).toHaveBeenCalledWith(30, false);
+    expect(play).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });

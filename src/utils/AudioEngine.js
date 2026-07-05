@@ -1,7 +1,15 @@
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 export default class AudioEngine {
-  constructor({ onEnded, onTimeUpdate, onLoadedMetadata, onError } = {}) {
+  constructor({
+    onCanPlay,
+    onEnded,
+    onTimeUpdate,
+    onLoadedMetadata,
+    onError,
+    onStalled,
+    onWaiting,
+  } = {}) {
     this.token = 0;
     this.audio = new Audio();
     this.audio.preload = 'auto';
@@ -14,6 +22,10 @@ export default class AudioEngine {
     this.audio.addEventListener('durationchange', () =>
       onLoadedMetadata?.(this.token)
     );
+    this.audio.addEventListener('canplay', () => onCanPlay?.(this.token));
+    this.audio.addEventListener('playing', () => onCanPlay?.(this.token));
+    this.audio.addEventListener('stalled', () => onStalled?.(this.token));
+    this.audio.addEventListener('waiting', () => onWaiting?.(this.token));
     this.audio.addEventListener('error', () =>
       onError?.(this.audio.error, this.token)
     );

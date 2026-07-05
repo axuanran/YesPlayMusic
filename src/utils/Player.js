@@ -22,6 +22,8 @@ const PROGRESS_UI_INTERVAL = 16;
 const LOW_PERFORMANCE_PROGRESS_UI_INTERVAL = 40;
 const PROGRESS_STORAGE_INTERVAL = 1000;
 const PROGRESS_IMMEDIATE_DELTA = 0.005;
+const STALL_RECOVERY_TIMEOUT = 12000;
+const STALL_RECOVERY_MIN_REMAINING = 3;
 
 /**
  * @readonly
@@ -135,6 +137,9 @@ export default class {
     this._trackRequestAbortController = null;
     this._reactiveSelf = this; // Vuex Proxy 创建后会回绑，用于音频事件触发响应式更新
     this._progressFrame = null;
+    this._stallRecoveryTimer = null;
+    this._stallRecoveryToken = 0;
+    this._recoveringStall = false;
     this._lastProgressUiSyncAt = 0;
     this._progressSyncTimer = null;
     this._progressPersistTimer = null;
@@ -168,10 +173,24 @@ export default class {
         if (token === player._audioToken) player._nextTrackCallback();
       },
       onTimeUpdate: () => {
-        this._getReactiveSelf()._syncProgress();
+        const player = this._getReactiveSelf();
+        player._clearStallRecoveryTimer();
+        player._syncProgress();
       },
       onLoadedMetadata: () => {
         this._getReactiveSelf()._syncProgress();
+      },
+      onCanPlay: token => {
+        const player = this._getReactiveSelf();
+        if (token === player._audioToken) player._clearStallRecoveryTimer();
+      },
+      onStalled: token => {
+        const player = this._getReactiveSelf();
+        if (token === player._audioToken) player._scheduleStallRecovery();
+      },
+      onWaiting: token => {
+        const player = this._getReactiveSelf();
+        if (token === player._audioToken) player._scheduleStallRecovery();
       },
       onError: (error, token) => {
         const player = this._getReactiveSelf();
@@ -212,6 +231,15 @@ export default class {
       enumerable: false,
     });
     Object.defineProperty(this, '_progressFrame', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_stallRecoveryTimer', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_stallRecoveryToken', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_recoveringStall', {
       enumerable: false,
     });
     Object.defineProperty(this, '_lastProgressUiSyncAt', {
@@ -556,7 +584,59 @@ export default class {
     clearTimeout(this._progressFrame);
     this._progressFrame = null;
   }
+  _clearStallRecoveryTimer() {
+    if (this._stallRecoveryTimer === null) return;
+    clearTimeout(this._stallRecoveryTimer);
+    this._stallRecoveryTimer = null;
+  }
+  _scheduleStallRecovery() {
+    if (!this._playing || this._recoveringStall) return;
+    if (!this.currentTrackID || !this._currentAudioSource) return;
+    const duration = this.currentTrackDuration;
+    if (
+      duration > 0 &&
+      duration - this.progress <= STALL_RECOVERY_MIN_REMAINING
+    ) {
+      return;
+    }
+    this._clearStallRecoveryTimer();
+    const token = ++this._stallRecoveryToken;
+    const stalledAt = this.progress;
+    this._stallRecoveryTimer = setTimeout(() => {
+      this._stallRecoveryTimer = null;
+      const player = this._getReactiveSelf();
+      if (token !== player._stallRecoveryToken) return;
+      if (!player._playing || player._recoveringStall) return;
+      if (Math.abs(player.progress - stalledAt) > 0.5) return;
+      player._recoverStalledPlayback(stalledAt);
+    }, STALL_RECOVERY_TIMEOUT);
+  }
+  _recoverStalledPlayback(progress) {
+    if (!this.currentTrackID) return;
+    this._recoveringStall = true;
+    console.debug(
+      `[debug][Player.js] recover stalled playback => ${formatTrackDebugLabel(this._currentTrack)} progress:${progress}`
+    );
+    this._replaceCurrentTrackAudio(
+      this.currentTrack,
+      true,
+      false,
+      UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK,
+      this._trackRequestToken,
+      undefined,
+      { bypassCache: true }
+    )
+      .then(replaced => {
+        if (!replaced) return;
+        this.seek(progress, false);
+        this.play();
+      })
+      .finally(() => {
+        this._recoveringStall = false;
+      });
+  }
   _handleAudioError(error) {
+    this._clearStallRecoveryTimer();
     emitPlayerEvent(PLAYER_EVENTS.AUDIO_ERROR, {
       error,
       track: this._currentTrack,
@@ -621,6 +701,8 @@ export default class {
       return;
     }
     this._progress = 0;
+    this._clearStallRecoveryTimer();
+    this._stallRecoveryToken += 1;
     this._currentAudioSource = source;
     this._audioToken += 1;
     console.debug(
@@ -690,6 +772,8 @@ export default class {
     }
     this._trackRequestToken += 1;
     this._prefetchToken += 1;
+    this._stallRecoveryToken += 1;
+    this._clearStallRecoveryTimer();
     this._prefetchingTrackId = null;
     this._abortTrackRequest();
     this._syncQueueCurrentToTrack(id);
@@ -757,10 +841,11 @@ export default class {
     isCacheNextTrack,
     ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK,
     requestToken,
-    signal
+    signal,
+    resolveOptions = {}
   ) {
     return this._resolver
-      .resolveSource(track, { signal })
+      .resolveSource(track, { ...resolveOptions, signal })
       .then(source => {
         if (!this._isTrackRequestCurrent(requestToken)) return false;
         if (source) {
@@ -1081,6 +1166,8 @@ export default class {
   }
 
   pause() {
+    this._clearStallRecoveryTimer();
+    this._stallRecoveryToken += 1;
     this._audio?.fade(this.volume, 0, PLAY_PAUSE_FADE_DURATION).then(() => {
       this._audio?.pause();
       this._setPlaying(false);

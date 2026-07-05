@@ -10,6 +10,7 @@ export function registerResolverAudioProvider() {
     async resolve(track, quality, context = {}) {
       const trackId = typeof track === 'object' ? track.id : track;
       const result = await resolveAudioByBackend(trackId, quality, {
+        bypassCache: context.bypassCache,
         track: typeof track === 'object' ? track : undefined,
         signal: context.signal,
       });

@@ -132,7 +132,15 @@ jobs:
           VUE_APP_LASTFM_API_SHARED_SECRET: ${{ secrets.VUE_APP_LASTFM_API_SHARED_SECRET }}
 
       - name: Package Electron app
+        if: runner.os != 'Windows'
         run: npx electron-builder --publish never
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EP_PRELEASE: true
+
+      - name: Package Windows portable app
+        if: runner.os == 'Windows'
+        run: npx electron-builder -w portable --publish never
         env:
           GH_TOKEN: ${{ github.token }}
           EP_PRELEASE: true
@@ -172,10 +180,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: YesPlayMusic-win
-          path: |
-            dist_electron/*.exe
-            dist_electron/*.blockmap
-            dist_electron/latest*.yml
+          path: dist_electron/yesplaymusic.exe
           if-no-files-found: error
 
       - name: Upload Linux artifact
