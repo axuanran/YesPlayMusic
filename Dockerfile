@@ -1,28 +1,35 @@
-FROM node:16.13.1-alpine AS build
+FROM node:22-alpine AS build
 ENV VUE_APP_NETEASE_API_URL=/api
 WORKDIR /app
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories &&\
-	apk add --no-cache python3 make g++ git
+RUN apk add --no-cache python3 make g++ git
 COPY package.json yarn.lock ./
-RUN yarn config set electron_mirror https://npmmirror.com/mirrors/electron/ && \
-    yarn config set registry https://registry.npmmirror.com && \
-    sed -i 's/registry.yarnpkg.com/registry.npmmirror.com/g' yarn.lock && \
-    sed -i 's/registry.npmjs.org/registry.npmmirror.com/g' yarn.lock && \
-    yarn install
+RUN corepack enable && yarn install --frozen-lockfile --ignore-engines
 COPY . .
 RUN yarn build
 
-FROM nginx:1.20.2-alpine AS app
+FROM node:22-alpine AS app
 
-COPY --from=build /app/package.json /usr/local/lib/
+WORKDIR /app
 
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories \
-  && apk add --no-cache libuv nodejs npm \
-  && npm config set registry https://registry.npmmirror.com \
-  && npm i -g $(awk -F \" '{if($2=="@neteasecloudmusicapienhanced/api@latest") print $2"@"$4}' /usr/local/lib/package.json) \
-  && rm -f /usr/local/lib/package.json
+RUN apk add --no-cache nginx
 
-COPY --from=build /app/docker/nginx.conf.example /etc/nginx/conf.d/default.conf
+COPY package.json yarn.lock ./
+RUN corepack enable && yarn install --frozen-lockfile --ignore-engines --production --ignore-scripts
+
 COPY --from=build /app/dist /usr/share/nginx/html
+COPY admin ./admin
+COPY server ./server
+COPY docker/nginx.conf.example /etc/nginx/http.d/default.conf
+COPY docker/entrypoint.sh /usr/local/bin/yesplaymusic-docker-entrypoint
 
-CMD ["sh", "-c", "nginx && exec npx @neteasecloudmusicapienhanced/api@latest"]
+ENV NODE_ENV=production \
+    VUE_APP_NETEASE_API_URL=/api \
+    YPM_RESOLVER_STORAGE_DIR=/data/resolver-storage \
+    NETEASE_API_PORT=10754
+
+EXPOSE 80
+VOLUME ["/data"]
+
+RUN chmod +x /usr/local/bin/yesplaymusic-docker-entrypoint
+
+CMD ["yesplaymusic-docker-entrypoint"]

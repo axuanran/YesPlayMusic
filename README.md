@@ -174,25 +174,30 @@ yarn run build
 
 ## ⚙️ Docker 部署
 
-1. 构建 Docker Image
+推荐使用 Docker Compose，会同时启动 YesPlayMusic、内置网易云 API、音频 resolver/admin 后端，以及 UnblockNeteaseMusic 辅助服务。
+默认镜像由 GitHub Actions 构建并推送到 `ghcr.io/axuanran/yesplaymusic:latest`，部署机器只拉取镜像，不在本地构建。
+
+1. Docker Compose 启动
 
 ```sh
-docker build -t yesplaymusic .
+docker compose pull
+docker compose up -d
 ```
 
-2. 启动 Docker Container
+YesPlayMusic 地址为 `http://localhost`，resolver 配置会持久化到 `yesplaymusic-data` 数据卷。
+
+2. 查看运行状态
 
 ```sh
-docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
+docker compose ps
 ```
 
-3. Docker Compose 启动
+3. 单容器启动（不包含独立的 UnblockNeteaseMusic 服务）
 
 ```sh
-docker-compose up -d
+docker pull ghcr.io/axuanran/yesplaymusic:latest
+docker run -d --name yesplaymusic -p 80:80 -v yesplaymusic-data:/data ghcr.io/axuanran/yesplaymusic:latest
 ```
-
-YesPlayMusic 地址为 `http://localhost`
 
 ## ⚙️ 部署至 Replit
 

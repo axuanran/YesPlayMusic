@@ -10,7 +10,11 @@ README.md
 LICENSE
 .vscode
 dist
+out
 dist_electron
 build
 images
 script
+coverage
+tmp
+*.log
