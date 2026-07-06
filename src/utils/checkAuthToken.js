@@ -2,7 +2,13 @@ import os from 'os';
 import fs from 'fs';
 import path from 'path';
 
-// extract from NeteasyCloudMusicAPI/generateConfig.js and avoid bugs in there (generateConfig require main.js but the main.js has bugs)
-if (!fs.existsSync(path.resolve(os.tmpdir(), 'anonymous_token'))) {
-  fs.writeFileSync(path.resolve(os.tmpdir(), 'anonymous_token'), '', 'utf-8');
+const anonymousTokenPath = path.resolve(os.tmpdir(), 'anonymous_token');
+
+export function ensureAnonymousToken() {
+  // Extracted from NeteasyCloudMusicAPI/generateConfig.js to avoid import-time crashes.
+  if (!fs.existsSync(anonymousTokenPath)) {
+    fs.writeFileSync(anonymousTokenPath, '', 'utf-8');
+  }
 }
+
+ensureAnonymousToken();
