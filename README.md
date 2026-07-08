@@ -74,9 +74,12 @@ TUI截图：
 
 ## TUI
 
+*TUI 尚未在打包文件中实装*
 
 打开tui方式： ./yesplaymuic --tui
+
 TUI 依赖mpv进行播放
+
 优先使用系统mpv，安装文件里包含mpv
 
 
