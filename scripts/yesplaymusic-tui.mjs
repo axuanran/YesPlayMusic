@@ -8,7 +8,7 @@ import http from 'node:http';
 import process from 'node:process';
 import readline from 'node:readline';
 import net from 'node:net';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import QRCode from 'qrcode';
 
@@ -161,6 +161,18 @@ function setLastError(scope, error) {
   }
 }
 
+function appendLastError(scope, error) {
+  const nextError = `${scope}: ${errorMessage(error)}`;
+  state.lastError = state.lastError
+    ? `${state.lastError} | ${nextError}`
+    : nextError;
+  try {
+    fs.writeFileSync(ERROR_LOG_PATH, `${state.lastError}\n`, 'utf-8');
+  } catch {
+    // Error logging is best-effort; the TUI still shows the short message.
+  }
+}
+
 function isIgnorableResolverStderr(text) {
   return (
     text.includes('[MODULE_TYPELESS_PACKAGE_JSON]') ||
@@ -302,6 +314,28 @@ async function ensureResolver() {
   }
   state.message = 'Starting local resolver...';
   render();
+  if (RUNNING_IN_ELECTRON) {
+    try {
+      const resolverEntry = path.join(PROJECT_ROOT, 'server', 'index.js');
+      await import(pathToFileURL(resolverEntry).href);
+    } catch (error) {
+      setLastError('resolver import', error);
+      state.message = `Resolver start failed: ${error.message}`;
+      render();
+      return;
+    }
+    if (await waitForResolver()) {
+      state.message = 'Resolver started.';
+    } else {
+      setLastError(
+        'resolver start',
+        `Timed out waiting for ${RESOLVER_BASE}/api/health`
+      );
+      state.message = 'Resolver did not become ready; fallback may be unstable.';
+    }
+    return;
+  }
+
   state.resolverProcess = spawn(
     process.execPath,
     ['server/index.js'],
@@ -315,17 +349,17 @@ async function ensureResolver() {
   state.resolverProcess.stderr?.on('data', chunk => {
     const text = chunk.trim();
     if (!text || isIgnorableResolverStderr(text)) return;
-    setLastError('resolver process', text);
+    appendLastError('resolver process', text);
     render();
   });
   state.resolverProcess.once('error', error => {
-    setLastError('resolver start', error);
+    appendLastError('resolver start', error);
     state.message = `Resolver start failed: ${error.message}`;
     render();
   });
   state.resolverProcess.once('exit', code => {
     if (code !== 0) {
-      setLastError('resolver exit', `resolver exited with code ${code}`);
+      appendLastError('resolver exit', `resolver exited with code ${code}`);
       state.message = `Resolver exited with code ${code}`;
       render();
     }
@@ -335,7 +369,7 @@ async function ensureResolver() {
   if (await waitForResolver()) {
     state.message = 'Resolver started.';
   } else {
-    setLastError(
+    appendLastError(
       'resolver start',
       `Timed out waiting for ${RESOLVER_BASE}/api/health`
     );
