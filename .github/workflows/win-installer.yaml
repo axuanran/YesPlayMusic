@@ -1,0 +1,97 @@
+name: Windows Installer
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      compression:
+        description: Compression level
+        required: true
+        default: store
+        type: choice
+        options:
+          - store
+          - normal
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: win-installer-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  YARN_INSTALL_NOPT: yarn add --ignore-platform --ignore-engines --non-interactive --no-lockfile --exact
+
+jobs:
+  build:
+    name: build windows installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache Electron builder downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-win-${{ hashFiles('yarn.lock') }}
+
+      - name: Install Node.js and Yarn
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Enable pinned Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          yarn install --frozen-lockfile --ignore-engines --non-interactive --ignore-scripts
+          unm_version=$(node -e "console.log(require('./node_modules/@unblockneteasemusic/rust-napi/package.json').version)")
+          echo "UNM_VERSION=${unm_version}" >> "$GITHUB_ENV"
+
+      - name: Install Windows native audio resolver
+        shell: bash
+        run: |
+          ${{ env.YARN_INSTALL_NOPT }} \
+            @unblockneteasemusic/rust-napi-win32-x64-msvc@${UNM_VERSION}
+
+      - name: Build Electron app
+        run: yarn electron-vite build && yarn tui:build
+        env:
+          VUE_APP_NETEASE_API_URL: /api
+          VUE_APP_ELECTRON_API_URL: /api
+          VUE_APP_ELECTRON_API_URL_DEV: ${{ vars.VUE_APP_ELECTRON_API_URL_DEV || 'http://127.0.0.1:10754' }}
+          VUE_APP_LASTFM_API_KEY: ${{ vars.VUE_APP_LASTFM_API_KEY }}
+          VUE_APP_LASTFM_API_SHARED_SECRET: ${{ secrets.VUE_APP_LASTFM_API_SHARED_SECRET }}
+
+      - name: Package NSIS installer
+        shell: bash
+        run: |
+          compression="${{ github.event_name == 'workflow_dispatch' && inputs.compression || 'normal' }}"
+          npx electron-builder --win nsis --x64 --publish never --config.compression="$compression"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EP_PRELEASE: true
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YesPlayMusic-win-installer
+          path: |
+            dist_electron/*.exe
+            dist_electron/*.blockmap
+            dist_electron/latest*.yml
+          if-no-files-found: error
