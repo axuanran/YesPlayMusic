@@ -25,7 +25,7 @@ let localStorage = {
     lowPerformanceMode: false,
     showLyricsTranslation: true,
     lyricsBackground: true,
-    lyricsAutoResumeDelay: 4000,
+    lyricsAutoResumeDelay: 5000,
     lyricsAutoResumeWhenVisible: true,
     enableOsdlyricsSupport: false,
     closeAppOption: 'ask',

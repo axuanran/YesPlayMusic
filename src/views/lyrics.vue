@@ -726,7 +726,7 @@ export default {
         this.shouldAutoScrollLyrics = true;
         return;
       }
-      const resumeDelay = Number(this.settings.lyricsAutoResumeDelay ?? 4000);
+      const resumeDelay = Number(this.settings.lyricsAutoResumeDelay ?? 5000);
       if (resumeDelay <= 0) return;
       this.lyricsAutoResumeTimer = setTimeout(() => {
         this.resumeLyricsAutoScroll();
