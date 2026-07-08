@@ -49,3 +49,4 @@ server/storage/logs.jsonl
 
 
 .corepack/
+dist_tui/

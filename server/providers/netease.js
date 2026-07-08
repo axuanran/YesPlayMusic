@@ -1,8 +1,12 @@
+import path from 'node:path';
 import { createRequire } from 'node:module';
 import { loadCookie } from '../storage/cookieStore.js';
 
-const require = createRequire(import.meta.url);
-const neteaseApi = require('@neteasecloudmusicapienhanced/api/main.js');
+const runtimeRequire = createRequire(
+  import.meta.url || path.join(path.dirname(process.execPath), 'package.json')
+);
+const neteaseApi = runtimeRequire('@neteasecloudmusicapienhanced/api/main.js');
+
 const QUALITY_LEVELS = new Set([
   'standard',
   'exhigh',

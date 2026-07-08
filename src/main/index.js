@@ -61,10 +61,54 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function shouldStartTui() {
-  return process.argv.includes('--tui');
+  return process.argv.includes('--tui') || app.commandLine.hasSwitch('tui');
+}
+
+function getTuiArgs() {
+  const tuiArgIndex = process.argv.indexOf('--tui');
+  return tuiArgIndex >= 0 ? process.argv.slice(tuiArgIndex + 1) : [];
+}
+
+function getPackagedTuiExecutable() {
+  if (process.platform !== 'win32') return null;
+  const executableName = 'yesplaymusic-tui.exe';
+  const candidates = [
+    path.join(process.resourcesPath, 'tui', executableName),
+    path.join(__dirname, '../../dist_tui', executableName),
+  ].filter(Boolean);
+  return candidates.find(candidate => fs.existsSync(candidate)) || null;
+}
+
+function quoteCmdArg(value) {
+  return `"${String(value).replace(/"/g, '""')}"`;
 }
 
 async function startTuiEntrypoint() {
+  const tuiExecutable = getPackagedTuiExecutable();
+  if (tuiExecutable) {
+    const command = [
+      'start',
+      '""',
+      '/wait',
+      quoteCmdArg(tuiExecutable),
+      ...getTuiArgs().map(quoteCmdArg),
+    ].join(' ');
+    const child = spawn('cmd.exe', ['/d', '/c', command], {
+      cwd: path.dirname(tuiExecutable),
+      stdio: 'ignore',
+      windowsHide: false,
+      windowsVerbatimArguments: true,
+    });
+    child.on('error', error => {
+      console.error(error);
+      process.exit(1);
+    });
+    child.on('exit', code => {
+      process.exit(code || 0);
+    });
+    return;
+  }
+
   const builtTuiEntry = path.join(__dirname, '../tui/yesplaymusic-tui.mjs');
   const sourceTuiEntry = path.join(
     __dirname,
