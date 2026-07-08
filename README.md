@@ -74,8 +74,10 @@ TUI截图：
 
 ## TUI
 
+
+打开tui方式： ./yesplaymuic --tui
 TUI 依赖mpv进行播放
-通过 `mpv --version` 检查系统内是否安装mpv
+优先使用系统mpv，安装文件里包含mpv
 
 
 ## 📦️ 安装
