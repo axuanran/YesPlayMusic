@@ -1,7 +1,7 @@
 name: Windows Installer
 
 permissions:
-  contents: read
+  contents: write
 
 on:
   workflow_dispatch:
@@ -14,7 +14,23 @@ on:
         options:
           - store
           - normal
+      publish_mode:
+        description: Publish result
+        required: true
+        default: artifact
+        type: choice
+        options:
+          - artifact
+          - draft
+          - prerelease
+          - release
   push:
+    branches:
+      - dev
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'UPDATE.md'
     tags:
       - 'v*'
 
@@ -87,6 +103,7 @@ jobs:
           EP_PRELEASE: true
 
       - name: Upload installer artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_mode == 'artifact'
         uses: actions/upload-artifact@v4
         with:
           name: YesPlayMusic-win-installer
@@ -95,3 +112,55 @@ jobs:
             dist_electron/*.blockmap
             dist_electron/latest*.yml
           if-no-files-found: error
+
+      - name: Decide release mode
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            mode="${{ inputs.publish_mode }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            mode="release"
+          else
+            mode="prerelease"
+          fi
+
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF_NAME}"
+          elif [ "$mode" = "prerelease" ]; then
+            tag="prerelease-dev"
+          else
+            branch="${GITHUB_REF_NAME//\//-}"
+            tag="win-installer-${branch}-run${GITHUB_RUN_NUMBER}"
+          fi
+
+          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Move prerelease tag
+        if: steps.release.outputs.mode == 'prerelease' && github.ref_type == 'branch'
+        shell: bash
+        run: |
+          git tag -f "${{ steps.release.outputs.tag }}" "$GITHUB_SHA"
+          git push --force origin "refs/tags/${{ steps.release.outputs.tag }}"
+
+      - name: Publish GitHub Release
+        if: steps.release.outputs.mode != 'artifact'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: Windows installer / ${{ github.ref_name }} / ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Run: ${{ github.run_id }}
+            Commit: ${{ github.sha }}
+            Compression: ${{ github.event_name == 'workflow_dispatch' && inputs.compression || 'normal' }}
+            Mode: ${{ steps.release.outputs.mode }}
+          draft: ${{ steps.release.outputs.mode == 'draft' }}
+          prerelease: ${{ steps.release.outputs.mode == 'prerelease' }}
+          make_latest: ${{ steps.release.outputs.mode == 'release' }}
+          overwrite_files: true
+          files: |
+            dist_electron/*.exe
+            dist_electron/*.blockmap
+            dist_electron/latest*.yml

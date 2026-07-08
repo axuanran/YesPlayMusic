@@ -194,7 +194,7 @@ jobs:
           test "$(find release_windows -maxdepth 1 -type f | wc -l)" -gt 0
 
       - name: Upload Windows artifact
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/'))
         uses: actions/upload-artifact@v4
         with:
           name: YesPlayMusic-win
@@ -202,7 +202,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Linux artifact
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/'))
         uses: actions/upload-artifact@v4
         with:
           name: YesPlayMusic-linux
@@ -210,7 +210,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload macOS artifact
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/'))
         uses: actions/upload-artifact@v4
         with:
           name: YesPlayMusic-mac
@@ -223,6 +223,7 @@ jobs:
   publish:
     name: publish release
     needs: build
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
 
     steps:
@@ -249,7 +250,7 @@ jobs:
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             mode="release"
           else
-            mode="prerelease"
+            mode="artifact"
           fi
 
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
@@ -269,6 +270,7 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
+        if: steps.mode.outputs.mode != 'artifact'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
