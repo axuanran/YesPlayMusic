@@ -85,7 +85,7 @@ jobs:
             @unblockneteasemusic/rust-napi-win32-x64-msvc@${UNM_VERSION}
 
       - name: Build Electron app
-        run: yarn electron-vite build && yarn tui:build
+        run: yarn electron-vite build && yarn tui:build && yarn tui:exe
         env:
           VUE_APP_NETEASE_API_URL: /api
           VUE_APP_ELECTRON_API_URL: /api

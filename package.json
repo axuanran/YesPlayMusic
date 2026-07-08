@@ -25,9 +25,9 @@
     "electron:build-win-installer": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder --win nsis --x64 --publish never",
     "electron:build-win-installer-fast": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder --win nsis --x64 --publish never --config.compression=store",
     "electron:build-win-portable": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder -w portable",
-    "electron:build-linux": "electron-vite build && yarn tui:build && electron-builder -l",
+    "electron:build-linux": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder -l",
     "electron:serve": "yarn desktop:dev",
-    "electron:publish": "electron-vite build && yarn tui:build && electron-builder -mwl -p always",
+    "electron:publish": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder -mwl -p always",
     "postinstall": "electron-builder install-app-deps",
     "postuninstall": "electron-builder install-app-deps",
     "prettier": "npx prettier --write ./src",
@@ -153,7 +153,17 @@
         }
       ],
       "category": "Music",
-      "icon": "build/icons/icon.icns"
+      "icon": "build/icons/icon.icns",
+      "extraResources": [
+        {
+          "from": "dist_tui",
+          "to": "tui",
+          "filter": [
+            "**/*",
+            "!**/.build/**"
+          ]
+        }
+      ]
     },
     "dmg": {
       "icon": "build/icons/icon.icns"

@@ -18,7 +18,9 @@ const buildDir = path.join(distDir, '.build');
 const bundlePath = path.join(buildDir, 'yesplaymusic-tui.bundle.cjs');
 const seaConfigPath = path.join(buildDir, 'sea-config.json');
 const seaBlobPath = path.join(buildDir, 'yesplaymusic-tui.blob');
-const exePath = path.join(distDir, 'yesplaymusic-tui.exe');
+const executableName =
+  process.platform === 'win32' ? 'yesplaymusic-tui.exe' : 'yesplaymusic-tui';
+const exePath = path.join(distDir, executableName);
 const postjectPath = path.join(projectRoot, 'node_modules', 'postject', 'dist', 'cli.js');
 const seaFuse = 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
 const mpvDownloadUrl =
@@ -184,6 +186,9 @@ fs.writeFileSync(
 
 run(process.execPath, ['--experimental-sea-config', seaConfigPath]);
 fs.copyFileSync(process.execPath, exePath);
+if (process.platform !== 'win32') {
+  fs.chmodSync(exePath, 0o755);
+}
 run(process.execPath, [
   postjectPath,
   exePath,
@@ -206,7 +211,7 @@ fs.writeFileSync(
   [
     'YesPlayMusic Terminal TUI',
     '',
-    'Run yesplaymusic-tui.exe from cmd, PowerShell, or Windows Terminal.',
+    `Run ${executableName} from your terminal.`,
     'This build is a real console executable and does not use the Electron GUI launcher.',
     '',
   ].join('\n'),

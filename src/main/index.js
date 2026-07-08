@@ -70,8 +70,8 @@ function getTuiArgs() {
 }
 
 function getPackagedTuiExecutable() {
-  if (process.platform !== 'win32') return null;
-  const executableName = 'yesplaymusic-tui.exe';
+  const executableName =
+    process.platform === 'win32' ? 'yesplaymusic-tui.exe' : 'yesplaymusic-tui';
   const candidates = [
     path.join(process.resourcesPath, 'tui', executableName),
     path.join(__dirname, '../../dist_tui', executableName),
@@ -86,6 +86,21 @@ function quoteCmdArg(value) {
 async function startTuiEntrypoint() {
   const tuiExecutable = getPackagedTuiExecutable();
   if (tuiExecutable) {
+    if (process.platform !== 'win32') {
+      const child = spawn(tuiExecutable, getTuiArgs(), {
+        cwd: path.dirname(tuiExecutable),
+        stdio: 'inherit',
+      });
+      child.on('error', error => {
+        console.error(error);
+        process.exit(1);
+      });
+      child.on('exit', code => {
+        process.exit(code || 0);
+      });
+      return;
+    }
+
     const command = [
       'start',
       '""',

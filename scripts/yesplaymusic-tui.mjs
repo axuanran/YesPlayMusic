@@ -38,7 +38,9 @@ const AUTO_START_RESOLVER = process.env.YPM_TUI_AUTO_RESOLVER !== '0';
 const RUNNING_IN_ELECTRON = Boolean(process.versions?.electron);
 const RUNNING_IN_STANDALONE_TUI =
   process.env.YPM_TUI_STANDALONE === '1' ||
-  path.basename(process.execPath).toLowerCase() === 'yesplaymusic-tui.exe';
+  ['yesplaymusic-tui.exe', 'yesplaymusic-tui'].includes(
+    path.basename(process.execPath).toLowerCase()
+  );
 const runtimeRequire = createRequire(
   import.meta.url || path.join(SCRIPT_DIR, 'package.json')
 );
