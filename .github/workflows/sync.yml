@@ -6,8 +6,6 @@ permissions:
   actions: write
 
 on:
-  schedule:
-    - cron: '0 * * * *' # every hour
   workflow_dispatch:
 
 jobs:
