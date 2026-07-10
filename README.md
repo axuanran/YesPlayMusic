@@ -85,6 +85,9 @@ Electron 版本支持 macOS、Windows、linux
 推荐使用 Docker Compose，会同时启动 YesPlayMusic、网易云 API、音频 resolver/admin 后端，UnblockNeteaseMusic
 默认镜像由 GitHub Actions 构建并推送到 `ghcr.io/axuanran/yesplaymusic:latest`
 
+ 
+* latest会跟随dev更新，dev分支并不完全稳定，但是会跟随修改，如有问题建议固定到指定版本。修改内容可检查提交信息 *
+
 1. Docker Compose 启动
 
 ```sh
