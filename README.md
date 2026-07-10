@@ -72,6 +72,40 @@ TUI截图：
 - 🎧 支持 Mpris
 - 🛠 更多特性开发中
 
+
+## 📦️ 安装
+
+Electron 版本支持 macOS、Windows、linux
+
+访问本项目的 [Releases](https://github.com/axuanran/YesPlayMusic/releases/latest)
+页面下载系统对应的安装包。
+
+## ⚙️ Docker 部署
+
+推荐使用 Docker Compose，会同时启动 YesPlayMusic、内置网易云 API、音频 resolver/admin 后端，以及 UnblockNeteaseMusic 辅助服务。
+默认镜像由 GitHub Actions 构建并推送到 `ghcr.io/axuanran/yesplaymusic:latest`，部署机器只拉取镜像，不在本地构建。
+
+1. Docker Compose 启动
+
+```sh
+docker compose pull
+docker compose up -d
+```
+
+YesPlayMusic 地址为 `http://localhost`，resolver 配置会持久化到 `yesplaymusic-data` 数据卷。
+
+2. 查看运行状态
+
+```sh
+docker compose ps
+```
+
+3. 单容器启动（不包含独立的 UnblockNeteaseMusic 服务）
+
+```sh
+docker pull ghcr.io/axuanran/yesplaymusic:latest
+docker run -d --name yesplaymusic -p 80:80 -v yesplaymusic-data:/data ghcr.io/axuanran/yesplaymusic:latest
+```
 ## TUI
 
 *TUI 尚未在打包文件中实装*
@@ -82,13 +116,11 @@ TUI 依赖mpv进行播放
 
 优先使用系统mpv，安装文件里包含mpv
 
+---
 
-## 📦️ 安装
+上游内容：
 
-Electron 版本由 [@hawtim](https://github.com/hawtim) 和 [@qier222](https://github.com/qier222) 适配并维护，支持 macOS、Windows、Linux。
-
-访问本项目的 [Releases](https://github.com/axuanran/YesPlayMusic/releases/latest)
-页面下载系统对应的安装包。
+---
 
 ## 同类项目（排名无先后）
 
