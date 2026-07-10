@@ -86,7 +86,7 @@ Electron 版本支持 macOS、Windows、linux
 默认镜像由 GitHub Actions 构建并推送到 `ghcr.io/axuanran/yesplaymusic:latest`
 
  
-* latest会跟随dev更新，dev分支并不完全稳定，但是会跟随修改，如有问题建议固定到指定版本。修改内容可检查提交信息 *
+*latest会跟随dev更新，dev作为开发分支并不稳定，时有修改，如有问题建议固定到指定版本或携带有release tag的版本。修改内容可检查提交信息*
 
 1. Docker Compose 启动
 
