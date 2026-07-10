@@ -82,8 +82,8 @@ Electron 版本支持 macOS、Windows、linux
 
 ## ⚙️ Docker 部署
 
-推荐使用 Docker Compose，会同时启动 YesPlayMusic、内置网易云 API、音频 resolver/admin 后端，以及 UnblockNeteaseMusic 辅助服务。
-默认镜像由 GitHub Actions 构建并推送到 `ghcr.io/axuanran/yesplaymusic:latest`，部署机器只拉取镜像，不在本地构建。
+推荐使用 Docker Compose，会同时启动 YesPlayMusic、网易云 API、音频 resolver/admin 后端，UnblockNeteaseMusic
+默认镜像由 GitHub Actions 构建并推送到 `ghcr.io/axuanran/yesplaymusic:latest`
 
 1. Docker Compose 启动
 
