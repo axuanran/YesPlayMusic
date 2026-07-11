@@ -8,8 +8,8 @@
         @click="handleClick"
       >
         <div
-          ref="thumbContainer"
           id="thumbContainer"
+          ref="thumbContainer"
           :class="{ active }"
           @mouseenter="handleMouseenter"
           @mouseleave="handleMouseleave"
@@ -81,7 +81,11 @@ export default {
       const scrollHeight = main.scrollHeight - 128;
       const scrollTop = main.scrollTop;
 
-      if (clintHeight <= 0 || scrollHeight <= 0 || scrollHeight <= clintHeight) {
+      if (
+        clintHeight <= 0 ||
+        scrollHeight <= 0 ||
+        scrollHeight <= clintHeight
+      ) {
         if (this.show) this.show = false;
         return;
       }

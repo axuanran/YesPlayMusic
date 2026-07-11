@@ -69,7 +69,10 @@ export default {
       };
     },
     resolvedImageSize() {
-      return Math.min(this.imageSize || ROW_COVER_IMAGE_SIZE, ROW_COVER_IMAGE_SIZE);
+      return Math.min(
+        this.imageSize || ROW_COVER_IMAGE_SIZE,
+        ROW_COVER_IMAGE_SIZE
+      );
     },
   },
   methods: {
