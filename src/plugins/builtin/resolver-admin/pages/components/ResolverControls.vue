@@ -33,6 +33,7 @@
           placeholder="/resolver-api"
           @input="$emit('update:audioResolverUrl', $event.target.value)"
         />
+        <button @click="syncToCurrentPageUrl">同步当前网页地址</button>
         <button @click="$emit('open-admin')">打开管理面板</button>
         <button @click="$emit('sync-cookie')">从前端获取 Cookie</button>
         <button @click="$emit('clear-cache')">清后端缓存</button>
@@ -61,5 +62,15 @@ export default {
     'sync-cookie',
     'clear-cache',
   ],
+  methods: {
+    syncToCurrentPageUrl() {
+      const currentOrigin = window.location.origin;
+      const nextValue =
+        currentOrigin && currentOrigin !== 'null'
+          ? new URL('/resolver-api', currentOrigin).toString()
+          : '/resolver-api';
+      this.$emit('update:audioResolverUrl', nextValue);
+    },
+  },
 };
 </script>
