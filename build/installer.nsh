@@ -5,10 +5,6 @@
 Var AddToPathCheckbox
 Var AddToPathState
 
-Function .onInit
-  StrCpy $AddToPathState ${BST_CHECKED}
-FunctionEnd
-
 Page custom AddToPathPage AddToPathPageLeave
 
 Function AddToPathPage
@@ -23,6 +19,9 @@ Function AddToPathPage
 
   ${NSD_CreateCheckbox} 0 30u 100% 12u "Add YesPlayMusic to PATH"
   Pop $AddToPathCheckbox
+  ${If} $AddToPathState == ""
+    StrCpy $AddToPathState ${BST_CHECKED}
+  ${EndIf}
   ${NSD_SetState} $AddToPathCheckbox $AddToPathState
 
   nsDialogs::Show
