@@ -1,0 +1,166 @@
+name: Windows Installer
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      compression:
+        description: Compression level
+        required: true
+        default: store
+        type: choice
+        options:
+          - store
+          - normal
+      publish_mode:
+        description: Publish result
+        required: true
+        default: artifact
+        type: choice
+        options:
+          - artifact
+          - draft
+          - prerelease
+          - release
+  push:
+    branches:
+      - dev
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'UPDATE.md'
+    tags:
+      - 'v*'
+
+concurrency:
+  group: win-installer-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  YARN_INSTALL_NOPT: yarn add --ignore-platform --ignore-engines --non-interactive --no-lockfile --exact
+
+jobs:
+  build:
+    name: build windows installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache Electron builder downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-win-${{ hashFiles('yarn.lock') }}
+
+      - name: Install Node.js and Yarn
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Enable pinned Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          yarn install --frozen-lockfile --ignore-engines --non-interactive --ignore-scripts
+          unm_version=$(node -e "console.log(require('./node_modules/@unblockneteasemusic/rust-napi/package.json').version)")
+          echo "UNM_VERSION=${unm_version}" >> "$GITHUB_ENV"
+
+      - name: Install Windows native audio resolver
+        shell: bash
+        run: |
+          ${{ env.YARN_INSTALL_NOPT }} \
+            @unblockneteasemusic/rust-napi-win32-x64-msvc@${UNM_VERSION}
+
+      - name: Build Electron app
+        run: yarn electron-vite build && yarn tui:build && yarn tui:exe
+        env:
+          VUE_APP_NETEASE_API_URL: /api
+          VUE_APP_ELECTRON_API_URL: /api
+          VUE_APP_ELECTRON_API_URL_DEV: ${{ vars.VUE_APP_ELECTRON_API_URL_DEV || 'http://127.0.0.1:10754' }}
+          VUE_APP_LASTFM_API_KEY: ${{ vars.VUE_APP_LASTFM_API_KEY }}
+          VUE_APP_LASTFM_API_SHARED_SECRET: ${{ secrets.VUE_APP_LASTFM_API_SHARED_SECRET }}
+
+      - name: Package NSIS installer
+        shell: bash
+        run: |
+          compression="${{ github.event_name == 'workflow_dispatch' && inputs.compression || 'normal' }}"
+          npx electron-builder --win nsis --x64 --publish never --config.compression="$compression"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EP_PRELEASE: true
+
+      - name: Upload installer artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_mode == 'artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: YesPlayMusic-win-installer
+          path: |
+            dist_electron/*.exe
+            dist_electron/*.blockmap
+            dist_electron/latest*.yml
+          if-no-files-found: error
+
+      - name: Decide release mode
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            mode="${{ inputs.publish_mode }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            mode="release"
+          else
+            mode="prerelease"
+          fi
+
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF_NAME}"
+          elif [ "$mode" = "prerelease" ]; then
+            tag="prerelease-dev"
+          else
+            branch="${GITHUB_REF_NAME//\//-}"
+            tag="win-installer-${branch}-run${GITHUB_RUN_NUMBER}"
+          fi
+
+          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Move prerelease tag
+        if: steps.release.outputs.mode == 'prerelease' && github.ref_type == 'branch'
+        shell: bash
+        run: |
+          git tag -f "${{ steps.release.outputs.tag }}" "$GITHUB_SHA"
+          git push --force origin "refs/tags/${{ steps.release.outputs.tag }}"
+
+      - name: Publish GitHub Release
+        if: steps.release.outputs.mode != 'artifact'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: Windows installer / ${{ github.ref_name }} / ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Run: ${{ github.run_id }}
+            Commit: ${{ github.sha }}
+            Compression: ${{ github.event_name == 'workflow_dispatch' && inputs.compression || 'normal' }}
+            Mode: ${{ steps.release.outputs.mode }}
+          draft: ${{ steps.release.outputs.mode == 'draft' }}
+          prerelease: ${{ steps.release.outputs.mode == 'prerelease' }}
+          make_latest: ${{ steps.release.outputs.mode == 'release' }}
+          overwrite_files: true
+          files: |
+            dist_electron/*.exe
+            dist_electron/*.blockmap
+            dist_electron/latest*.yml

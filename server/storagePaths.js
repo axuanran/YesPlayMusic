@@ -3,7 +3,18 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+function currentModulePath(moduleUrl) {
+  if (moduleUrl) {
+    try {
+      return fileURLToPath(moduleUrl);
+    } catch {
+      // SEA bundles do not expose a normal file URL for import.meta.url.
+    }
+  }
+  return process.execPath;
+}
+
+const __dirname = path.dirname(currentModulePath(import.meta.url));
 
 function getAppDataDir() {
   if (process.platform === 'win32') {

@@ -10,7 +10,18 @@ import * as fallbackProvider from './providers/fallback.js';
 import audioRoutes from './routes/audio.js';
 import adminRoutes, { setRestartHandler } from './routes/admin.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+function currentModulePath(moduleUrl) {
+  if (moduleUrl) {
+    try {
+      return fileURLToPath(moduleUrl);
+    } catch {
+      // SEA bundles do not expose a normal file URL for import.meta.url.
+    }
+  }
+  return process.execPath;
+}
+
+const __dirname = path.dirname(currentModulePath(import.meta.url));
 
 // Register providers
 registerProvider(neteaseProvider);
@@ -65,7 +76,7 @@ app.listen(port, host, () => {
       new Set([
         neteaseProvider.providerName,
         lxProvider.providerName,
-        unblockProvider.providerName,
+        unblockProvider?.providerName,
         fallbackProvider.providerName,
       ])
     ).join(', ')}`

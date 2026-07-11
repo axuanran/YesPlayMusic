@@ -15,7 +15,7 @@ special thank：codex
     <a href="https://music.qier222.com" target="blank"><strong>🌎 访问DEMO</strong></a>&nbsp;&nbsp;|&nbsp;&nbsp;
     <a href="#%EF%B8%8F-安装" target="blank"><strong>📦️ 下载安装包</strong></a>&nbsp;&nbsp;|&nbsp;&nbsp;
     <a href="https://t.me/yesplaymusic" target="blank"><strong>💬 加入交流群</strong></a>&nbsp;&nbsp;|&nbsp;&nbsp;
-    <a href="https://t.me/axuanran" target="blank"><strong>Telegram 频道（axuanran）</strong></a>
+    <a href="https://t.me/ypmaxuanran" target="blank"><strong>Telegram 频道（axuanran）</strong></a>
     <br />
     <br />
   </p>
@@ -74,8 +74,13 @@ TUI截图：
 
 ## TUI
 
+*TUI 尚未在打包文件中实装*
+
+打开tui方式： ./yesplaymuic --tui
+
 TUI 依赖mpv进行播放
-通过 `mpv --version` 检查系统内是否安装mpv
+
+优先使用系统mpv，安装文件里包含mpv
 
 
 ## 📦️ 安装

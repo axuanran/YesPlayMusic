@@ -8,11 +8,22 @@ import http from 'node:http';
 import process from 'node:process';
 import readline from 'node:readline';
 import net from 'node:net';
-import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import QRCode from 'qrcode';
+import { createRequire } from 'node:module';
 
-const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+function currentModulePath(moduleUrl) {
+  if (moduleUrl) {
+    try {
+      return fileURLToPath(moduleUrl);
+    } catch {
+      // SEA bundles do not expose a normal file URL for import.meta.url.
+    }
+  }
+  return process.execPath;
+}
+
+const SCRIPT_DIR = path.dirname(currentModulePath(import.meta.url));
 const PROJECT_ROOT = findProjectRoot(SCRIPT_DIR);
 const ERROR_LOG_PATH = path.join(
   os.tmpdir(),
@@ -24,9 +35,16 @@ const ROAM_REFILL_THRESHOLD = 2;
 const PRE_RESOLVE_LIMIT = 4;
 const RESOLVE_CACHE_TTL_MS = 4 * 60 * 1000;
 const AUTO_START_RESOLVER = process.env.YPM_TUI_AUTO_RESOLVER !== '0';
-const require = createRequire(import.meta.url);
-const neteaseApi = require('@neteasecloudmusicapienhanced/api/main.js');
 const RUNNING_IN_ELECTRON = Boolean(process.versions?.electron);
+const RUNNING_IN_STANDALONE_TUI =
+  process.env.YPM_TUI_STANDALONE === '1' ||
+  ['yesplaymusic-tui.exe', 'yesplaymusic-tui'].includes(
+    path.basename(process.execPath).toLowerCase()
+  );
+const runtimeRequire = createRequire(
+  import.meta.url || path.join(SCRIPT_DIR, 'package.json')
+);
+const neteaseApi = runtimeRequire('@neteasecloudmusicapienhanced/api/main.js');
 
 function findProjectRoot(startDir) {
   let current = startDir;
@@ -154,6 +172,18 @@ function errorMessage(error) {
 
 function setLastError(scope, error) {
   state.lastError = `${scope}: ${errorMessage(error)}`;
+  try {
+    fs.writeFileSync(ERROR_LOG_PATH, `${state.lastError}\n`, 'utf-8');
+  } catch {
+    // Error logging is best-effort; the TUI still shows the short message.
+  }
+}
+
+function appendLastError(scope, error) {
+  const nextError = `${scope}: ${errorMessage(error)}`;
+  state.lastError = state.lastError
+    ? `${state.lastError} | ${nextError}`
+    : nextError;
   try {
     fs.writeFileSync(ERROR_LOG_PATH, `${state.lastError}\n`, 'utf-8');
   } catch {
@@ -302,6 +332,48 @@ async function ensureResolver() {
   }
   state.message = 'Starting local resolver...';
   render();
+  if (RUNNING_IN_STANDALONE_TUI) {
+    try {
+      await import('../server/index.js');
+    } catch (error) {
+      setLastError('resolver import', error);
+      state.message = `Resolver start failed: ${error.message}`;
+      render();
+      return;
+    }
+    if (await waitForResolver()) {
+      state.message = 'Resolver started.';
+    } else {
+      setLastError(
+        'resolver start',
+        `Timed out waiting for ${RESOLVER_BASE}/api/health`
+      );
+      state.message = 'Resolver did not become ready; fallback may be unstable.';
+    }
+    return;
+  }
+  if (RUNNING_IN_ELECTRON) {
+    try {
+      const resolverEntry = path.join(PROJECT_ROOT, 'server', 'index.js');
+      await import(pathToFileURL(resolverEntry).href);
+    } catch (error) {
+      setLastError('resolver import', error);
+      state.message = `Resolver start failed: ${error.message}`;
+      render();
+      return;
+    }
+    if (await waitForResolver()) {
+      state.message = 'Resolver started.';
+    } else {
+      setLastError(
+        'resolver start',
+        `Timed out waiting for ${RESOLVER_BASE}/api/health`
+      );
+      state.message = 'Resolver did not become ready; fallback may be unstable.';
+    }
+    return;
+  }
+
   state.resolverProcess = spawn(
     process.execPath,
     ['server/index.js'],
@@ -315,17 +387,17 @@ async function ensureResolver() {
   state.resolverProcess.stderr?.on('data', chunk => {
     const text = chunk.trim();
     if (!text || isIgnorableResolverStderr(text)) return;
-    setLastError('resolver process', text);
+    appendLastError('resolver process', text);
     render();
   });
   state.resolverProcess.once('error', error => {
-    setLastError('resolver start', error);
+    appendLastError('resolver start', error);
     state.message = `Resolver start failed: ${error.message}`;
     render();
   });
   state.resolverProcess.once('exit', code => {
     if (code !== 0) {
-      setLastError('resolver exit', `resolver exited with code ${code}`);
+      appendLastError('resolver exit', `resolver exited with code ${code}`);
       state.message = `Resolver exited with code ${code}`;
       render();
     }
@@ -335,7 +407,7 @@ async function ensureResolver() {
   if (await waitForResolver()) {
     state.message = 'Resolver started.';
   } else {
-    setLastError(
+    appendLastError(
       'resolver start',
       `Timed out waiting for ${RESOLVER_BASE}/api/health`
     );
@@ -851,6 +923,36 @@ function forceKillProcess(processToKill) {
   processToKill.kill('SIGKILL');
 }
 
+function executableName(name) {
+  return process.platform === 'win32' ? `${name}.exe` : name;
+}
+
+function fileExists(filePath) {
+  try {
+    return fs.existsSync(filePath);
+  } catch {
+    return false;
+  }
+}
+
+function findBundledMpv() {
+  const candidates = [
+    process.env.YPM_TUI_MPV,
+    path.join(SCRIPT_DIR, 'player', 'mpv', executableName('mpv')),
+    path.join(SCRIPT_DIR, 'mpv', executableName('mpv')),
+    path.join(PROJECT_ROOT, 'vendor', 'mpv', executableName('mpv')),
+  ].filter(Boolean);
+  return candidates.find(fileExists) || null;
+}
+
+function canRunMpv(command) {
+  const mpvCheck = spawnSync(command, ['--version'], {
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  return !mpvCheck.error && mpvCheck.status === 0;
+}
+
 class ExternalPlayerBackend {
   constructor() {
     this.name = process.env.YPM_TUI_PLAYER || 'external';
@@ -892,8 +994,9 @@ class ExternalPlayerBackend {
 }
 
 class MpvPlayerBackend {
-  constructor(onEnded) {
-    this.name = 'mpv';
+  constructor(onEnded, command = 'mpv') {
+    this.name = path.basename(command);
+    this.commandPath = command;
     this.process = null;
     this.ipcPath = createIpcPath();
     this.onEnded = onEnded;
@@ -914,7 +1017,7 @@ class MpvPlayerBackend {
     this.currentTrack = track;
     this.ipcPath = createIpcPath();
     this.process = spawn(
-      'mpv',
+      this.commandPath,
       [
         '--no-video',
         '--force-window=no',
@@ -1108,12 +1211,12 @@ class MpvPlayerBackend {
 
 function createPlayerBackend() {
   if (process.env.YPM_TUI_PLAYER) return new ExternalPlayerBackend();
-  const mpvCheck = spawnSync('mpv', ['--version'], {
-    stdio: 'ignore',
-    windowsHide: true,
-  });
-  if (mpvCheck.error) return new ExternalPlayerBackend();
-  return new MpvPlayerBackend(playNext);
+  const bundledMpv = findBundledMpv();
+  if (bundledMpv && canRunMpv(bundledMpv)) {
+    return new MpvPlayerBackend(playNext, bundledMpv);
+  }
+  if (canRunMpv('mpv')) return new MpvPlayerBackend(playNext, 'mpv');
+  return new ExternalPlayerBackend();
 }
 
 async function stopPlayer({ invalidate = false } = {}) {
@@ -1331,6 +1434,7 @@ async function dislikeCurrentTrack() {
 function setupInput() {
   readline.emitKeypressEvents(process.stdin);
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
+  process.stdin.resume();
   write(ansi.hideCursor);
   render();
 
@@ -1440,13 +1544,19 @@ function setupInput() {
   });
 }
 
+function restoreTerminal() {
+  if (process.stdin.isTTY) process.stdin.setRawMode(false);
+  process.stdin.pause();
+  write(ansi.showCursor);
+}
+
 async function exit() {
   await stopPlayer({ invalidate: true });
   if (state.resolverProcess) {
     forceKillProcess(state.resolverProcess);
     state.resolverProcess = null;
   }
-  write(ansi.showCursor);
+  restoreTerminal();
   write('\n');
   process.exit(0);
 }
@@ -1459,5 +1569,5 @@ async function main() {
   setupInput();
 }
 
-process.on('exit', () => write(ansi.showCursor));
+process.on('exit', restoreTerminal);
 void main();

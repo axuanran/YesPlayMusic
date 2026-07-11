@@ -46,3 +46,7 @@ devenv.local.nix
 # Resolver storage (contains sensitive cookies)
 server/storage/cookie.json
 server/storage/logs.jsonl
+
+
+.corepack/
+dist_tui/

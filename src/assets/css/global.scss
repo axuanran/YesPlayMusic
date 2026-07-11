@@ -59,6 +59,7 @@
   --color-primary-bg-for-transparent: rgba(189, 207, 255, 0.28);
   --color-secondary-bg-for-transparent: rgba(209, 209, 214, 0.28);
   --html-overflow-y: overlay;
+  color-scheme: light;
 }
 
 [data-theme='dark'] {
@@ -72,6 +73,7 @@
   --color-navbar-bg: rgba(34, 34, 34, 0.86);
   --color-primary-bg-for-transparent: rgba(255, 255, 255, 0.12);
   --color-secondary-bg-for-transparent: rgba(255, 255, 255, 0.08);
+  color-scheme: dark;
 }
 
 #app,
@@ -93,6 +95,7 @@ input {
 }
 body {
   background-color: var(--color-body-bg);
+  color: var(--color-text);
 }
 
 html {
@@ -104,6 +107,20 @@ html {
 select,
 button {
   font-family: inherit;
+}
+select,
+textarea,
+input:not([type='checkbox']):not([type='radio']):not([type='range']) {
+  color: var(--color-text);
+  background-color: var(--color-secondary-bg);
+}
+select option {
+  color: var(--color-text);
+  background-color: var(--color-body-bg);
+}
+textarea::placeholder,
+input::placeholder {
+  color: var(--color-secondary);
 }
 button {
   background: none;

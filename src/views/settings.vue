@@ -1033,7 +1033,7 @@ export default {
     },
     showLyricsTranslation: setting('showLyricsTranslation'),
     lyricsBackground: setting('lyricsBackground', false),
-    lyricsAutoResumeDelay: setting('lyricsAutoResumeDelay', 4000),
+    lyricsAutoResumeDelay: setting('lyricsAutoResumeDelay', 5000),
     lyricsAutoResumeWhenVisible: setting('lyricsAutoResumeWhenVisible', true),
     showLyricsTime: setting('showLyricsTime'),
     enableOsdlyricsSupport: setting('enableOsdlyricsSupport'),
