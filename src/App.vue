@@ -93,7 +93,7 @@ export default {
       );
     },
     enablePlayer() {
-      return this.player.enabled && this.$route.name !== 'lastfmCallback';
+      return this.$route.name !== 'lastfmCallback';
     },
     showNavbar() {
       return this.$route.name !== 'lastfmCallback';
