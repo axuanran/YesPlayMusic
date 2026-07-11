@@ -2,7 +2,9 @@ special thank：codex
 
 求 star 呀 ~
 
-## 请使用有latest标签的版本。prerelease 版本未经检查，只作为开发下载用
+### 请使用有latest标签的版本。prerelease 版本未经检查，只作为开发下载用
+
+### 目前被测试平台： windows
 
 ISSUE提示：提示弹窗只能定位错误组件，应截图F12的console中的报错
 
