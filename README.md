@@ -1,6 +1,8 @@
 special thank：codex
 
-求 star ~
+求 star 呀 ~
+
+## 使用有latest标签的版本。prerelease 版本未经检查
 
 ---
 
