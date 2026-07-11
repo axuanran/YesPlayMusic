@@ -169,8 +169,9 @@
       "icon": "build/icons/icon.icns"
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
       "include": "build/installer.nsh",
       "deleteAppDataOnUninstall": true
     },
