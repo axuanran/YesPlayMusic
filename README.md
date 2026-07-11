@@ -2,7 +2,7 @@ special thank：codex
 
 求 star 呀 ~
 
-## 使用有latest标签的版本。prerelease 版本未经检查，只作为开发下载用
+## 请使用有latest标签的版本。prerelease 版本未经检查，只作为开发下载用
 
 ---
 
