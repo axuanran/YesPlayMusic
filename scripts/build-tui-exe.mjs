@@ -6,7 +6,6 @@ import path from 'node:path';
 import process from 'node:process';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { path7za } from '7zip-bin';
 import esbuild from 'esbuild';
 
 const projectRoot = path.resolve(
@@ -130,6 +129,7 @@ async function includeMpv() {
 
   const archivePath = path.join(buildDir, 'mpv.7z');
   const extractDir = path.join(buildDir, 'mpv-extract');
+  const { path7za } = await import('7zip-bin');
   console.log(`Downloading mpv from ${mpvDownloadUrl}`);
   await downloadFile(mpvDownloadUrl, archivePath);
   fs.mkdirSync(extractDir, { recursive: true });

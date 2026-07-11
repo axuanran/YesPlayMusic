@@ -79,11 +79,25 @@ function getPackagedTuiExecutable() {
   return candidates.find(candidate => fs.existsSync(candidate)) || null;
 }
 
+function getPackagedTuiEntry() {
+  const candidates = [
+    path.join(__dirname, '../tui/yesplaymusic-tui.mjs'),
+    path.join(__dirname, '../../scripts/yesplaymusic-tui.mjs'),
+  ];
+  return candidates.find(candidate => fs.existsSync(candidate)) || null;
+}
+
 function quoteCmdArg(value) {
   return `"${String(value).replace(/"/g, '""')}"`;
 }
 
 async function startTuiEntrypoint() {
+  const packagedTuiEntry = getPackagedTuiEntry();
+  if (packagedTuiEntry) {
+    await import(pathToFileURL(packagedTuiEntry).href);
+    return;
+  }
+
   const tuiExecutable = getPackagedTuiExecutable();
   if (tuiExecutable) {
     if (process.platform !== 'win32') {
@@ -123,17 +137,6 @@ async function startTuiEntrypoint() {
     });
     return;
   }
-
-  const builtTuiEntry = path.join(__dirname, '../tui/yesplaymusic-tui.mjs');
-  const sourceTuiEntry = path.join(
-    __dirname,
-    '../../scripts/yesplaymusic-tui.mjs'
-  );
-  const tuiEntry = fs.existsSync(builtTuiEntry)
-    ? builtTuiEntry
-    : sourceTuiEntry;
-
-  await import(pathToFileURL(tuiEntry).href);
 }
 
 // Provide __static for tray.js and touchBar.js (replaces webpack's define plugin)
