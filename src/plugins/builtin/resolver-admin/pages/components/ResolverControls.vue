@@ -23,7 +23,8 @@
       <div class="left">
         <div class="title">Resolver 地址</div>
         <div class="description"
-          >默认地址为 /resolver-api；Docker 或网页部署建议使用同源代理。默认本地服务启动地址为：http://127.0.0.1:27232</div
+          >默认地址为 /resolver-api；Docker
+          或网页部署建议使用同源代理。默认本地服务启动地址为：http://127.0.0.1:27232</div
         >
       </div>
       <div class="resolver-actions">
