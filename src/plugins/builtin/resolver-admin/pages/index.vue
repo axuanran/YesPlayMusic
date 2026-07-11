@@ -77,12 +77,12 @@ export default {
   computed: {
     ...mapState(['settings']),
     useAudioResolver: setting('useAudioResolver', false),
-    audioResolverUrl: setting('audioResolverUrl', 'http://127.0.0.1:27232'),
+    audioResolverUrl: setting('audioResolverUrl', '/resolver-api'),
   },
   methods: {
     ...mapActions(['showToast']),
     resolverAdminUrl() {
-      const base = (this.audioResolverUrl || 'http://127.0.0.1:27232').replace(
+      const base = (this.audioResolverUrl || '/resolver-api').replace(
         /\/+$/,
         ''
       );

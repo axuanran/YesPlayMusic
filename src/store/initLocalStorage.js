@@ -44,7 +44,7 @@ let localStorage = {
     enableRealIP: false,
     realIP: null,
     useAudioResolver: false,
-    audioResolverUrl: 'http://127.0.0.1:27232',
+    audioResolverUrl: '/resolver-api',
     shortcuts: shortcuts,
   },
   data: {

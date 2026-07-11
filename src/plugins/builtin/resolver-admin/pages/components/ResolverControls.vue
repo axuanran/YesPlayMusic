@@ -22,13 +22,15 @@
     <div class="item vertical">
       <div class="left">
         <div class="title">Resolver 地址</div>
-        <div class="description">默认地址为 http://127.0.0.1:27232。</div>
+        <div class="description"
+          >默认地址为 /resolver-api；Docker 或网页部署建议使用同源代理。</div
+        >
       </div>
       <div class="resolver-actions">
         <input
           :value="audioResolverUrl"
           type="text"
-          placeholder="http://127.0.0.1:27232"
+          placeholder="/resolver-api"
           @input="$emit('update:audioResolverUrl', $event.target.value)"
         />
         <button @click="$emit('open-admin')">打开管理面板</button>

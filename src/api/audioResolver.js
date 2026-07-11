@@ -2,6 +2,19 @@ import axios from 'axios';
 
 let resolverAxios = null;
 
+function isDefaultLocalResolverURL(url) {
+  return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\]):27232\/?$/i.test(
+    url || ''
+  );
+}
+
+function isLocalPage() {
+  const hostname = window.location.hostname;
+  return (
+    hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1'
+  );
+}
+
 function getResolverBaseURL() {
   // In dev mode, use Vite proxy to avoid CORS issues
   // In production, use the configured URL or relative path
@@ -10,7 +23,11 @@ function getResolverBaseURL() {
   }
   try {
     const settings = JSON.parse(localStorage.getItem('settings'));
-    return settings?.audioResolverUrl || '/resolver-api';
+    const audioResolverUrl = settings?.audioResolverUrl || '/resolver-api';
+    if (!isLocalPage() && isDefaultLocalResolverURL(audioResolverUrl)) {
+      return '/resolver-api';
+    }
+    return audioResolverUrl;
   } catch {
     return '/resolver-api';
   }
