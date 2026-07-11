@@ -4,7 +4,7 @@ special thank：codex
 
 ### 请使用有latest标签的版本。prerelease 版本未经检查，只作为开发下载用
 
-### 目前被测试平台： windows
+### 目前被测试平台： windows、docker
 
 ISSUE提示：提示弹窗只能定位错误组件，应截图F12的console中的报错
 
