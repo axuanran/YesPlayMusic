@@ -51,6 +51,30 @@ router.post('/audio/resolve', async (req, res) => {
   }
 });
 
+// GET /api/audio/outer/:trackId
+router.get('/audio/outer/:trackId', async (req, res) => {
+  try {
+    const { trackId } = req.params;
+    const result = await resolveTrack(Number(trackId), {
+      quality: req.query.quality || 'standard',
+      bypassCache: req.query.bypassCache === 'true',
+      useProxy: true,
+    });
+
+    if (result.ok && result.playUrl) {
+      return res.redirect(307, result.playUrl);
+    }
+
+    res.status(502).json(result);
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      code: 'INTERNAL_ERROR',
+      message: error.message || '解析失败',
+    });
+  }
+});
+
 // GET /api/audio/stream/:token
 router.get('/audio/stream/:token', async (req, res) => {
   try {

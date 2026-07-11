@@ -199,9 +199,8 @@ function getUrlExt(url) {
 }
 
 function isUnsafeFallbackOuterUrl(cacheEntry) {
-  return (
-    (cacheEntry.provider === 'fallback' || cacheEntry.source === 'fallback') &&
-    String(cacheEntry.url || '').includes('music.163.com/song/media/outer/url')
+  return String(cacheEntry.url || '').includes(
+    'music.163.com/song/media/outer/url'
   );
 }
 
