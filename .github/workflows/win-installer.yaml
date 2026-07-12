@@ -24,16 +24,6 @@ on:
           - draft
           - prerelease
           - release
-  push:
-    branches:
-      - dev
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'UPDATE.md'
-    tags:
-      - 'v*'
-
 concurrency:
   group: win-installer-${{ github.ref }}
   cancel-in-progress: true
