@@ -23,8 +23,8 @@
       <div class="left">
         <div class="title">Resolver 地址</div>
         <div class="description"
-          >默认地址为 /resolver-api；Docker
-          或网页部署建议使用同源代理。默认本地服务启动地址为：http://127.0.0.1:27232</div
+          >无已保存地址时自动使用当前网页同源的 /resolver-api；Docker
+          和桌面端均使用同源代理。</div
         >
       </div>
       <div class="resolver-actions">
@@ -44,6 +44,8 @@
 </template>
 
 <script>
+import { getCurrentPageResolverURL } from '@/api/audioResolver';
+
 export default {
   name: 'ResolverControls',
   props: {
@@ -65,12 +67,7 @@ export default {
   ],
   methods: {
     syncToCurrentPageUrl() {
-      const currentOrigin = window.location.origin;
-      const nextValue =
-        currentOrigin && currentOrigin !== 'null'
-          ? new URL('/resolver-api', currentOrigin).toString()
-          : '/resolver-api';
-      this.$emit('update:audioResolverUrl', nextValue);
+      this.$emit('update:audioResolverUrl', getCurrentPageResolverURL());
     },
   },
 };

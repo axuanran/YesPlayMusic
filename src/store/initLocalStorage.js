@@ -1,6 +1,7 @@
 import { playlistCategories } from '@/utils/staticData';
 import shortcuts from '@/utils/shortcuts';
 import { isElectron } from '@/utils/env';
+import { getCurrentPageResolverURL } from '@/api/audioResolver';
 
 const enabledPlaylistCategories = playlistCategories
   .filter(c => c.enable)
@@ -44,7 +45,7 @@ let localStorage = {
     enableRealIP: false,
     realIP: null,
     useAudioResolver: false,
-    audioResolverUrl: '/resolver-api',
+    audioResolverUrl: getCurrentPageResolverURL(),
     shortcuts: shortcuts,
   },
   data: {

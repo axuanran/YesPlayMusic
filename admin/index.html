@@ -283,7 +283,9 @@
       } = Vue;
       const { createRouter, createWebHashHistory } = VueRouter;
 
-      const API_BASE = '/api/admin';
+      const API_BASE = location.pathname.startsWith('/resolver-api/')
+        ? '/resolver-api/api/admin'
+        : '/api/admin';
       const LOG_FIELD_STORAGE_KEY = 'resolver-panel-log-fields';
 
       function formatBytes(bytes) {

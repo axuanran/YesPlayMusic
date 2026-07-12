@@ -2,6 +2,13 @@ import axios from 'axios';
 
 let resolverAxios = null;
 
+export function getCurrentPageResolverURL() {
+  const origin = window.location.origin;
+  return origin && origin !== 'null'
+    ? new URL('/resolver-api', origin).toString().replace(/\/$/, '')
+    : '/resolver-api';
+}
+
 function isDefaultLocalResolverURL(url) {
   return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\]):27232\/?$/i.test(
     url || ''
@@ -23,7 +30,8 @@ function getResolverBaseURL() {
   }
   try {
     const settings = JSON.parse(localStorage.getItem('settings'));
-    const audioResolverUrl = settings?.audioResolverUrl || '/resolver-api';
+    const audioResolverUrl =
+      settings?.audioResolverUrl || getCurrentPageResolverURL();
     if (!isLocalPage() && isDefaultLocalResolverURL(audioResolverUrl)) {
       return '/resolver-api';
     }

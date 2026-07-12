@@ -310,15 +310,14 @@ class Background {
       expressApp.use('/', express.static(rendererDist));
     }
 
-    // Audio resolver routes (health, resolve, stream) - must be before the /api proxy
-    expressApp.use('/api', audioRoutes);
+    // Keep the desktop resolver under the same-origin prefix used by Docker.
+    expressApp.use('/resolver-api/api', audioRoutes);
 
-    // Admin API routes - must be before the /api proxy
-    expressApp.use('/api/admin', adminRoutes);
+    expressApp.use('/resolver-api/api/admin', adminRoutes);
 
-    // Serve admin panel static files
+    // Serve the resolver admin panel from the same prefix as its API.
     const adminDir = path.join(__dirname, '../../admin');
-    expressApp.use('/admin', express.static(adminDir));
+    expressApp.use('/resolver-api/admin', express.static(adminDir));
 
     expressApp.use(
       '/api',

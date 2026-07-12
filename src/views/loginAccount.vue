@@ -155,7 +155,10 @@ import {
   loginQrCodeKey,
   loginQrCodeCheck,
 } from '@/api/auth';
-import { syncCookieToResolverWithRetry } from '@/api/audioResolver';
+import {
+  isResolverEnabled,
+  syncCookieToResolverWithRetry,
+} from '@/api/audioResolver';
 
 export default {
   name: 'Login',
@@ -262,7 +265,7 @@ export default {
         this.updateData({ key: 'loginMode', value: 'account' });
         // Sync cookie to resolver backend for persistence
         const cookie = getCookieString();
-        if (cookie) {
+        if (cookie && isResolverEnabled()) {
           syncCookieToResolverWithRetry(cookie, {
             timeoutMs: 10000,
             intervalMs: 1000,
@@ -306,7 +309,7 @@ export default {
           this.processing = false;
           // Sync cookie to resolver backend for persistence
           const cookieStr = getCookieString();
-          if (cookieStr) {
+          if (cookieStr && isResolverEnabled()) {
             syncCookieToResolverWithRetry(cookieStr, {
               timeoutMs: 10000,
               intervalMs: 1000,
