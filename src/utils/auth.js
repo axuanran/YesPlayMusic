@@ -1,7 +1,10 @@
 import Cookies from 'js-cookie';
 import { logout } from '@/api/auth';
 import store from '@/store';
-import { clearCookieFromResolver } from '@/api/audioResolver';
+import {
+  clearCookieFromResolver,
+  isResolverEnabled,
+} from '@/api/audioResolver';
 
 const cookieAttributes = new Set([
   'domain',
@@ -93,7 +96,7 @@ export function doLogout() {
   removeCookie('MUSIC_U');
   removeCookie('__csrf');
   // Clear cookie from resolver backend
-  clearCookieFromResolver();
+  if (isResolverEnabled()) clearCookieFromResolver();
   // 更新状态仓库中的用户信息
   store.commit('updateData', { key: 'user', value: {} });
   // 更新状态仓库中的登录状态

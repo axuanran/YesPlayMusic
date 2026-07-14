@@ -10,7 +10,10 @@ import './registerServiceWorker';
 import { dailyTask } from '@/utils/common';
 import { installDevErrorReporter } from '@/utils/devErrorReporter';
 import { getCookieString, hydrateCookiesToDocument } from '@/utils/auth';
-import { syncCookieToResolverWithRetry } from '@/api/audioResolver';
+import {
+  isResolverEnabled,
+  syncCookieToResolverWithRetry,
+} from '@/api/audioResolver';
 import { createPluginContext, installPlugins } from '@/plugins';
 import '@/assets/css/global.scss';
 import NProgress from 'nprogress';
@@ -38,6 +41,13 @@ hydrateCookiesToDocument();
 
 let startupCookieTimer = null;
 const syncCookieFromStartup = async () => {
+  if (!isResolverEnabled()) {
+    if (startupCookieTimer) {
+      clearInterval(startupCookieTimer);
+      startupCookieTimer = null;
+    }
+    return;
+  }
   const cookie = getCookieString();
   if (!cookie) {
     if (startupCookieTimer) {
@@ -68,10 +78,12 @@ const syncCookieFromStartup = async () => {
   }
 };
 
-startupCookieTimer = setInterval(() => {
+if (isResolverEnabled()) {
+  startupCookieTimer = setInterval(() => {
+    syncCookieFromStartup();
+  }, 3000);
   syncCookieFromStartup();
-}, 3000);
-syncCookieFromStartup();
+}
 
 dailyTask();
 

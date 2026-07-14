@@ -59,6 +59,20 @@ const setting = (key, defaultValue) => ({
   },
 });
 
+const resolverEnabledSetting = {
+  get() {
+    return this.settings.useAudioResolver ?? false;
+  },
+  set(value) {
+    const wasEnabled = this.settings.useAudioResolver === true;
+    this.$store.commit('updateSettings', {
+      key: 'useAudioResolver',
+      value,
+    });
+    if (value && !wasEnabled) this.syncFrontendCookieToResolver();
+  },
+};
+
 export default {
   name: 'ResolverAdminPlugin',
   components: {
@@ -76,7 +90,7 @@ export default {
   },
   computed: {
     ...mapState(['settings']),
-    useAudioResolver: setting('useAudioResolver', false),
+    useAudioResolver: resolverEnabledSetting,
     audioResolverUrl: setting('audioResolverUrl', '/resolver-api'),
   },
   methods: {

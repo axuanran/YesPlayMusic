@@ -1,4 +1,5 @@
 import initLocalStorage from '@/store/initLocalStorage.js';
+import { isElectron } from '@/utils/env';
 import pkg from '../../package.json';
 
 const updateSetting = () => {
@@ -7,6 +8,17 @@ const updateSetting = () => {
     ...initLocalStorage.settings,
     ...parsedSettings,
   };
+
+  // Older desktop builds pointed directly at the resolver port. The desktop
+  // renderer and resolver now share an origin and the same prefix as Docker.
+  if (
+    isElectron &&
+    /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\]):27232\/?$/i.test(
+      settings.audioResolverUrl || ''
+    )
+  ) {
+    settings.audioResolverUrl = initLocalStorage.settings.audioResolverUrl;
+  }
 
   if (
     settings.shortcuts.length !== initLocalStorage.settings.shortcuts.length
