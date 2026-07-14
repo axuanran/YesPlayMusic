@@ -99,15 +99,6 @@ const sendString = (channel, value, options = {}) => {
   ipcRenderer.send(channel, value);
 };
 
-const sendNumber = (channel, value, options = {}) => {
-  const { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY } =
-    options;
-
-  if (!isFiniteNumberInRange(value, min, max)) return;
-
-  ipcRenderer.send(channel, value);
-};
-
 const sendBoolean = (channel, value) => {
   if (typeof value === 'boolean') ipcRenderer.send(channel, value);
 };
@@ -137,20 +128,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateTrayLikeState: isLiked => sendBoolean('updateTrayLikeState', isLiked),
     updateTrayPlayState: isPlaying =>
       sendBoolean('updateTrayPlayState', isPlaying),
-    playerCurrentTrackTime: progress =>
-      sendNumber('playerCurrentTrackTime', progress, { min: 0 }),
-    seeked: position => sendNumber('seeked', position, { min: 0 }),
-    metadata: metadata => sendObject('metadata', metadata),
-    sendLyrics: payload => sendObject('sendLyrics', payload),
+    updateMprisState: state => sendObject('mpris:update', state),
     playDiscordPresence: track => sendObject('playDiscordPresence', track),
     pauseDiscordPresence: track => sendObject('pauseDiscordPresence', track),
     player: payload => sendObject('player', payload),
-    switchRepeatMode: mode =>
-      sendString('switchRepeatMode', mode, {
-        allowedValues: ['off', 'on', 'one'],
-      }),
-    switchShuffle: shuffle => sendBoolean('switchShuffle', shuffle),
-    onSaveLyricFinished: callback => on('saveLyricFinished', callback),
   },
   appEvents: {
     onChangeRouteTo: callback => on('changeRouteTo', callback),
@@ -168,6 +149,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onRememberCloseAppOption: callback =>
       on('rememberCloseAppOption', callback),
     onSetPosition: callback => on('setPosition', callback),
+    onMprisCommand: callback => on('mpris:command', callback),
   },
   app: {
     showNativeAlert: message =>
