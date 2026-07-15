@@ -177,6 +177,7 @@ export default {
       qrCodeKey: '',
       qrCodeSvg: '',
       qrCodeCheckInterval: null,
+      qrCodeCheckInFlight: false,
       qrCodeInformation: '打开网易云音乐APP扫码登录',
     };
   },
@@ -195,6 +196,7 @@ export default {
   },
   beforeUnmount() {
     clearInterval(this.qrCodeCheckInterval);
+    this.qrCodeCheckInFlight = false;
   },
   methods: {
     ...mapMutations(['updateData']),
@@ -359,47 +361,55 @@ export default {
         });
     },
     getQrCodeKey() {
-      return loginQrCodeKey().then(result => {
-        if (!result) return;
-        if (result.code === 200) {
-          this.qrCodeKey = result.data.unikey;
-          QRCode.toString(
-            `https://music.163.com/login?codekey=${this.qrCodeKey}`,
-            {
-              width: 192,
-              margin: 0,
-              color: {
-                dark: '#335eea',
-                light: '#00000000',
-              },
-              type: 'svg',
-            }
-          )
-            .then(svg => {
-              this.qrCodeSvg = `data:image/svg+xml;utf8,${encodeURIComponent(
-                svg
-              )}`;
-            })
-            .catch(err => {
-              console.error(err);
-            })
-            .finally(() => {
-              NProgress.done();
-            });
-        }
-        this.checkQrCodeLogin();
-      });
+      return loginQrCodeKey()
+        .then(result => {
+          if (!result) return;
+          if (result.code === 200) {
+            this.qrCodeKey = result.data.unikey;
+            QRCode.toString(
+              `https://music.163.com/login?codekey=${this.qrCodeKey}`,
+              {
+                width: 192,
+                margin: 0,
+                color: {
+                  dark: '#335eea',
+                  light: '#00000000',
+                },
+                type: 'svg',
+              }
+            )
+              .then(svg => {
+                this.qrCodeSvg = `data:image/svg+xml;utf8,${encodeURIComponent(
+                  svg
+                )}`;
+              })
+              .catch(err => {
+                console.error(err);
+              })
+              .finally(() => {
+                NProgress.done();
+              });
+          }
+          this.checkQrCodeLogin();
+        })
+        .catch(error => {
+          this.qrCodeKey = '';
+          this.qrCodeInformation = '二维码加载失败，请检查网络后重试';
+          console.warn('Failed to load QR code key', error);
+        });
     },
     checkQrCodeLogin() {
       // 清除二维码检测
       clearInterval(this.qrCodeCheckInterval);
-      this.qrCodeCheckInterval = setInterval(() => {
-        if (this.qrCodeKey === '') return;
-        loginQrCodeCheck(this.qrCodeKey).then(result => {
+      this.qrCodeCheckInterval = setInterval(async () => {
+        if (this.qrCodeKey === '' || this.qrCodeCheckInFlight) return;
+        this.qrCodeCheckInFlight = true;
+        try {
+          const result = await loginQrCodeCheck(this.qrCodeKey);
           if (!result) return;
           if (result.code === 800) {
-            this.getQrCodeKey(); // 重新生成QrCode
-            this.qrCodeInformation = '二维码已失效，请重新扫码';
+            this.qrCodeInformation = '二维码已失效，正在重新生成';
+            await this.getQrCodeKey();
           } else if (result.code === 802) {
             this.qrCodeInformation = '扫描成功，请在手机上确认登录';
           } else if (result.code === 801) {
@@ -411,7 +421,12 @@ export default {
             result.cookie = result.cookie.replaceAll(' HTTPOnly', '');
             this.handleLoginResponse(result);
           }
-        });
+        } catch (error) {
+          this.qrCodeInformation = '登录服务暂时不可用，正在重试';
+          console.warn('Failed to check QR code login', error);
+        } finally {
+          this.qrCodeCheckInFlight = false;
+        }
       }, 1000);
     },
     changeMode(mode) {
