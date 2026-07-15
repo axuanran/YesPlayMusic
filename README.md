@@ -6,8 +6,6 @@ special thank：codex
 
 ### 目前被测试平台： windows、docker
 
-ISSUE提示：提示弹窗只能定位错误组件，应截图F12的console中的报错
-
 ---
 
 <br />
