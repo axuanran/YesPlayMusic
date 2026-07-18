@@ -4,8 +4,9 @@ special thank：codex
 
 ### 请使用有latest标签的版本。prerelease 版本未经检查，只作为开发下载用
 
-### 目前被测试平台： windows、docker
+### 目前被测试平台： windows、docker、linux、macos（！）
 
+！开发者无此设备
 ---
 
 <br />
