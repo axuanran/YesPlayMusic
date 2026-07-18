@@ -1,12 +1,12 @@
-special thank：codex
 
 求 star 呀 ~
 
 ### 请使用有latest标签的版本。prerelease 版本未经检查，只作为开发下载用
 
-### 目前被测试平台： windows、docker
+### 目前已经测试平台： windows、docker、linux，非测试平台可能可用，但未测试
 
 ---
+
 
 <br />
 <p align="center">
@@ -357,5 +357,6 @@ API 源代码来自 [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryif
 [library-dark-screenshot]: images/library-dark.png
 [search-screenshot]: images/search.png
 
+special thank：codex
 
 [![Star History Chart](https://api.star-history.com/svg?repos=axuanran/YesPlayMusic&type=Date)](https://www.star-history.com/#axuanran/YesPlayMusic&Date)
