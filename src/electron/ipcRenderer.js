@@ -2,6 +2,72 @@ import store from '@/store';
 
 const player = store.state.player;
 
+export function handleMprisCommand(playerInstance, command) {
+  if (!command || typeof command !== 'object') return;
+
+  switch (command.type) {
+    case 'play':
+      if (!playerInstance.playing) playerInstance.play();
+      break;
+    case 'pause':
+      if (playerInstance.playing) playerInstance.pause();
+      break;
+    case 'playPause':
+      playerInstance.playOrPause();
+      break;
+    case 'stop':
+      playerInstance.pause();
+      playerInstance.seek(0);
+      playerInstance.updateMprisState({
+        playing: false,
+        position: 0,
+        stopped: true,
+      });
+      break;
+    case 'next':
+      if (playerInstance.isPersonalFM) {
+        playerInstance.playNextFMTrack();
+      } else {
+        playerInstance.playNextTrack();
+      }
+      break;
+    case 'previous':
+      playerInstance.playPrevTrack();
+      break;
+    case 'seek':
+      if (Number.isFinite(command.offset)) {
+        playerInstance.seek(
+          Math.max(0, playerInstance.seek() + command.offset)
+        );
+      }
+      break;
+    case 'setPosition':
+      if (Number.isFinite(command.position) && command.position >= 0) {
+        playerInstance.seek(command.position);
+      }
+      break;
+    case 'setLoopStatus':
+      if (['off', 'on', 'one'].includes(command.mode)) {
+        playerInstance.repeatMode = command.mode;
+        playerInstance.updateMprisState({
+          loopStatus: playerInstance.repeatMode,
+        });
+      }
+      break;
+    case 'setShuffle':
+      if (typeof command.enabled === 'boolean') {
+        playerInstance.shuffle = command.enabled;
+        playerInstance.updateMprisState({ shuffle: playerInstance.shuffle });
+      }
+      break;
+    case 'setVolume':
+      if (Number.isFinite(command.volume)) {
+        playerInstance.volume = Math.min(1, Math.max(0, command.volume));
+      }
+      break;
+  }
+}
+
 export function ipcRenderer(vueInstance) {
   const self = vueInstance;
   // 添加专有的类名
@@ -85,4 +151,6 @@ export function ipcRenderer(vueInstance) {
   appEvents?.onSetPosition(position => {
     player.seek(position);
   });
+
+  appEvents?.onMprisCommand(command => handleMprisCommand(player, command));
 }

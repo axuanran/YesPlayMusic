@@ -32,6 +32,7 @@ import { createTray } from '@/electron/tray';
 import { createTouchBar } from '../electron/touchBar';
 import { createDockMenu } from '../electron/dockMenu';
 import { registerGlobalShortcut } from '../electron/globalShortcut';
+import { createMpris } from '../electron/mpris';
 import { autoUpdater } from 'electron-updater';
 import * as devtoolsInstaller from 'electron-devtools-installer';
 import { EventEmitter } from 'events';
@@ -237,6 +238,7 @@ class Background {
     });
     this.neteaseMusicAPI = null;
     this.expressApp = null;
+    this.mpris = null;
     this.willQuitApp = !isMac;
 
     this.init();
@@ -625,6 +627,11 @@ class Background {
       // init ipcMain
       initIpcMain(this.window, this.store, this.trayEventEmitter);
 
+      // expose the player to Linux desktop environments through MPRIS
+      if (isLinux) {
+        this.mpris = createMpris(this.window);
+      }
+
       // set proxy
       const proxyRules = this.store.get('proxy');
       if (proxyRules) {
@@ -687,6 +694,7 @@ class Background {
     });
 
     app.on('quit', () => {
+      this.mpris?.dispose();
       if (this.expressApp) {
         this.expressApp.close();
       }

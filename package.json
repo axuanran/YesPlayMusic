@@ -183,6 +183,7 @@
     "node": ">=22 <26"
   },
   "dependencies": {
+    "@jellybrick/mpris-service": "^2.2.0",
     "@neteasecloudmusicapienhanced/api": "^4.36.1",
     "@unblockneteasemusic/rust-napi": "^0.4.0",
     "@vscode/codicons": "^0.0.45",
