@@ -3,18 +3,17 @@ import { getArtist } from '@/api/artist';
 import { trackScrobble, trackUpdateNowPlaying } from '@/api/lastfm';
 import { fmTrash, personalFM } from '@/api/others';
 import { getPlaylistDetail, intelligencePlaylist } from '@/api/playlist';
-import { getLyric, scrobble } from '@/api/track';
+import { scrobble } from '@/api/track';
 import store from '@/store';
 import AudioEngine from '@/utils/AudioEngine';
-import { isCreateTray } from '@/utils/platform';
+import { isCreateTray, isLinux } from '@/utils/platform';
 import { isElectron } from '@/utils/env';
 import { emitPlayerEvent, PLAYER_EVENTS } from '@/plugins/playerEvents';
 import PlayerQueue from '@/utils/player/Queue';
 import { createActor } from 'xstate';
 import { createPlayerMachine } from '@/player/playerMachine';
 import PlayerResolver, { isCanceledRequest } from '@/player/playerResolver';
-// MPRIS disabled during Electron 42 migration
-const isCreateMpris = false;
+const isCreateMpris = isElectron && isLinux;
 
 const PLAY_PAUSE_FADE_DURATION = 200;
 const PROGRESS_PERSIST_INTERVAL = 5000;
@@ -456,7 +455,10 @@ export default class {
       this._audio.seek(value);
       this._syncProgress();
       if (isCreateMpris) {
-        electronPlayer?.seeked(this._audio.currentTime());
+        this.updateMprisState({
+          position: this._audio.currentTime(),
+          seeked: true,
+        });
       }
     }
   }
@@ -591,9 +593,6 @@ export default class {
       }, PROGRESS_STORAGE_INTERVAL);
     }
     this._schedulePersist();
-    if (isCreateMpris) {
-      electronPlayer?.playerCurrentTrackTime(this._progress);
-    }
   }
   _startProgressLoop() {
     if (this._progressFrame !== null) return;
@@ -982,9 +981,6 @@ export default class {
     }
   }
   _updateMediaSessionMetaData(track) {
-    if ('mediaSession' in navigator === false) {
-      return;
-    }
     let artists = track.ar.map(a => a.name);
     const metadata = {
       title: track.name,
@@ -1003,34 +999,19 @@ export default class {
         },
       ],
       length: this.currentTrackDuration,
-      trackId: this.current,
-      url: '/trackid/' + track.id,
+      trackId: track.id,
+      url: `https://music.163.com/song?id=${track.id}`,
     };
 
-    navigator.mediaSession.metadata = new window.MediaMetadata(metadata);
-    if (isCreateMpris) {
-      this._updateMprisState(track, metadata);
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new window.MediaMetadata(metadata);
     }
-  }
-  // OSDLyrics 会检测 Mpris 状态并寻找对应歌词文件，所以要在更新 Mpris 状态之前保证歌词下载完成
-  async _updateMprisState(track, metadata) {
-    if (!store.state.settings.enableOsdlyricsSupport) {
-      return electronPlayer?.metadata(metadata);
-    }
-
-    let lyricContent = await getLyric(track.id);
-
-    if (!lyricContent.lrc || !lyricContent.lrc.lyric) {
-      return electronPlayer?.metadata(metadata);
-    }
-
-    electronPlayer?.sendLyrics({
-      track,
-      lyrics: lyricContent.lrc.lyric,
-    });
-
-    electronPlayer?.onSaveLyricFinished(() => {
-      electronPlayer?.metadata(metadata);
+    this.updateMprisState({
+      metadata: {
+        ...metadata,
+        artist: artists,
+        artwork: metadata.artwork.at(-1)?.src || '',
+      },
     });
   }
   _updateMediaSessionPositionState() {
@@ -1279,7 +1260,7 @@ export default class {
       }
       localStorage.setItem('playerCurrentTrackTime', this._progress);
       if (isCreateMpris && sendMpris) {
-        electronPlayer?.seeked(this._progress);
+        this.updateMprisState({ position: this._progress, seeked: true });
       }
       if (this._playing)
         this._playDiscordPresence(this._currentTrack, this.seek(null, false));
@@ -1389,7 +1370,18 @@ export default class {
       playing: this.playing,
       likedCurrentTrack: liked,
     });
+    this.updateMprisState({
+      loopStatus: this.repeatMode,
+      playing: this.playing,
+      position: this.progress,
+      shuffle: this.shuffle,
+      volume: this.volume,
+    });
     setTrayLikeState(liked);
+  }
+
+  updateMprisState(state) {
+    if (isCreateMpris) electronPlayer?.updateMprisState(state);
   }
 
   switchRepeatMode() {
@@ -1400,15 +1392,11 @@ export default class {
     } else {
       this.repeatMode = 'on';
     }
-    if (isCreateMpris) {
-      electronPlayer?.switchRepeatMode(this.repeatMode);
-    }
+    this.updateMprisState({ loopStatus: this.repeatMode });
   }
   switchShuffle() {
     this.shuffle = !this.shuffle;
-    if (isCreateMpris) {
-      electronPlayer?.switchShuffle(this.shuffle);
-    }
+    this.updateMprisState({ shuffle: this.shuffle });
   }
   switchReversed() {
     this.reversed = !this.reversed;
