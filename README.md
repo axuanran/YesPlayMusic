@@ -5,6 +5,8 @@
 
 ### 目前已经测试平台： windows、docker、linux，非测试平台可能可用，但未测试
 
+目前稳定版本：release / v0.1.0-alpha.7.2-dev3 / 128
+
 ---
 
 
