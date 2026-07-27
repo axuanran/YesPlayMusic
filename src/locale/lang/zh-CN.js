@@ -120,6 +120,7 @@ export default {
     reversed: '倒序播放',
     play: '播放',
     pause: '暂停',
+    playbackRate: '播放倍速',
     mute: '静音',
     progress: '播放进度',
     nextUp: '播放列表',

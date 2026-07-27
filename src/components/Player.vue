@@ -155,6 +155,28 @@
             @click="switchReversed"
             ><svg-icon icon-class="sort-up"
           /></button-icon>
+          <details ref="playbackRateControl" class="playback-rate-control">
+            <summary :title="$t('player.playbackRate')">
+              {{ playbackRate }}×
+            </summary>
+            <div
+              class="playback-rate-options"
+              role="listbox"
+              :aria-label="$t('player.playbackRate')"
+            >
+              <button
+                v-for="rate in playbackRates"
+                :key="rate"
+                type="button"
+                role="option"
+                :aria-selected="playbackRate === rate"
+                :class="{ active: playbackRate === rate }"
+                @click="setPlaybackRate(rate)"
+              >
+                {{ rate }}×
+              </button>
+            </div>
+          </details>
           <div class="volume-control">
             <button-icon :title="$t('player.mute')" @click="mute">
               <svg-icon v-show="volume > 0.5" icon-class="volume" />
@@ -200,6 +222,7 @@ import VueSlider from 'vue-slider-component';
 import { goToListSource, hasListSource } from '@/utils/playList';
 import { isAccountLoggedIn } from '@/utils/auth';
 import locale from '@/locale';
+import { PLAYBACK_RATES } from '@/utils/playbackRate';
 
 export default {
   name: 'Player',
@@ -212,6 +235,7 @@ export default {
       mouseDownTarget: null,
       isProgressDragging: false,
       localProgress: 0,
+      playbackRates: PLAYBACK_RATES,
     };
   },
   computed: {
@@ -251,6 +275,10 @@ export default {
         '--progress-percent': `${this.progressPercent}%`,
       };
     },
+    playbackRate() {
+      void this.playerVersion;
+      return this.player.playbackRate;
+    },
     audioSource() {
       return this.player.currentAudioSource?.includes('kuwo.cn')
         ? '音源来自酷我音乐'
@@ -263,9 +291,17 @@ export default {
   mounted() {
     this.setupMediaControls();
     window.addEventListener('keydown', this.handleKeydown);
+    document.addEventListener(
+      'pointerdown',
+      this.closePlaybackRateOnOutsideClick
+    );
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
+    document.removeEventListener(
+      'pointerdown',
+      this.closePlaybackRateOnOutsideClick
+    );
   },
   methods: {
     ...mapMutations(['toggleLyrics', 'updateModal']),
@@ -366,6 +402,16 @@ export default {
     switchReversed() {
       this.player.switchReversed();
     },
+    setPlaybackRate(rate) {
+      this.player.playbackRate = rate;
+      this.$refs.playbackRateControl?.removeAttribute('open');
+    },
+    closePlaybackRateOnOutsideClick(event) {
+      const control = this.$refs.playbackRateControl;
+      if (control?.open && !control.contains(event.target)) {
+        control.removeAttribute('open');
+      }
+    },
     mute() {
       this.player.mute();
     },
@@ -388,6 +434,10 @@ export default {
     },
 
     handleKeydown(event) {
+      if (event.key === 'Escape') {
+        this.$refs.playbackRateControl?.removeAttribute('open');
+        return;
+      }
       switch (event.code) {
         case 'MediaPlayPause':
           this.playOrPause();
@@ -598,6 +648,63 @@ export default {
     align-items: center;
     .volume-bar {
       width: 84px;
+    }
+  }
+  .playback-rate-control {
+    position: relative;
+    margin-left: 4px;
+    summary {
+      align-items: center;
+      border-radius: 25%;
+      color: var(--color-text);
+      cursor: pointer;
+      display: flex;
+      font-size: 12px;
+      font-weight: 700;
+      height: 32px;
+      justify-content: center;
+      list-style: none;
+      min-width: 36px;
+      transition: 0.2s;
+      &::-webkit-details-marker {
+        display: none;
+      }
+      &:hover {
+        background: var(--color-secondary-bg-for-transparent);
+      }
+    }
+    &[open] summary {
+      color: var(--color-primary);
+      background: var(--color-primary-bg);
+    }
+  }
+  .playback-rate-options {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(54px, 1fr));
+    gap: 4px;
+    width: 120px;
+    padding: 6px;
+    border: 1px solid rgba(128, 128, 128, 0.14);
+    border-radius: 12px;
+    background: var(--color-navbar-bg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    backdrop-filter: blur(16px);
+    z-index: 1001;
+    button {
+      padding: 7px 8px;
+      border-radius: 8px;
+      color: var(--color-text);
+      font-size: 13px;
+      font-weight: 600;
+      &:hover,
+      &.active {
+        color: var(--color-primary);
+        background: var(--color-primary-bg-for-transparent);
+      }
     }
   }
 }

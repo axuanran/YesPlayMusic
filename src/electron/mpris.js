@@ -63,8 +63,8 @@ export class MprisService {
 
     this.player.getPosition = () =>
       Math.round(this.getPositionSeconds() * MICROSECONDS_PER_SECOND);
-    this.player.minimumRate = 1;
-    this.player.maximumRate = 1;
+    this.player.minimumRate = 0.5;
+    this.player.maximumRate = 2;
     this.player.rate = 1;
 
     this.handleUpdate = (_event, state) => this.update(state);
@@ -115,6 +115,14 @@ export class MprisService {
         this.sendCommand({
           type: 'setVolume',
           volume: clamp(volume, 0, 1),
+        });
+      }
+    });
+    this.onPlayer('rate', rate => {
+      if (isFiniteNumber(rate)) {
+        this.sendCommand({
+          rate: clamp(rate, this.player.minimumRate, this.player.maximumRate),
+          type: 'setRate',
         });
       }
     });
@@ -181,6 +189,13 @@ export class MprisService {
     const loopStatus = LOOP_STATUS_FROM_RENDERER[state.loopStatus];
     if (loopStatus) this.player.loopStatus = loopStatus;
     if (typeof state.shuffle === 'boolean') this.player.shuffle = state.shuffle;
+    if (isFiniteNumber(state.rate)) {
+      this.player.rate = clamp(
+        state.rate,
+        this.player.minimumRate,
+        this.player.maximumRate
+      );
+    }
     if (isFiniteNumber(state.volume)) {
       this.player.volume = clamp(state.volume, 0, 1);
     }

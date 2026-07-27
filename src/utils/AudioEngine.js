@@ -1,3 +1,5 @@
+import { normalizePlaybackRate } from '@/utils/playbackRate';
+
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 export default class AudioEngine {
@@ -96,6 +98,13 @@ export default class AudioEngine {
       this.audio.volume = clamp(Number(value) || 0, 0, 1);
     }
     return this.audio.volume;
+  }
+
+  playbackRate(value) {
+    if (value !== undefined) {
+      this.audio.playbackRate = normalizePlaybackRate(value);
+    }
+    return this.audio.playbackRate;
   }
 
   async fade(from, to, duration = 0) {

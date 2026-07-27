@@ -116,6 +116,7 @@ export default {
     shuffle: 'Karıştır',
     play: 'Oynat',
     pause: 'Durdur',
+    playbackRate: 'Oynatma hızı',
     mute: 'Sesi kapat',
     progress: 'Oynatma ilerlemesi',
     nextUp: 'Sıradaki',

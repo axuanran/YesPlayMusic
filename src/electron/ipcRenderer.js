@@ -65,6 +65,11 @@ export function handleMprisCommand(playerInstance, command) {
         playerInstance.volume = Math.min(1, Math.max(0, command.volume));
       }
       break;
+    case 'setRate':
+      if (Number.isFinite(command.rate)) {
+        playerInstance.playbackRate = command.rate;
+      }
+      break;
   }
 }
 

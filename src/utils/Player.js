@@ -13,6 +13,7 @@ import PlayerQueue from '@/utils/player/Queue';
 import { createActor } from 'xstate';
 import { createPlayerMachine } from '@/player/playerMachine';
 import PlayerResolver, { isCanceledRequest } from '@/player/playerResolver';
+import { normalizePlaybackRate } from '@/utils/playbackRate';
 const isCreateMpris = isElectron && isLinux;
 
 const PLAY_PAUSE_FADE_DURATION = 200;
@@ -113,6 +114,7 @@ export default class {
     this._reversed = false;
     this._volume = 1; // 0 to 1
     this._volumeBeforeMuted = 1; // 用于保存静音前的音量
+    this._playbackRate = 1;
     this._personalFMLoading = false; // 是否正在私人FM中加载新的track
     this._personalFMNextLoading = false; // 是否正在缓存私人FM的下一首歌曲
 
@@ -386,6 +388,16 @@ export default class {
     this._audio?.volume(volume);
     this.persist();
   }
+  get playbackRate() {
+    return this._playbackRate;
+  }
+  set playbackRate(value) {
+    this._playbackRate = normalizePlaybackRate(value);
+    this._audio?.playbackRate(this._playbackRate);
+    if (this._enabled) this._updateMediaSessionPositionState();
+    this.updateMprisState({ rate: this._playbackRate });
+    this.persist();
+  }
   get list() {
     return (
       this._queue?.activeList ??
@@ -496,6 +508,8 @@ export default class {
   _init() {
     this._loadSelfFromLocalStorage();
     this._audio?.volume(this.volume);
+    this._playbackRate = normalizePlaybackRate(this._playbackRate);
+    this._audio?.playbackRate(this._playbackRate);
 
     if (this._enabled) {
       // 恢复当前播放歌曲
@@ -737,6 +751,7 @@ export default class {
       `[debug][Player.js] loadAudioSource => ${formatTrackDebugLabel(this._currentTrack)} source:${source}`
     );
     this._audio.load(source, this._audioToken);
+    this._audio.playbackRate(this._playbackRate);
     emitPlayerEvent(PLAYER_EVENTS.AUDIO_LOADED, {
       source,
       track: this._currentTrack,
@@ -1021,7 +1036,7 @@ export default class {
     if ('setPositionState' in navigator.mediaSession) {
       navigator.mediaSession.setPositionState({
         duration: ~~(this.currentTrack.dt / 1000),
-        playbackRate: 1.0,
+        playbackRate: this.playbackRate,
         position: this.seek(),
       });
     }
@@ -1375,6 +1390,7 @@ export default class {
       playing: this.playing,
       position: this.progress,
       shuffle: this.shuffle,
+      rate: this.playbackRate,
       volume: this.volume,
     });
     setTrayLikeState(liked);

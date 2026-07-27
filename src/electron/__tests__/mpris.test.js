@@ -111,6 +111,7 @@ describe('MPRIS service', () => {
         metadata,
         playing: true,
         position: 12,
+        rate: 1.25,
         shuffle: true,
         volume: 0.75,
       }
@@ -119,6 +120,7 @@ describe('MPRIS service', () => {
     expect(player.playbackStatus).toBe('Playing');
     expect(player.loopStatus).toBe('Track');
     expect(player.shuffle).toBe(true);
+    expect(player.rate).toBe(1.25);
     expect(player.volume).toBe(0.75);
     expect(player.metadata).toEqual({
       'mpris:artUrl': metadata.artwork,
@@ -199,6 +201,7 @@ describe('MPRIS service', () => {
     player.emit('loopStatus', 'Playlist');
     player.emit('shuffle', true);
     player.emit('volume', 0.4);
+    player.emit('rate', 1.5);
 
     expect(window.webContents.send.mock.calls).toEqual([
       ['mpris:command', { type: 'play' }],
@@ -212,6 +215,7 @@ describe('MPRIS service', () => {
       ['mpris:command', { mode: 'on', type: 'setLoopStatus' }],
       ['mpris:command', { enabled: true, type: 'setShuffle' }],
       ['mpris:command', { type: 'setVolume', volume: 0.4 }],
+      ['mpris:command', { rate: 1.5, type: 'setRate' }],
     ]);
   });
 

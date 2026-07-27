@@ -120,6 +120,7 @@ export default {
     reversed: 'Reversed',
     play: 'Play',
     pause: 'Pause',
+    playbackRate: 'Playback speed',
     mute: 'Mute',
     progress: 'Playback progress',
     nextUp: 'Next Up',

@@ -41,16 +41,18 @@ describe('MPRIS renderer commands', () => {
     expect(player.pause).toHaveBeenCalledOnce();
   });
 
-  it('applies seek, loop, shuffle, and volume values', () => {
+  it('applies seek, loop, shuffle, volume, and rate values', () => {
     handleMprisCommand(player, { offset: -3, type: 'seek' });
     handleMprisCommand(player, { mode: 'one', type: 'setLoopStatus' });
     handleMprisCommand(player, { enabled: true, type: 'setShuffle' });
     handleMprisCommand(player, { type: 'setVolume', volume: 2 });
+    handleMprisCommand(player, { type: 'setRate', rate: 1.5 });
 
     expect(player.seek).toHaveBeenLastCalledWith(7);
     expect(player.repeatMode).toBe('one');
     expect(player.shuffle).toBe(true);
     expect(player.volume).toBe(1);
+    expect(player.playbackRate).toBe(1.5);
     expect(player.updateMprisState.mock.calls).toEqual([
       [{ loopStatus: 'one' }],
       [{ shuffle: true }],

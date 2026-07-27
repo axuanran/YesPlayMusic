@@ -73,6 +73,7 @@ vi.mock('@/utils/AudioEngine', () => ({
       load: vi.fn(),
       pause: vi.fn(),
       play: vi.fn(() => Promise.resolve()),
+      playbackRate: vi.fn(),
       playing: vi.fn(() => false),
       seek: vi.fn(),
       setOutputDevice: vi.fn(),
@@ -221,6 +222,18 @@ describe('Player audio source flow', () => {
 
     mocks.audioHandlers[0].onEnded(player._audioToken);
     expect(nextTrack).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists playback rate and reapplies it when a source loads', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+
+    player.playbackRate = 1.5;
+    player._playAudioSource('track.mp3', false);
+
+    expect(player.playbackRate).toBe(1.5);
+    expect(audio.playbackRate).toHaveBeenLastCalledWith(1.5);
+    expect(JSON.parse(localStorage.getItem('player'))._playbackRate).toBe(1.5);
   });
 
   it('re-resolves the current source when playback stalls without an audio error', async () => {

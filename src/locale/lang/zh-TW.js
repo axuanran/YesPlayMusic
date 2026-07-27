@@ -116,6 +116,7 @@ export default {
     reversed: '倒序播放',
     play: '播放',
     pause: '暫停',
+    playbackRate: '播放速度',
     mute: '靜音',
     progress: '播放進度',
     nextUp: '播放清單',
