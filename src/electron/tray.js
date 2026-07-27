@@ -2,9 +2,19 @@
 import path from 'path';
 import { app, nativeImage, Tray, Menu, nativeTheme } from 'electron';
 import { isLinux } from '@/utils/platform';
+import { showMainWindow } from './showMainWindow.js';
 
 function createMenuTemplate(win) {
   return [
+    {
+      label: '打开主界面',
+      click: () => {
+        showMainWindow(win);
+      },
+    },
+    {
+      type: 'separator',
+    },
     {
       label: '播放',
       icon: nativeImage.createFromPath(
@@ -116,24 +126,14 @@ class YPMTrayLinuxImpl {
   }
 
   initTemplate() {
-    //在linux下，鼠标左右键都会呼出contextMenu
-    //所以此处单独为linux添加一个 显示主面板 选项
-    this.template = [
-      {
-        label: '显示主面板',
-        click: () => {
-          this.win.show();
-        },
-      },
-      {
-        type: 'separator',
-      },
-    ].concat(createMenuTemplate(this.win));
+    // Linux 下鼠标左右键都可能呼出 contextMenu，
+    // 因此菜单与单击事件都提供打开主界面的入口。
+    this.template = createMenuTemplate(this.win);
   }
 
   handleEvents() {
     this.tray.on('click', () => {
-      this.win.show();
+      showMainWindow(this.win);
     });
 
     this.emitter.on('updateTooltip', title => this.tray.setToolTip(title));
@@ -192,7 +192,7 @@ class YPMTrayWindowsImpl {
 
   handleEvents() {
     this.tray.on('click', () => {
-      this.win.show();
+      showMainWindow(this.win);
     });
 
     this.tray.on('right-click', () => {
