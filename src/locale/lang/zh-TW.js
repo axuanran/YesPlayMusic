@@ -134,6 +134,7 @@ export default {
     nextUp: '播放清單',
     translationLyric: '歌詞(譯)',
     PronunciationLyric: '歌詞(音)',
+    secondaryLyricHidden: '副歌詞已關閉',
   },
   modal: {
     close: '關閉',

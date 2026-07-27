@@ -135,6 +135,7 @@ export default {
     nextUp: 'Sıradaki',
     translationLyric: 'şarkı sözleri (çeviri)',
     PronunciationLyric: 'şarkı sözleri (çeviri)',
+    secondaryLyricHidden: 'İkincil şarkı sözleri gizli',
   },
   modal: {
     close: 'Kapat',

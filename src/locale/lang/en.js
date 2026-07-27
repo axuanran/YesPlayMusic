@@ -138,6 +138,7 @@ export default {
     nextUp: 'Next Up',
     translationLyric: 'lyric (trans)',
     PronunciationLyric: 'lyric (pronounce)',
+    secondaryLyricHidden: 'Secondary lyrics hidden',
   },
   modal: {
     close: 'Close',

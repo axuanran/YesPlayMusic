@@ -138,6 +138,7 @@ export default {
     nextUp: '播放列表',
     translationLyric: '歌词(译)',
     PronunciationLyric: '歌词(音)',
+    secondaryLyricHidden: '副歌词已关闭',
   },
   modal: {
     close: '关闭',

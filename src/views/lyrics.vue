@@ -199,26 +199,13 @@
                 <svg-icon icon-class="shuffle" />
               </button-icon>
               <button-icon
-                v-show="
-                  isShowLyricTypeSwitch &&
-                  $store.state.settings.showLyricsTranslation &&
-                  lyricType === 'translation'
-                "
-                :title="$t('player.translationLyric')"
+                v-show="isShowLyricTypeSwitch"
+                :title="$t(lyricDisplayModeTitle)"
                 @click="switchLyricType"
               >
-                <span class="lyric-switch-icon">译</span>
-              </button-icon>
-              <button-icon
-                v-show="
-                  isShowLyricTypeSwitch &&
-                  $store.state.settings.showLyricsTranslation &&
-                  lyricType === 'romaPronunciation'
-                "
-                :title="$t('player.PronunciationLyric')"
-                @click="switchLyricType"
-              >
-                <span class="lyric-switch-icon">音</span>
+                <span class="lyric-switch-icon">{{
+                  lyricDisplayModeIcon
+                }}</span>
               </button-icon>
             </div>
           </div>
@@ -269,10 +256,7 @@
                 >
                 <br />
                 <span
-                  v-if="
-                    line.contents[1] &&
-                    $store.state.settings.showLyricsTranslation
-                  "
+                  v-if="line.contents[1] && showSecondaryLyric"
                   class="translation"
                   @click.right="openLyricMenu($event, line, 1)"
                   >{{ line.contents[1] }}</span
@@ -291,7 +275,7 @@
                 v-if="
                   rightClickLyric &&
                   rightClickLyric.contents[1] &&
-                  $store.state.settings.showLyricsTranslation
+                  showSecondaryLyric
                 "
                 class="item"
                 @click="copyLyric(true)"
@@ -326,6 +310,11 @@ import ContextMenu from '@/components/ContextMenu.vue';
 import { formatTrackTime } from '@/utils/common';
 import { getLyric, getCloudLyric } from '@/api/track';
 import { lyricParser, copyLyric, parseLyric } from '@/utils/lyrics';
+import {
+  getLyricDisplayModes,
+  getNextLyricDisplayMode,
+  LYRIC_DISPLAY_MODE,
+} from '@/utils/lyricDisplayMode';
 import ButtonIcon from '@/components/ButtonIcon.vue';
 import { Vibrant } from 'node-vibrant/browser';
 import Color from 'color';
@@ -398,18 +387,60 @@ export default {
       return picUrl ? `${picUrl}?param=512y512` : '';
     },
     isShowLyricTypeSwitch() {
-      return this.romalyric.length > 0 && this.tlyric.length > 0;
+      return (
+        this.settings.showLyricsTranslation === true &&
+        this.lyricDisplayModes.length > 1
+      );
+    },
+    lyricDisplayModes() {
+      return getLyricDisplayModes({
+        hasTranslation: this.tlyric.length > 0,
+        hasPronunciation: this.romalyric.length > 0,
+      });
+    },
+    lyricDisplayModeIcon() {
+      return {
+        [LYRIC_DISPLAY_MODE.TRANSLATION]: '译',
+        [LYRIC_DISPLAY_MODE.PRONUNCIATION]: '音',
+        [LYRIC_DISPLAY_MODE.NONE]: '关',
+      }[this.lyricType];
+    },
+    lyricDisplayModeTitle() {
+      return {
+        [LYRIC_DISPLAY_MODE.TRANSLATION]: 'player.translationLyric',
+        [LYRIC_DISPLAY_MODE.PRONUNCIATION]: 'player.PronunciationLyric',
+        [LYRIC_DISPLAY_MODE.NONE]: 'player.secondaryLyricHidden',
+      }[this.lyricType];
+    },
+    showSecondaryLyric() {
+      return (
+        this.settings.showLyricsTranslation === true &&
+        this.lyricType !== LYRIC_DISPLAY_MODE.NONE
+      );
     },
     desktopLyricsEnabled() {
       return this.settings.enableDesktopLyrics === true;
     },
     desktopLyricsTranslationEnabled() {
-      return this.settings.showLyricsTranslation === true;
+      return this.showSecondaryLyric;
     },
     lyricToShow() {
-      return this.lyricType === 'translation'
-        ? this.lyricWithTranslation
-        : this.lyricWithRomaPronunciation;
+      if (this.lyricType === LYRIC_DISPLAY_MODE.PRONUNCIATION) {
+        return this.lyricWithRomaPronunciation;
+      }
+      if (this.lyricType === LYRIC_DISPLAY_MODE.TRANSLATION) {
+        return this.lyricWithTranslation;
+      }
+      return this.lyricWithoutSecondary;
+    },
+    lyricWithoutSecondary() {
+      return this.lyric
+        .filter(({ content }) => Boolean(content))
+        .map(({ time, content }) => ({
+          time,
+          content,
+          contents: [content],
+        }));
     },
     lyricWithTranslation() {
       let ret = [];
@@ -529,6 +560,9 @@ export default {
     desktopLyricsTranslationEnabled() {
       this.publishDesktopLyrics();
     },
+    lyricType() {
+      this.publishDesktopLyrics();
+    },
   },
   created() {
     this.getLyric();
@@ -633,7 +667,7 @@ export default {
             this.romalyric = [];
             this.lyric = data?.lrc?.length > 0 ? parseLyric(data.lrc) : [];
             this.player.updateMprisLyrics(this.lyric, trackId);
-            this.lyricType = 'translation';
+            this.resetLyricType();
             return true;
           }
         );
@@ -644,6 +678,7 @@ export default {
           this.tlyric = [];
           this.romalyric = [];
           this.player.updateMprisLyrics([], trackId);
+          this.resetLyricType();
           return false;
         } else {
           let { lyric, tlyric, romalyric } = lyricParser(data);
@@ -668,26 +703,27 @@ export default {
             this.tlyric = [];
             this.romalyric = [];
             this.player.updateMprisLyrics([], trackId);
+            this.resetLyricType();
             return false;
           } else {
             this.lyric = lyric;
             this.tlyric = tlyric;
             this.romalyric = romalyric;
             this.player.updateMprisLyrics(this.lyric, trackId);
-            if (tlyric.length * romalyric.length > 0) {
-              this.lyricType = 'translation';
-            } else {
-              this.lyricType =
-                lyric.length > 0 ? 'translation' : 'romaPronunciation';
-            }
+            this.resetLyricType();
             return true;
           }
         }
       });
     },
+    resetLyricType() {
+      this.lyricType = this.lyricDisplayModes[0] || LYRIC_DISPLAY_MODE.NONE;
+    },
     switchLyricType() {
-      this.lyricType =
-        this.lyricType === 'translation' ? 'romaPronunciation' : 'translation';
+      this.lyricType = getNextLyricDisplayMode(
+        this.lyricDisplayModes,
+        this.lyricType
+      );
     },
     formatTrackTime(value) {
       return formatTrackTime(value);
@@ -752,13 +788,17 @@ export default {
     publishDesktopLyrics() {
       if (!this.desktopLyricsEnabled) return;
       const lyric = this.lyric[this.highlightLyricIndex];
-      const translation = lyric
-        ? this.tlyric.find(item => item.rawTime === lyric.rawTime)?.content ||
-          ''
+      const secondaryLyrics =
+        this.lyricType === LYRIC_DISPLAY_MODE.PRONUNCIATION
+          ? this.romalyric
+          : this.tlyric;
+      const secondaryLyric = lyric
+        ? secondaryLyrics.find(item => item.rawTime === lyric.rawTime)
+            ?.content || ''
         : '';
       window.electronAPI?.desktopLyrics?.update({
         line: lyric?.content || '',
-        translation: this.desktopLyricsTranslationEnabled ? translation : '',
+        translation: this.desktopLyricsTranslationEnabled ? secondaryLyric : '',
       });
     },
     clearDesktopLyrics() {
