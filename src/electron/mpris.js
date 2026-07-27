@@ -45,6 +45,7 @@ export class MprisService {
     this.positionUpdatedAt = Date.now();
     this.durationSeconds = 0;
     this.trackPath = null;
+    this.pendingLyrics = null;
     this.stopped = false;
     this.disposed = false;
     this.playerHandlers = [];
@@ -157,6 +158,7 @@ export class MprisService {
     if (!state || typeof state !== 'object' || Array.isArray(state)) return;
 
     if (state.metadata) this.updateMetadata(state.metadata);
+    if (state.lyrics) this.updateLyrics(state.lyrics);
 
     const hasPosition = isFiniteNumber(state.position) && state.position >= 0;
     if (hasPosition) {
@@ -218,7 +220,36 @@ export class MprisService {
     if (typeof artwork === 'string' && artwork) {
       nextMetadata['mpris:artUrl'] = artwork;
     }
+    if (typeof metadata.asText === 'string' && metadata.asText) {
+      nextMetadata['xesam:asText'] = metadata.asText;
+    }
 
+    this.player.metadata = nextMetadata;
+    if (this.pendingLyrics) {
+      const pendingLyrics = this.pendingLyrics;
+      this.pendingLyrics = null;
+      this.updateLyrics(pendingLyrics);
+    }
+  }
+
+  updateLyrics(lyrics) {
+    if (!lyrics || typeof lyrics !== 'object') return;
+
+    const trackPath = this.player.objectPath(
+      `track/${sanitizeTrackId(lyrics.trackId)}`
+    );
+    if (!this.trackPath) {
+      this.pendingLyrics = lyrics;
+      return;
+    }
+    if (trackPath !== this.trackPath) return;
+
+    const nextMetadata = { ...this.player.metadata };
+    if (typeof lyrics.text === 'string' && lyrics.text) {
+      nextMetadata['xesam:asText'] = lyrics.text;
+    } else {
+      delete nextMetadata['xesam:asText'];
+    }
     this.player.metadata = nextMetadata;
   }
 
@@ -230,6 +261,7 @@ export class MprisService {
       this.player.removeListener?.(event, handler);
     }
     this.playerHandlers = [];
+    this.pendingLyrics = null;
   }
 }
 

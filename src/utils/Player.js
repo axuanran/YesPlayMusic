@@ -1384,6 +1384,22 @@ export default class {
     if (isCreateMpris) electronPlayer?.updateMprisState(state);
   }
 
+  updateMprisLyrics(lyrics, trackId = this.currentTrack?.id) {
+    if (!isCreateMpris) return;
+    const text = Array.isArray(lyrics)
+      ? lyrics
+          .map(line => line?.content)
+          .filter(content => typeof content === 'string' && content)
+          .join('\n')
+      : String(lyrics || '');
+    this.updateMprisState({
+      lyrics: {
+        text,
+        trackId,
+      },
+    });
+  }
+
   switchRepeatMode() {
     if (this.repeatMode === 'on') {
       this.repeatMode = 'one';

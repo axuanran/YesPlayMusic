@@ -599,28 +599,30 @@ export default {
     },
     getLyric() {
       if (!this.currentTrack.id) return;
+      const trackId = this.currentTrack.id;
       if (
         this.currentTrack.pc !== null &&
         this.currentTrack.cd === null &&
         this.$store.state.data.user?.userId
       ) {
         //云盘未设置关联的歌曲获取其内置歌词
-        return getCloudLyric(
-          this.currentTrack.id,
-          this.$store.state.data.user?.userId
-        ).then(data => {
-          this.tlyric = [];
-          this.romalyric = [];
-          this.lyric = data?.lrc?.length > 0 ? parseLyric(data.lrc) : [];
-          this.lyricType = 'translation';
-          return true;
-        });
+        return getCloudLyric(trackId, this.$store.state.data.user?.userId).then(
+          data => {
+            this.tlyric = [];
+            this.romalyric = [];
+            this.lyric = data?.lrc?.length > 0 ? parseLyric(data.lrc) : [];
+            this.player.updateMprisLyrics(this.lyric, trackId);
+            this.lyricType = 'translation';
+            return true;
+          }
+        );
       }
-      return getLyric(this.currentTrack.id).then(data => {
+      return getLyric(trackId).then(data => {
         if (!data?.lrc?.lyric) {
           this.lyric = [];
           this.tlyric = [];
           this.romalyric = [];
+          this.player.updateMprisLyrics([], trackId);
           return false;
         } else {
           let { lyric, tlyric, romalyric } = lyricParser(data);
@@ -644,11 +646,13 @@ export default {
             this.lyric = [];
             this.tlyric = [];
             this.romalyric = [];
+            this.player.updateMprisLyrics([], trackId);
             return false;
           } else {
             this.lyric = lyric;
             this.tlyric = tlyric;
             this.romalyric = romalyric;
+            this.player.updateMprisLyrics(this.lyric, trackId);
             if (tlyric.length * romalyric.length > 0) {
               this.lyricType = 'translation';
             } else {

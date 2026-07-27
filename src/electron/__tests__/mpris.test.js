@@ -61,6 +61,7 @@ import { createMpris } from '@/electron/mpris';
 
 const metadata = {
   album: 'Album',
+  asText: 'First line\nSecond line',
   artist: ['Artist A', 'Artist B'],
   artwork: 'https://example.com/cover.jpg',
   length: 180,
@@ -124,11 +125,63 @@ describe('MPRIS service', () => {
       'mpris:length': 180_000_000,
       'mpris:trackid': '/org/mpris/MediaPlayer2/track/42',
       'xesam:album': metadata.album,
+      'xesam:asText': metadata.asText,
       'xesam:artist': metadata.artist,
       'xesam:title': metadata.title,
       'xesam:url': metadata.url,
     });
     expect(player.getPosition()).toBeGreaterThanOrEqual(12_000_000);
+  });
+
+  it('updates lyrics only for the current track', () => {
+    createMpris(window);
+    const player = mocks.players[0];
+    const update = mocks.ipcHandlers.get('mpris:update');
+
+    update({}, { metadata: { ...metadata, asText: '' } });
+    update(
+      {},
+      {
+        lyrics: {
+          text: 'Current lyrics',
+          trackId: metadata.trackId,
+        },
+      }
+    );
+    expect(player.metadata['xesam:asText']).toBe('Current lyrics');
+
+    update(
+      {},
+      {
+        lyrics: {
+          text: 'Stale lyrics',
+          trackId: 'old-track',
+        },
+      }
+    );
+    expect(player.metadata['xesam:asText']).toBe('Current lyrics');
+
+    update({}, { lyrics: { text: '', trackId: metadata.trackId } });
+    expect(player.metadata).not.toHaveProperty('xesam:asText');
+  });
+
+  it('applies lyrics that arrive before the initial metadata', () => {
+    createMpris(window);
+    const player = mocks.players[0];
+    const update = mocks.ipcHandlers.get('mpris:update');
+
+    update(
+      {},
+      {
+        lyrics: {
+          text: 'Early lyrics',
+          trackId: metadata.trackId,
+        },
+      }
+    );
+    update({}, { metadata: { ...metadata, asText: '' } });
+
+    expect(player.metadata['xesam:asText']).toBe('Early lyrics');
   });
 
   it('maps MPRIS controls to explicit renderer commands', () => {
