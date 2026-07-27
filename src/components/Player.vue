@@ -299,7 +299,6 @@ export default {
     },
   },
   mounted() {
-    this.setupMediaControls();
     window.addEventListener('keydown', this.handleKeydown);
     document.addEventListener(
       'pointerdown',
@@ -437,23 +436,6 @@ export default {
     },
     mute() {
       this.player.mute();
-    },
-
-    setupMediaControls() {
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.setActionHandler('play', () => {
-          this.playOrPause();
-        });
-        navigator.mediaSession.setActionHandler('pause', () => {
-          this.playOrPause();
-        });
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-          this.playPrevTrack();
-        });
-        navigator.mediaSession.setActionHandler('nexttrack', () => {
-          this.playNextTrack();
-        });
-      }
     },
 
     handleKeydown(event) {

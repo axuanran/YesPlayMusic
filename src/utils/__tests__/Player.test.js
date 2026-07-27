@@ -9,6 +9,12 @@ const mocks = vi.hoisted(() => ({
   getOuterAudioUrl: vi.fn(trackId => `outer:${trackId}`),
   getTrackSource: vi.fn(),
   isAccountLoggedIn: vi.fn(() => false),
+  mediaSession: {
+    metadata: null,
+    playbackState: 'none',
+    setActionHandler: vi.fn(),
+    setPositionState: vi.fn(),
+  },
   personalFM: vi.fn(() =>
     Promise.resolve({
       data: [{ id: 1001 }, { id: 1002 }],
@@ -134,7 +140,9 @@ function installBrowserGlobals() {
   };
   Object.defineProperty(globalThis, 'navigator', {
     configurable: true,
-    value: {},
+    value: {
+      mediaSession: mocks.mediaSession,
+    },
   });
   Object.defineProperty(globalThis.URL, 'createObjectURL', {
     configurable: true,
@@ -169,6 +177,10 @@ describe('Player audio source flow', () => {
     mocks.getMP3.mockReset();
     mocks.getOuterAudioUrl.mockClear();
     mocks.isAccountLoggedIn.mockReturnValue(false);
+    mocks.mediaSession.metadata = null;
+    mocks.mediaSession.playbackState = 'none';
+    mocks.mediaSession.setActionHandler.mockClear();
+    mocks.mediaSession.setPositionState.mockClear();
   });
 
   it('uses resolver source without touching legacy fallback', async () => {
@@ -235,6 +247,97 @@ describe('Player audio source flow', () => {
     expect(player.playbackRate).toBe(1.5);
     expect(audio.playbackRate).toHaveBeenLastCalledWith(1.5);
     expect(JSON.parse(localStorage.getItem('player'))._playbackRate).toBe(1.5);
+  });
+
+  it('publishes complete SMTC metadata and an accurate timeline', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    const track = {
+      id: 1,
+      name: 'Track',
+      artists: [{ name: 'Artist' }],
+      album: {
+        name: 'Album',
+        picUrl: 'cover.jpg',
+      },
+      duration: 180543,
+    };
+    player._currentTrack = track;
+    player._enabled = true;
+    player._playbackRate = 1.25;
+    audio.currentTime.mockReturnValue(42.375);
+
+    player._updateMediaSessionMetaData(track);
+    player._updateMediaSessionPositionState();
+
+    expect(window.MediaMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Track',
+        artist: 'Artist',
+        album: 'Album',
+        artwork: expect.arrayContaining([
+          expect.objectContaining({
+            sizes: '512x512',
+            type: 'image/jpeg',
+          }),
+        ]),
+      })
+    );
+    expect(mocks.mediaSession.setPositionState).toHaveBeenLastCalledWith({
+      duration: 180.543,
+      playbackRate: 1.25,
+      position: 42.375,
+    });
+
+    player._setPlaying(true);
+    expect(mocks.mediaSession.playbackState).toBe('playing');
+    player._setPlaying(false);
+    expect(mocks.mediaSession.playbackState).toBe('paused');
+  });
+
+  it('registers complete media transport action handlers on a fresh player', async () => {
+    await createPlayer();
+    const actions = mocks.mediaSession.setActionHandler.mock.calls.map(
+      ([action]) => action
+    );
+
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        'play',
+        'pause',
+        'previoustrack',
+        'nexttrack',
+        'stop',
+        'seekto',
+        'seekbackward',
+        'seekforward',
+      ])
+    );
+  });
+
+  it('refreshes the SMTC timeline during playback', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(6000);
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    player._currentTrack = {
+      id: 1,
+      name: 'Track',
+      ar: [{ name: 'Artist' }],
+      al: { name: 'Album' },
+      dt: 180543,
+    };
+    audio.currentTime.mockReturnValue(5.125);
+    mocks.mediaSession.setPositionState.mockClear();
+
+    player._syncProgress();
+
+    expect(mocks.mediaSession.setPositionState).toHaveBeenCalledWith({
+      duration: 180.543,
+      playbackRate: 1,
+      position: 5.125,
+    });
+    vi.useRealTimers();
   });
 
   it('records a track once per load and a playlist once per queue', async () => {

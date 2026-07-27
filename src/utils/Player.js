@@ -14,6 +14,11 @@ import { createActor } from 'xstate';
 import { createPlayerMachine } from '@/player/playerMachine';
 import PlayerResolver, { isCanceledRequest } from '@/player/playerResolver';
 import { normalizePlaybackRate } from '@/utils/playbackRate';
+import {
+  createMediaSessionMetadata,
+  createMediaSessionPositionState,
+  getMediaSessionDuration,
+} from '@/utils/mediaSession';
 const isCreateMpris = isElectron && isLinux;
 
 const PLAY_PAUSE_FADE_DURATION = 200;
@@ -22,6 +27,7 @@ const PROGRESS_UI_INTERVAL = 16;
 const LOW_PERFORMANCE_PROGRESS_UI_INTERVAL = 40;
 const PROGRESS_STORAGE_INTERVAL = 1000;
 const PROGRESS_IMMEDIATE_DELTA = 0.005;
+const MEDIA_SESSION_POSITION_SYNC_INTERVAL = 5000;
 const STALL_RECOVERY_TIMEOUT = 12000;
 const STALL_RECOVERY_MIN_REMAINING = 3;
 
@@ -144,6 +150,7 @@ export default class {
     this._historyRecordedForTrack = false;
     this._playlistHistoryRecorded = false;
     this._lastProgressUiSyncAt = 0;
+    this._lastMediaSessionPositionSyncAt = 0;
     this._progressSyncTimer = null;
     this._progressPersistTimer = null;
     this._playNextList = []; // 当这个list不为空时，会优先播放这个list的歌
@@ -260,6 +267,9 @@ export default class {
       enumerable: false,
     });
     Object.defineProperty(this, '_lastProgressUiSyncAt', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_lastMediaSessionPositionSyncAt', {
       enumerable: false,
     });
     Object.defineProperty(this, '_progressSyncTimer', {
@@ -533,8 +543,8 @@ export default class {
       this._replaceCurrentTrack(this.currentTrackID, false).then(() => {
         this.seek(localStorage.getItem('playerCurrentTrackTime') ?? 0, false);
       }); // update audio source and init audio engine
-      this._initMediaSession();
     }
+    this._initMediaSession();
 
     // 初始化私人FM
     if (
@@ -559,6 +569,8 @@ export default class {
     if (isCreateTray) {
       electronPlayer?.updateTrayPlayState(this._playing);
     }
+    this._updateMediaSessionPlaybackState();
+    this._updateMediaSessionPositionState();
   }
   _syncNativePlaybackState() {
     const isPlaying = this._audio?.playing?.() ?? false;
@@ -603,7 +615,8 @@ export default class {
     const now = Date.now();
     const progressUiInterval = getProgressUiInterval();
     const duration = this.currentTrackDuration;
-    const nextProgress = Math.min(this._audio.currentTime(), duration);
+    const currentTime = this._audio.currentTime();
+    const nextProgress = Math.min(currentTime, duration);
     const progressDelta = Math.abs(nextProgress - (this._progress || 0));
 
     if (
@@ -617,6 +630,13 @@ export default class {
     this._lastProgressUiSyncAt = now;
     this._progress = nextProgress;
     getRuntimeStore()?.commit('bumpPlayerVersion');
+    if (
+      force ||
+      now - this._lastMediaSessionPositionSyncAt >=
+        MEDIA_SESSION_POSITION_SYNC_INTERVAL
+    ) {
+      this._updateMediaSessionPositionState(currentTime);
+    }
 
     if (this._progressSyncTimer === null) {
       this._progressSyncTimer = setTimeout(() => {
@@ -1013,62 +1033,72 @@ export default class {
       });
       navigator.mediaSession.setActionHandler('seekto', event => {
         this.seek(event.seekTime);
-        this._updateMediaSessionPositionState();
       });
       navigator.mediaSession.setActionHandler('seekbackward', event => {
         this.seek(this.seek() - (event.seekOffset || 10));
-        this._updateMediaSessionPositionState();
       });
       navigator.mediaSession.setActionHandler('seekforward', event => {
         this.seek(this.seek() + (event.seekOffset || 10));
-        this._updateMediaSessionPositionState();
       });
+      this._updateMediaSessionPlaybackState();
     }
   }
   _updateMediaSessionMetaData(track) {
-    let artists = track.ar.map(a => a.name);
-    const metadata = {
-      title: track.name,
-      artist: artists.join(','),
-      album: track.al.name,
-      artwork: [
-        {
-          src: track.al.picUrl + '?param=224y224',
-          type: 'image/jpg',
-          sizes: '224x224',
-        },
-        {
-          src: track.al.picUrl + '?param=512y512',
-          type: 'image/jpg',
-          sizes: '512x512',
-        },
-      ],
-      length: this.currentTrackDuration,
-      trackId: track.id,
-      url: `https://music.163.com/song?id=${track.id}`,
-    };
+    const metadata = createMediaSessionMetadata(track);
+    const artists = (track.ar || track.artists || [])
+      .map(artist => artist?.name)
+      .filter(Boolean);
+    const length = getMediaSessionDuration(track);
 
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new window.MediaMetadata(metadata);
+      this._updateMediaSessionPlaybackState();
+      this._updateMediaSessionPositionState(0);
     }
     this.updateMprisState({
       metadata: {
         ...metadata,
         artist: artists,
         artwork: metadata.artwork.at(-1)?.src || '',
+        length,
+        trackId: track.id,
+        url: `https://music.163.com/song?id=${track.id}`,
       },
     });
   }
-  _updateMediaSessionPositionState() {
+  _updateMediaSessionPlaybackState() {
+    if (!('mediaSession' in navigator)) return;
+    try {
+      navigator.mediaSession.playbackState =
+        this._enabled && this._currentTrack?.id
+          ? this._playing
+            ? 'playing'
+            : 'paused'
+          : 'none';
+    } catch {
+      // Older Chromium versions may expose Media Session without this setter.
+    }
+  }
+  _updateMediaSessionPositionState(position = this._audio?.currentTime?.()) {
     if ('mediaSession' in navigator === false) {
       return;
     }
     if ('setPositionState' in navigator.mediaSession) {
-      navigator.mediaSession.setPositionState({
-        duration: ~~(this.currentTrack.dt / 1000),
+      const state = createMediaSessionPositionState({
+        duration: getMediaSessionDuration(this.currentTrack),
         playbackRate: this.playbackRate,
-        position: this.seek(),
+        position: position ?? this._progress,
       });
+      try {
+        if (state) {
+          navigator.mediaSession.setPositionState(state);
+          this._lastMediaSessionPositionSyncAt = Date.now();
+        } else {
+          navigator.mediaSession.setPositionState();
+        }
+      } catch {
+        // Invalid or unsupported position state must not interrupt playback.
+      }
     }
   }
   _nextTrackCallback() {
@@ -1309,6 +1339,9 @@ export default class {
         this._progressSyncTimer = null;
       }
       localStorage.setItem('playerCurrentTrackTime', this._progress);
+      this._updateMediaSessionPositionState(
+        this._audio?.currentTime?.() ?? this._progress
+      );
       if (isCreateMpris && sendMpris) {
         this.updateMprisState({ position: this._progress, seeked: true });
       }
