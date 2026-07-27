@@ -136,6 +136,9 @@ export default {
     translationLyric: 'şarkı sözleri (çeviri)',
     PronunciationLyric: 'şarkı sözleri (çeviri)',
     secondaryLyricHidden: 'İkincil şarkı sözleri gizli',
+    secondaryLyricTranslationShort: 'ÇV',
+    secondaryLyricPronunciationShort: 'TL',
+    secondaryLyricHiddenShort: 'KAP',
   },
   modal: {
     close: 'Kapat',

@@ -204,7 +204,7 @@
                 @click="switchLyricType"
               >
                 <span class="lyric-switch-icon">{{
-                  lyricDisplayModeIcon
+                  $t(lyricDisplayModeLabel)
                 }}</span>
               </button-icon>
             </div>
@@ -398,11 +398,13 @@ export default {
         hasPronunciation: this.romalyric.length > 0,
       });
     },
-    lyricDisplayModeIcon() {
+    lyricDisplayModeLabel() {
       return {
-        [LYRIC_DISPLAY_MODE.TRANSLATION]: '译',
-        [LYRIC_DISPLAY_MODE.PRONUNCIATION]: '音',
-        [LYRIC_DISPLAY_MODE.NONE]: '关',
+        [LYRIC_DISPLAY_MODE.TRANSLATION]:
+          'player.secondaryLyricTranslationShort',
+        [LYRIC_DISPLAY_MODE.PRONUNCIATION]:
+          'player.secondaryLyricPronunciationShort',
+        [LYRIC_DISPLAY_MODE.NONE]: 'player.secondaryLyricHiddenShort',
       }[this.lyricType];
     },
     lyricDisplayModeTitle() {

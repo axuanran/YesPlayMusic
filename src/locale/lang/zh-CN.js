@@ -139,6 +139,9 @@ export default {
     translationLyric: '歌词(译)',
     PronunciationLyric: '歌词(音)',
     secondaryLyricHidden: '副歌词已关闭',
+    secondaryLyricTranslationShort: '译',
+    secondaryLyricPronunciationShort: '音',
+    secondaryLyricHiddenShort: '关',
   },
   modal: {
     close: '关闭',

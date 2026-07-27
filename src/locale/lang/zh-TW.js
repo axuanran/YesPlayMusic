@@ -135,6 +135,9 @@ export default {
     translationLyric: '歌詞(譯)',
     PronunciationLyric: '歌詞(音)',
     secondaryLyricHidden: '副歌詞已關閉',
+    secondaryLyricTranslationShort: '譯',
+    secondaryLyricPronunciationShort: '音',
+    secondaryLyricHiddenShort: '關',
   },
   modal: {
     close: '關閉',
