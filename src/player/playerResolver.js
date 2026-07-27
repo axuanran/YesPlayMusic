@@ -107,7 +107,12 @@ export default class PlayerResolver {
         if (result.data[0].freeTrialInfo !== null) return null;
         const source = result.data[0].url.replace(/^http:/, 'https:');
         if (getRuntimeStore()?.state?.settings?.automaticallyCacheSongs) {
-          cacheTrackSource(track, source, result.data[0].br);
+          cacheTrackSource(track, source, result.data[0].br).catch(error => {
+            console.error(
+              `[track-cache] failed to cache track ${track.id}`,
+              error
+            );
+          });
         }
         return source;
       })

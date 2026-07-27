@@ -264,6 +264,12 @@ export default {
     },
     automaticallyCacheSongs: 'Müzikleri otomatik çerezle',
     clearSongsCache: 'Müzik çerezlerini temizle',
+    clearAllDiskCache: 'Tüm disk önbelleklerini temizle',
+    clearingCache: 'Önbellekler temizleniyor…',
+    cacheClearSuccess: 'Önbellekler temizlendi: {before} → {after}',
+    cacheClearFailed: 'Önbellekler temizlenemedi: {error}',
+    cacheLimitApplyFailed:
+      'Önbellek sınırı uygulanamadı; günlükleri kontrol edin',
     cacheCount: 'Çerezlenen {song} Müzikler ({size})',
     showLyricsTranslation: 'Müzik sözlerinin çevirilerini göster',
     showPlaylistsByAppleMusic: "Apple Music'in Çalma Listelerini Göster",

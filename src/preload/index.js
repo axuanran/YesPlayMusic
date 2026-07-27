@@ -149,6 +149,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getTracks: query => ipcRenderer.invoke('streaming:tracks', query),
     getTrack: trackId => ipcRenderer.invoke('streaming:get-track', trackId),
   },
+  cache: {
+    clearDiskCache: () => ipcRenderer.invoke('cache:clear-disk'),
+  },
   desktopLyrics: {
     update: payload => sendObject('desktop-lyrics:update', payload),
     onUpdate: callback => on('desktop-lyrics:render', callback),

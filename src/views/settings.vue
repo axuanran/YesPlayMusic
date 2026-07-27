@@ -199,8 +199,12 @@
           >
         </div>
         <div class="right">
-          <button @click="clearCache()">
-            {{ $t('settings.clearSongsCache') }}
+          <button :disabled="clearingCache" @click="clearCache()">
+            {{
+              clearingCache
+                ? $t('settings.clearingCache')
+                : $t('settings.clearAllDiskCache')
+            }}
           </button>
         </div>
       </div>
@@ -763,7 +767,12 @@ import {
   changeThemeColor,
   bytesToSize,
 } from '@/utils/common';
-import { countDBSize, clearDB } from '@/utils/db';
+import {
+  clearAllDiskCache,
+  clearDB,
+  countDBSize,
+  enforceTrackCacheLimit,
+} from '@/utils/db';
 import { getResolverConfig, updateResolverConfig } from '@/api/audioResolver';
 import pkg from '../../package.json';
 import { isElectron } from '@/utils/env';
@@ -845,6 +854,7 @@ export default {
         size: '0KB',
         length: 0,
       },
+      clearingCache: false,
       allOutputDevices: [
         {
           deviceId: 'default',
@@ -1081,7 +1091,18 @@ export default {
     },
     enableGlobalShortcut: setting('enableGlobalShortcut'),
     showLibraryDefault: setting('showLibraryDefault', false),
-    cacheLimit: setting('cacheLimit', false),
+    cacheLimit: {
+      get() {
+        return this.settings.cacheLimit ?? false;
+      },
+      set(value) {
+        this.$store.commit('updateSettings', {
+          key: 'cacheLimit',
+          value,
+        });
+        this.applyCacheLimit(value);
+      },
+    },
     proxyProtocol: {
       get() {
         return this.settings.proxyConfig?.protocol || 'noProxy';
@@ -1176,23 +1197,70 @@ export default {
       doLogout();
       this.$router.push({ name: 'home' });
     },
-    countDBSize() {
-      countDBSize().then(data => {
-        if (data === undefined) {
-          this.tracksCache = {
-            size: '0KB',
-            length: 0,
-          };
-          return;
-        }
-        this.tracksCache.size = bytesToSize(data.bytes);
-        this.tracksCache.length = data.length;
-      });
+    updateTracksCache(data) {
+      this.tracksCache = {
+        size: bytesToSize(data?.bytes || 0),
+        length: data?.length || 0,
+      };
     },
-    clearCache() {
-      clearDB().then(() => {
-        this.countDBSize();
-      });
+    async countDBSize() {
+      try {
+        this.updateTracksCache(await countDBSize());
+      } catch (error) {
+        console.error('[track-cache] failed to count cache', error);
+      }
+    },
+    async applyCacheLimit(limitMiB) {
+      try {
+        const before = await countDBSize();
+        const after = await enforceTrackCacheLimit(limitMiB);
+        this.updateTracksCache(after);
+        console.info(
+          `[track-cache] limit applied: ${before.bytes} -> ` +
+            `${after.bytes} logical bytes; removed ${after.deleted} tracks`
+        );
+      } catch (error) {
+        console.error('[track-cache] failed to apply cache limit', error);
+        this.showToast(this.$t('settings.cacheLimitApplyFailed'));
+      }
+    },
+    async clearCache() {
+      if (this.clearingCache) return;
+      this.clearingCache = true;
+
+      try {
+        const before = await countDBSize();
+        const diskCacheApi = window.electronAPI?.cache;
+        const shouldClearDiskCache = Boolean(diskCacheApi?.clearDiskCache);
+
+        if (shouldClearDiskCache) {
+          await clearAllDiskCache(() => diskCacheApi.clearDiskCache());
+        } else {
+          await clearDB();
+        }
+
+        const after = await countDBSize();
+        this.updateTracksCache(after);
+        console.info(
+          `[track-cache] manual clear: ${before.bytes} -> ` +
+            `${after.bytes} logical bytes`
+        );
+        this.showToast(
+          this.$t('settings.cacheClearSuccess', {
+            before: bytesToSize(before.bytes),
+            after: bytesToSize(after.bytes),
+          })
+        );
+      } catch (error) {
+        console.error('[track-cache] manual clear failed', error);
+        this.showToast(
+          this.$t('settings.cacheClearFailed', {
+            error: error?.message || String(error),
+          })
+        );
+      } finally {
+        this.clearingCache = false;
+      }
     },
     isPluginEnabled(plugin) {
       const saved = this.settings.plugins?.[plugin.id];

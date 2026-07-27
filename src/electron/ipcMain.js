@@ -17,6 +17,7 @@ import {
   getDiscordProgressTimestamps,
   shouldShowDiscordStatus,
 } from './discordPresence.js';
+import { clearSessionDiskCache } from './cache.js';
 
 const clc = require('cli-color');
 const log = text => {
@@ -170,6 +171,9 @@ export function initIpcMain(
   win.webContents.on('did-finish-load', publishDiscordStatus);
   ipcMain.handle('discord:get-status', () =>
     shouldShowDiscordStatus(discordConnected, discordPresenceEnabled)
+  );
+  ipcMain.handle('cache:clear-disk', () =>
+    clearSessionDiskCache(win.webContents.session, win.webContents.getURL())
   );
 
   ipcMain.handle('local-music:list', () => localMusicService?.list() || []);

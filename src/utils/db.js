@@ -2,6 +2,7 @@ import axios from 'axios';
 import Dexie from 'dexie';
 import store from '@/store';
 import { isElectron } from '@/utils/env';
+import { createTrackCacheManager } from '@/utils/trackCacheManager';
 // import pkg from "../../package.json";
 
 const db = new Dexie('yesplaymusic');
@@ -29,7 +30,15 @@ db.version(1).stores({
   trackSources: '&id',
 });
 
-let tracksCacheBytes = 0;
+const logCacheError = (operation, error) => {
+  console.error(`[track-cache] ${operation} failed`, error);
+};
+
+const trackCacheManager = createTrackCacheManager({
+  table: db.trackSources,
+  getCacheLimit: () => store.state?.settings?.cacheLimit ?? false,
+  onError: logCacheError,
+});
 
 // 等待 settings 可用
 async function waitForSettingsReady(timeoutMs = 5000) {
@@ -53,34 +62,22 @@ async function initTracksCacheBytes() {
   if (!isElectron) return;
   try {
     await waitForSettingsReady();
-    const all = await db.trackSources.toArray();
-    tracksCacheBytes = all.reduce(
-      (sum, t) => sum + (t?.source?.byteLength || 0),
-      0
-    );
-    deleteExcessCache();
-  } catch {
-    // ignore cache warmup errors
+    const result = await trackCacheManager.initialize();
+    if (result.deleted > 0) {
+      console.info(
+        `[track-cache] startup eviction removed ${result.deleted} tracks; ` +
+          `${result.bytes} logical bytes remain`
+      );
+    }
+  } catch (error) {
+    logCacheError('startup initialization', error);
   }
 }
 
 setTimeout(initTracksCacheBytes, 0);
 
-async function deleteExcessCache() {
-  if (
-    store.state.settings.cacheLimit === false ||
-    tracksCacheBytes < store.state.settings.cacheLimit * Math.pow(1024, 2)
-  ) {
-    return;
-  }
-  try {
-    const delCache = await db.trackSources.orderBy('createTime').first();
-    await db.trackSources.delete(delCache.id);
-    tracksCacheBytes -= delCache.source.byteLength;
-    deleteExcessCache();
-  } catch {
-    // ignore cache eviction errors
-  }
+export function enforceTrackCacheLimit(limitMiB) {
+  return trackCacheManager.enforceLimit(limitMiB);
 }
 
 export function cacheTrackSource(trackInfo, url, bitRate, from = 'netease') {
@@ -94,15 +91,20 @@ export function cacheTrackSource(trackInfo, url, bitRate, from = 'netease') {
   if (cover.slice(0, 5) !== 'https') {
     cover = 'https' + cover.slice(4);
   }
-  axios.get(`${cover}?param=512y512`);
-  axios.get(`${cover}?param=224y224`);
-  axios.get(`${cover}?param=1024y1024`);
+  const cacheCover = size => {
+    axios.get(`${cover}?param=${size}y${size}`).catch(error => {
+      logCacheError(`cover ${size}px request`, error);
+    });
+  };
+  cacheCover(512);
+  cacheCover(224);
+  cacheCover(1024);
   return axios
     .get(url, {
       responseType: 'arraybuffer',
     })
-    .then(response => {
-      db.trackSources.put({
+    .then(async response => {
+      await trackCacheManager.put({
         id: trackInfo.id,
         source: response.data,
         bitRate,
@@ -111,8 +113,6 @@ export function cacheTrackSource(trackInfo, url, bitRate, from = 'netease') {
         artist,
         createTime: new Date().getTime(),
       });
-      tracksCacheBytes += response.data.byteLength;
-      deleteExcessCache();
       return { trackID: trackInfo.id, source: response.data, bitRate };
     });
 }
@@ -184,26 +184,17 @@ export function getAlbumFromCache(id) {
 }
 
 export function countDBSize() {
-  const trackSizes = [];
-  return db.trackSources
-    .each(track => {
-      trackSizes.push(track.source.byteLength);
-    })
-    .then(() => {
-      const res = {
-        bytes: trackSizes.reduce((s1, s2) => s1 + s2, 0),
-        length: trackSizes.length,
-      };
-      tracksCacheBytes = res.bytes;
-      return res;
-    });
+  return trackCacheManager.count();
 }
 
 export function clearDB() {
-  return new Promise(resolve => {
-    db.tables.forEach(function (table) {
-      table.clear();
-    });
-    resolve();
+  return trackCacheManager.clearAll(db.tables);
+}
+
+export function clearAllDiskCache(clearDiskCache) {
+  return trackCacheManager.clearAllDiskCache(db.tables, {
+    closeDatabase: () => db.close(),
+    clearDiskCache,
+    openDatabase: () => db.open(),
   });
 }
