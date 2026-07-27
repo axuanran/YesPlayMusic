@@ -13,6 +13,10 @@ import shortcuts, { normalizeShortcuts } from '@/utils/shortcuts';
 import { createMenu } from './menu';
 import { isCreateTray, isMac } from '@/utils/platform';
 import { updateWindowShadow } from './windowAppearance.js';
+import {
+  getDiscordProgressTimestamps,
+  shouldShowDiscordStatus,
+} from './discordPresence.js';
 
 const clc = require('cli-color');
 const log = text => {
@@ -83,7 +87,33 @@ const exitAskWithoutMac = (e, win) => {
 
 const client = require('discord-rich-presence')('818936529484906596');
 
+const DISCORD_STATUS_CHANNEL = 'discord:status';
+let discordConnected = false;
+let discordPresenceEnabled = false;
+let discordStatusWindow = null;
+
+const publishDiscordStatus = () => {
+  if (
+    !discordStatusWindow ||
+    discordStatusWindow.isDestroyed?.() ||
+    discordStatusWindow.webContents?.isDestroyed?.()
+  ) {
+    return;
+  }
+  discordStatusWindow.webContents.send(
+    DISCORD_STATUS_CHANNEL,
+    shouldShowDiscordStatus(discordConnected, discordPresenceEnabled)
+  );
+};
+
+client.on('connected', () => {
+  discordConnected = true;
+  publishDiscordStatus();
+});
+
 client.on('error', err => {
+  discordConnected = false;
+  publishDiscordStatus();
   const errorMessage = err instanceof Error ? err.message : `${err}`;
   log(`discord rich presence unavailable: ${errorMessage}`);
 });
@@ -102,6 +132,16 @@ const isRecord = value =>
 
 const isNonEmptyString = value => typeof value === 'string' && value.length > 0;
 
+const isFiniteNumberInRange = (
+  value,
+  min = Number.NEGATIVE_INFINITY,
+  max = Number.POSITIVE_INFINITY
+) =>
+  typeof value === 'number' &&
+  Number.isFinite(value) &&
+  value >= min &&
+  value <= max;
+
 const isValidProxyConfig = config =>
   isRecord(config) &&
   ['http', 'https', 'socks4', 'socks5'].includes(config.protocol) &&
@@ -117,6 +157,14 @@ const getNeteaseCookieString = async loginSession => {
 };
 
 export function initIpcMain(win, store, trayEventEmitter) {
+  discordStatusWindow = win;
+  discordPresenceEnabled =
+    store.get('settings.enableDiscordRichPresence') === true;
+  win.webContents.on('did-finish-load', publishDiscordStatus);
+  ipcMain.handle('discord:get-status', () =>
+    shouldShowDiscordStatus(discordConnected, discordPresenceEnabled)
+  );
+
   ipcMain.handle('open-netease-web-login', async () => {
     const loginSession = session.fromPartition('persist:netease-web-login');
     const existingCookieString = await getNeteaseCookieString(loginSession);
@@ -274,18 +322,33 @@ export function initIpcMain(win, store, trayEventEmitter) {
   ipcMain.on('settings', (event, options) => {
     if (!isRecord(options)) return;
     store.set('settings', options);
+    discordPresenceEnabled = options.enableDiscordRichPresence === true;
+    publishDiscordStatus();
     updateWindowShadow(win, options);
     registerGlobalShortcuts(win, store);
   });
 
-  ipcMain.on('playDiscordPresence', (event, track) => {
+  ipcMain.on('playDiscordPresence', (event, payload) => {
+    const track = isRecord(payload?.track) ? payload.track : payload;
     if (!isRecord(track) || !Array.isArray(track.ar) || !isRecord(track.al)) {
       return;
     }
+    const position = isFiniteNumberInRange(payload?.position, 0)
+      ? payload.position
+      : 0;
+    const playbackRate = isFiniteNumberInRange(payload?.playbackRate, 0.5, 2)
+      ? payload.playbackRate
+      : 1;
+    const { endTimestamp, startTimestamp } = getDiscordProgressTimestamps({
+      durationMs: track.dt,
+      playbackRate,
+      positionSeconds: position,
+    });
     updateDiscordPresence({
       details: track.name + ' - ' + track.ar.map(ar => ar.name).join(','),
       state: track.al.name,
-      endTimestamp: Date.now() + track.dt,
+      startTimestamp,
+      endTimestamp,
       largeImageKey: track.al.picUrl,
       largeImageText: 'Listening ' + track.name,
       smallImageKey: 'play',

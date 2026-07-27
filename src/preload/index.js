@@ -134,6 +134,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     player: payload => sendObject('player', payload),
   },
   appEvents: {
+    getDiscordStatus: () => ipcRenderer.invoke('discord:get-status'),
+    onDiscordStatus: callback => on('discord:status', callback),
     onChangeRouteTo: callback => on('changeRouteTo', callback),
     onSearch: callback => on('search', callback),
     onPlay: callback => on('play', callback),

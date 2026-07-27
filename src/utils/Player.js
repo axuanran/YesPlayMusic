@@ -395,6 +395,9 @@ export default class {
     this._playbackRate = normalizePlaybackRate(value);
     this._audio?.playbackRate(this._playbackRate);
     if (this._enabled) this._updateMediaSessionPositionState();
+    if (this._playing) {
+      this._playDiscordPresence(this._currentTrack, this.seek(null, false));
+    }
     this.updateMprisState({ rate: this._playbackRate });
     this.persist();
   }
@@ -466,6 +469,12 @@ export default class {
     if (this._audio) {
       this._audio.seek(value);
       this._syncProgress();
+      if (this._playing) {
+        this._playDiscordPresence(
+          this._currentTrack,
+          this._audio.currentTime()
+        );
+      }
       if (isCreateMpris) {
         this.updateMprisState({
           position: this._audio.currentTime(),
@@ -1074,9 +1083,11 @@ export default class {
   }
   _playDiscordPresence(track, seekTime = 0) {
     if (!this._canDiscordPresence()) return null;
-    let copyTrack = { ...track };
-    copyTrack.dt -= seekTime * 1000;
-    electronPlayer?.playDiscordPresence(copyTrack);
+    electronPlayer?.playDiscordPresence({
+      playbackRate: this.playbackRate,
+      position: seekTime,
+      track,
+    });
   }
   _pauseDiscordPresence(track) {
     if (!this._canDiscordPresence()) return null;

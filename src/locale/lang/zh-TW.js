@@ -106,6 +106,7 @@ export default {
   },
   player: {
     addToPlaylist: '收藏至歌單',
+    discordConnected: 'Discord 狀態已連線',
     like: '喜歡',
     unlike: '取消喜歡',
     previous: '上一首',

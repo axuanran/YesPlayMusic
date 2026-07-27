@@ -107,6 +107,7 @@ export default {
   },
   player: {
     addToPlaylist: 'Çalma listesine ekle',
+    discordConnected: 'Discord Rich Presence bağlı',
     like: 'Beğen',
     unlike: 'Aksine',
     previous: 'Önceki Müzik',

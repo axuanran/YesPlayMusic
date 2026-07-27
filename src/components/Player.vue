@@ -8,6 +8,14 @@
       }"
       @click.stop
     >
+      <div
+        v-if="discordConnected"
+        class="discord-status"
+        :title="$t('player.discordConnected')"
+      >
+        <span></span>
+        Discord
+      </div>
       <input
         class="progress-range"
         type="range"
@@ -236,6 +244,8 @@ export default {
       isProgressDragging: false,
       localProgress: 0,
       playbackRates: PLAYBACK_RATES,
+      discordConnected: false,
+      removeDiscordStatusListener: null,
     };
   },
   computed: {
@@ -295,6 +305,18 @@ export default {
       'pointerdown',
       this.closePlaybackRateOnOutsideClick
     );
+    this.removeDiscordStatusListener =
+      window.electronAPI?.appEvents?.onDiscordStatus?.(connected => {
+        this.discordConnected = connected === true;
+      }) || null;
+    window.electronAPI?.appEvents
+      ?.getDiscordStatus?.()
+      .then(connected => {
+        this.discordConnected = connected === true;
+      })
+      .catch(() => {
+        this.discordConnected = false;
+      });
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
@@ -302,6 +324,7 @@ export default {
       'pointerdown',
       this.closePlaybackRateOnOutsideClick
     );
+    this.removeDiscordStatusListener?.();
   },
   methods: {
     ...mapMutations(['toggleLyrics', 'updateModal']),
@@ -485,6 +508,32 @@ export default {
   height: 14px;
   display: flex;
   align-items: center;
+  position: relative;
+}
+
+.discord-status {
+  position: absolute;
+  right: 12px;
+  top: 0;
+  z-index: 2;
+  height: 14px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 7px;
+  color: var(--color-text);
+  background: var(--color-navbar-bg);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #23a55a;
+  }
 }
 
 .progress-range {

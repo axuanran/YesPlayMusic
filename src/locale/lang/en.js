@@ -110,6 +110,7 @@ export default {
   },
   player: {
     addToPlaylist: 'Add to playlist',
+    discordConnected: 'Discord Rich Presence connected',
     like: 'Like',
     unlike: 'Unlike',
     previous: 'Previous Song',
