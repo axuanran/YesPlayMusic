@@ -14,6 +14,8 @@
         :always-show-play-button="showPlayButton"
         :image-loading="getImageLoading(index)"
         :image-fetch-priority="getImageFetchPriority(index)"
+        :route="getItemRoute(item)"
+        :play-action="getItemPlayAction(item)"
       />
       <div class="text">
         <div v-if="showPlayCount" class="info">
@@ -41,6 +43,7 @@
 <script>
 import Cover from '@/components/Cover.vue';
 import ExplicitSymbol from '@/components/ExplicitSymbol.vue';
+import { createSizedCoverUrl } from '@/utils/coverImageUrl';
 
 const ROW_COVER_IMAGE_SIZE = 320;
 
@@ -62,6 +65,8 @@ export default {
     showPlayButton: { type: Boolean, default: true },
     imageSize: { type: Number, default: ROW_COVER_IMAGE_SIZE },
     eager: { type: Boolean, default: false },
+    itemRoute: { type: Function, default: null },
+    itemPlayAction: { type: Function, default: null },
   },
   computed: {
     rowStyles() {
@@ -117,7 +122,18 @@ export default {
       return this.type === 'album' && (item.mark & 1048576) === 1048576;
     },
     getTitleLink(item) {
+      if (this.itemRoute) {
+        const route = this.itemRoute(item);
+        if (route) return route;
+      }
       return `/${this.type}/${item.id}`;
+    },
+    getItemRoute(item) {
+      return this.itemRoute?.(item) || null;
+    },
+    getItemPlayAction(item) {
+      if (!this.itemPlayAction) return null;
+      return () => this.itemPlayAction(item);
     },
     getImageUrl(item) {
       if (item.img1v1Url) {
@@ -129,7 +145,7 @@ export default {
         }
       }
       let img = item.img1v1Url || item.picUrl || item.coverImgUrl;
-      return `${img?.replace('http://', 'https://')}?param=${this.resolvedImageSize}y${this.resolvedImageSize}`;
+      return createSizedCoverUrl(img, this.resolvedImageSize);
     },
   },
 };

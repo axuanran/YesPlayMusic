@@ -7,6 +7,7 @@ import {
   cacheLyric,
   getLyricFromCache,
 } from '@/utils/db';
+import { toNumericDatabaseKey } from '@/utils/dbCacheKey';
 
 /**
  * 获取音乐 url
@@ -16,7 +17,8 @@ import {
  */
 export function getMP3(id, options = {}) {
   const getBr = () => {
-    const quality = store.state.settings?.musicQuality ?? 'exhigh';
+    const quality =
+      options.quality ?? store.state.settings?.musicQuality ?? 'exhigh';
     switch (quality) {
       case 'standard':
         return '128000';
@@ -90,22 +92,24 @@ export function getTrackDetail(ids, options = {}) {
  * @param {number} id - 音乐 id
  */
 export function getLyric(id) {
+  const lyricId = toNumericDatabaseKey(id);
+  if (lyricId === null) return Promise.resolve(undefined);
   const fetchLatest = () => {
     return request({
       url: '/lyric',
       method: 'get',
       params: {
-        id,
+        id: lyricId,
       },
     }).then(result => {
-      cacheLyric(id, result);
+      cacheLyric(lyricId, result);
       return result;
     });
   };
 
-  fetchLatest();
+  void fetchLatest().catch(() => undefined);
 
-  return getLyricFromCache(id).then(result => {
+  return getLyricFromCache(lyricId).then(result => {
     return result ?? fetchLatest();
   });
 }

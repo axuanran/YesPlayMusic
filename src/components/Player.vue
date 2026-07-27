@@ -9,12 +9,13 @@
       @click.stop
     >
       <div
-        v-if="discordConnected"
+        v-if="showDiscordStatus"
         class="discord-status"
-        :title="$t('player.discordConnected')"
+        :class="{ disconnected: !discordConnected }"
+        :title="$t(discordStatusLocaleKey)"
       >
         <span></span>
-        Discord
+        Discord · {{ $t(discordStatusLocaleKey) }}
       </div>
       <input
         class="progress-range"
@@ -166,7 +167,11 @@
             @click="switchReversed"
             ><svg-icon icon-class="sort-up"
           /></button-icon>
-          <details ref="playbackRateControl" class="playback-rate-control">
+          <details
+            v-if="settings.showPlaybackRateControl"
+            ref="playbackRateControl"
+            class="playback-rate-control"
+          >
             <summary :title="$t('player.playbackRate')">
               {{ playbackRate }}×
             </summary>
@@ -212,6 +217,15 @@
           </div>
 
           <button-icon
+            v-if="isElectron"
+            :class="{ active: desktopLyricsVisible }"
+            title="桌面歌词"
+            style="margin-left: 12px"
+            @click="toggleDesktopLyrics"
+          >
+            <svg-icon icon-class="desktop-lyrics" />
+          </button-icon>
+          <button-icon
             class="lyrics-button"
             title="歌词"
             style="margin-left: 12px"
@@ -235,6 +249,8 @@ import { isAccountLoggedIn } from '@/utils/auth';
 import locale from '@/locale';
 import { PLAYBACK_RATES } from '@/utils/playbackRate';
 import { getWheelAdjustedVolume } from '@/utils/volume';
+import { isElectron } from '@/utils/env';
+import { amllWsProtocol } from '@/utils/amllWsProtocol';
 
 export default {
   name: 'Player',
@@ -250,6 +266,8 @@ export default {
       playbackRates: PLAYBACK_RATES,
       discordConnected: false,
       removeDiscordStatusListener: null,
+      amllProgressTimer: null,
+      isElectron,
     };
   },
   computed: {
@@ -306,6 +324,59 @@ export default {
         Boolean(this.currentTrack?.id)
       );
     },
+    desktopLyricsVisible() {
+      const value = this.settings.desktopLyrics;
+      return value?.enabled === true && value?.visible === true;
+    },
+    showDiscordStatus() {
+      return (
+        this.isElectron && this.settings.enableDiscordRichPresence === true
+      );
+    },
+    discordStatusLocaleKey() {
+      return this.discordConnected
+        ? 'player.discordConnected'
+        : 'player.discordDisconnected';
+    },
+    amllEnabled() {
+      return this.isElectron && this.settings.enableAmllWsProtocol === true;
+    },
+    amllTrackSignature() {
+      void this.playerVersion;
+      const track = this.player.currentTrack;
+      return JSON.stringify({
+        id: track?.id ?? '',
+        name: track?.name ?? '',
+        duration: track?.dt ?? 0,
+        albumId: track?.al?.id ?? '',
+        albumName: track?.al?.name ?? '',
+        cover: track?.al?.picUrl ?? '',
+        artists: (track?.ar || []).map(artist => [
+          artist?.id ?? '',
+          artist?.name ?? '',
+        ]),
+      });
+    },
+    amllPlaybackSignature() {
+      void this.playerVersion;
+      return [
+        this.player.playing,
+        this.player.volume,
+        this.player.repeatMode,
+        this.player.shuffle,
+      ].join(':');
+    },
+  },
+  watch: {
+    amllEnabled(enabled) {
+      this.configureAmll(enabled);
+    },
+    amllTrackSignature() {
+      this.publishAmllTrack();
+    },
+    amllPlaybackSignature() {
+      this.publishAmllPlayback();
+    },
   },
   mounted() {
     window.addEventListener('keydown', this.handleKeydown);
@@ -315,16 +386,15 @@ export default {
     );
     this.removeDiscordStatusListener =
       window.electronAPI?.appEvents?.onDiscordStatus?.(connected => {
-        this.discordConnected = connected === true;
+        this.updateDiscordStatus(connected);
       }) || null;
     window.electronAPI?.appEvents
       ?.getDiscordStatus?.()
-      .then(connected => {
-        this.discordConnected = connected === true;
-      })
+      .then(this.updateDiscordStatus)
       .catch(() => {
         this.discordConnected = false;
       });
+    this.configureAmll(this.amllEnabled);
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
@@ -333,6 +403,9 @@ export default {
       this.closePlaybackRateOnOutsideClick
     );
     this.removeDiscordStatusListener?.();
+    clearInterval(this.amllProgressTimer);
+    this.amllProgressTimer = null;
+    amllWsProtocol.disable();
   },
   methods: {
     ...mapMutations(['toggleLyrics', 'updateModal']),
@@ -340,6 +413,116 @@ export default {
     handleClick(event) {
       if (event.target == this.mouseDownTarget) {
         this.toggleLyrics();
+      }
+    },
+    toggleDesktopLyrics() {
+      window.electronAPI?.desktopLyrics?.toggle();
+    },
+    updateDiscordStatus(status) {
+      this.discordConnected =
+        status === true ||
+        (status && typeof status === 'object' && status.connected === true);
+    },
+    configureAmll(enabled) {
+      clearInterval(this.amllProgressTimer);
+      this.amllProgressTimer = null;
+      if (!enabled) {
+        amllWsProtocol.disable();
+        return;
+      }
+
+      amllWsProtocol.enable(command => this.handleAmllCommand(command));
+      this.publishAmllTrack();
+      this.publishAmllPlayback();
+      this.publishAmllProgress();
+      this.amllProgressTimer = setInterval(
+        () => this.publishAmllProgress(),
+        500
+      );
+    },
+    publishAmllTrack() {
+      if (!this.amllEnabled) return;
+      const track = this.player.currentTrack;
+      if (!track?.id) return;
+      amllWsProtocol.publish({
+        update: 'setMusic',
+        musicId: String(track.id),
+        musicName: String(track.name || ''),
+        albumId: String(track.al?.id ?? ''),
+        albumName: String(track.al?.name || ''),
+        artists: (track.ar || []).map(artist => ({
+          id: String(artist?.id ?? ''),
+          name: String(artist?.name || ''),
+        })),
+        duration: Math.max(
+          0,
+          Number(track.dt) || this.player.currentTrackDuration * 1000 || 0
+        ),
+      });
+      amllWsProtocol.publish({
+        update: 'setCover',
+        source: 'uri',
+        url: String(track.al?.picUrl || ''),
+      });
+      amllWsProtocol.publish({
+        update: 'setLyric',
+        format: 'structured',
+        lines: [],
+      });
+      this.publishAmllProgress();
+    },
+    publishAmllPlayback() {
+      if (!this.amllEnabled) return;
+      amllWsProtocol.publish({
+        update: 'volume',
+        volume: Math.min(1, Math.max(0, Number(this.player.volume) || 0)),
+      });
+      amllWsProtocol.publish({
+        update: this.player.playing ? 'resumed' : 'paused',
+      });
+      amllWsProtocol.publish({
+        update: 'modeChanged',
+        repeat:
+          this.player.repeatMode === 'on' ? 'all' : this.player.repeatMode,
+        shuffle: this.player.shuffle === true,
+      });
+    },
+    publishAmllProgress() {
+      if (!this.amllEnabled) return;
+      const progress = this.player.seek(null, false);
+      amllWsProtocol.publish({
+        update: 'progress',
+        progress: Math.max(0, Math.round((Number(progress) || 0) * 1000)),
+      });
+    },
+    handleAmllCommand(command) {
+      switch (command.command) {
+        case 'pause':
+          this.player.pause();
+          break;
+        case 'resume':
+          this.player.play();
+          break;
+        case 'forwardSong':
+          this.playNextTrack();
+          break;
+        case 'backwardSong':
+          this.player.playPrevTrack();
+          break;
+        case 'setVolume':
+          this.player.volume = command.volume;
+          break;
+        case 'seekPlayProgress':
+          this.player.seek(command.progress / 1000);
+          break;
+        case 'setRepeatMode':
+          this.player.repeatMode = command.mode === 'all' ? 'on' : command.mode;
+          break;
+        case 'setShuffleMode':
+          this.player.shuffle = command.enabled;
+          break;
+        default:
+          break;
       }
     },
     handleMouseDown(event) {
@@ -533,6 +716,9 @@ export default {
     height: 5px;
     border-radius: 50%;
     background: #23a55a;
+  }
+  &.disconnected span {
+    background: #80848e;
   }
 }
 

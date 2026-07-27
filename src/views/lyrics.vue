@@ -200,6 +200,7 @@
               </button-icon>
               <button-icon
                 v-show="isShowLyricTypeSwitch"
+                class="lyric-display-switch"
                 :title="$t(lyricDisplayModeTitle)"
                 @click="switchLyricType"
               >
@@ -309,7 +310,12 @@ import VueSlider from 'vue-slider-component';
 import ContextMenu from '@/components/ContextMenu.vue';
 import { formatTrackTime } from '@/utils/common';
 import { getLyric, getCloudLyric } from '@/api/track';
+import { search } from '@/api/others';
 import { lyricParser, copyLyric, parseLyric } from '@/utils/lyrics';
+import {
+  createLocalLyricSearchKeywords,
+  rankLocalLyricMatches,
+} from '@/utils/localLyricsMatcher';
 import {
   getLyricDisplayModes,
   getNextLyricDisplayMode,
@@ -322,6 +328,7 @@ import { isAccountLoggedIn } from '@/utils/auth';
 import { hasListSource, getListSourcePath } from '@/utils/playList';
 import locale from '@/locale';
 import { getWheelAdjustedVolume } from '@/utils/volume';
+import { amllWsProtocol } from '@/utils/amllWsProtocol';
 
 export default {
   name: 'Lyrics',
@@ -422,10 +429,23 @@ export default {
       );
     },
     desktopLyricsEnabled() {
-      return this.settings.enableDesktopLyrics === true;
+      return (
+        this.settings.desktopLyrics?.enabled === true ||
+        this.settings.enableDesktopLyrics === true
+      );
+    },
+    desktopLyricsPlayerState() {
+      void this.playerVersion;
+      return `${this.player.playing}:${this.player.volume}`;
     },
     desktopLyricsTranslationEnabled() {
       return this.showSecondaryLyric;
+    },
+    autoMatchLocalLyrics() {
+      return this.settings.autoMatchLocalLyrics === true;
+    },
+    amllEnabled() {
+      return this.settings.enableAmllWsProtocol === true;
     },
     lyricToShow() {
       if (this.lyricType === LYRIC_DISPLAY_MODE.PRONUNCIATION) {
@@ -566,6 +586,15 @@ export default {
     lyricType() {
       this.publishDesktopLyrics();
     },
+    desktopLyricsPlayerState() {
+      this.publishDesktopLyrics();
+    },
+    autoMatchLocalLyrics() {
+      if (this.currentTrack?.local) this.getLyric();
+    },
+    amllEnabled(enabled) {
+      if (enabled) this.publishAmllLyrics();
+    },
   },
   created() {
     this.getLyric();
@@ -656,8 +685,11 @@ export default {
       }
     },
     getLyric() {
-      if (!this.currentTrack.id) return;
+      if (!this.currentTrack?.id) return;
       const trackId = this.currentTrack.id;
+      if (this.currentTrack.local) return this.getLocalMusicLyric(trackId);
+      if (this.currentTrack.streaming)
+        return Promise.resolve(this.clearLyrics(trackId));
       if (
         this.currentTrack.pc !== null &&
         this.currentTrack.cd === null &&
@@ -671,53 +703,91 @@ export default {
             this.lyric = data?.lrc?.length > 0 ? parseLyric(data.lrc) : [];
             this.player.updateMprisLyrics(this.lyric, trackId);
             this.resetLyricType();
+            this.publishAmllLyrics();
             return true;
           }
         );
       }
-      return getLyric(trackId).then(data => {
-        if (!data?.lrc?.lyric) {
-          this.lyric = [];
-          this.tlyric = [];
-          this.romalyric = [];
-          this.player.updateMprisLyrics([], trackId);
-          this.resetLyricType();
-          return false;
-        } else {
-          let { lyric, tlyric, romalyric } = lyricParser(data);
-          lyric = lyric.filter(
-            l => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.content)
-          );
-          let includeAM =
-            lyric.length <= 10 &&
-            lyric.map(l => l.content).includes('纯音乐，请欣赏');
-          if (includeAM) {
-            let reg = /^作(词|曲)\s*(:|：)\s*/;
-            let author = this.currentTrack?.ar[0]?.name;
-            lyric = lyric.filter(l => {
-              let regExpArr = l.content.match(reg);
-              return (
-                !regExpArr || l.content.replace(regExpArr[0], '') !== author
-              );
-            });
-          }
-          if (lyric.length === 1 && includeAM) {
-            this.lyric = [];
-            this.tlyric = [];
-            this.romalyric = [];
-            this.player.updateMprisLyrics([], trackId);
-            this.resetLyricType();
-            return false;
-          } else {
-            this.lyric = lyric;
-            this.tlyric = tlyric;
-            this.romalyric = romalyric;
-            this.player.updateMprisLyrics(this.lyric, trackId);
-            this.resetLyricType();
-            return true;
-          }
+      return getLyric(trackId).then(data =>
+        this.applyRemoteLyric(data, trackId)
+      );
+    },
+    clearLyrics(trackId) {
+      this.lyric = [];
+      this.tlyric = [];
+      this.romalyric = [];
+      this.player.updateMprisLyrics([], trackId);
+      this.resetLyricType();
+      this.publishAmllLyrics();
+      return false;
+    },
+    applyParsedLyrics(lyric, trackId, tlyric = [], romalyric = []) {
+      this.lyric = lyric;
+      this.tlyric = tlyric;
+      this.romalyric = romalyric;
+      this.player.updateMprisLyrics(this.lyric, trackId);
+      this.resetLyricType();
+      this.publishAmllLyrics();
+      return lyric.length > 0;
+    },
+    applyRemoteLyric(data, trackId) {
+      if (!data?.lrc?.lyric) return this.clearLyrics(trackId);
+
+      let { lyric, tlyric, romalyric } = lyricParser(data);
+      lyric = lyric.filter(
+        line => !/^作(词|曲)\s*(:|：)\s*无$/.exec(line.content)
+      );
+      const includesInstrumentalMarker =
+        lyric.length <= 10 &&
+        lyric.some(line => line.content === '纯音乐，请欣赏');
+      if (includesInstrumentalMarker) {
+        const authorPattern = /^作(词|曲)\s*(:|：)\s*/;
+        const author = this.currentTrack?.ar[0]?.name;
+        lyric = lyric.filter(line => {
+          const match = line.content.match(authorPattern);
+          return !match || line.content.replace(match[0], '') !== author;
+        });
+      }
+      if (lyric.length === 1 && includesInstrumentalMarker) {
+        return this.clearLyrics(trackId);
+      }
+      return this.applyParsedLyrics(lyric, trackId, tlyric, romalyric);
+    },
+    async getLocalMusicLyric(trackId) {
+      const embeddedLyrics = parseLyric(this.currentTrack.localLyrics || '');
+      if (embeddedLyrics.length > 0) {
+        return this.applyParsedLyrics(embeddedLyrics, trackId);
+      }
+
+      this.clearLyrics(trackId);
+      if (!this.autoMatchLocalLyrics) return false;
+      const keywords = createLocalLyricSearchKeywords(this.currentTrack);
+      if (!keywords) return false;
+
+      try {
+        const response = await search({
+          keywords,
+          limit: 10,
+          type: 1,
+        });
+        if (this.currentTrack?.id !== trackId) return false;
+        const candidates =
+          response?.result?.songs ?? response?.result?.song?.songs ?? [];
+        const matches = rankLocalLyricMatches(this.currentTrack, candidates);
+        for (const match of matches) {
+          const data = await getLyric(match.track.id);
+          if (this.currentTrack?.id !== trackId) return false;
+          if (this.applyRemoteLyric(data, trackId)) return true;
         }
-      });
+      } catch (error) {
+        console.info(
+          `[local-lyrics] automatic match unavailable: ${
+            error?.message || error
+          }`
+        );
+      }
+      if (this.currentTrack?.id === trackId) this.clearLyrics(trackId);
+      return false;
     },
     resetLyricType() {
       this.lyricType = this.lyricDisplayModes[0] || LYRIC_DISPLAY_MODE.NONE;
@@ -802,6 +872,58 @@ export default {
       window.electronAPI?.desktopLyrics?.update({
         line: lyric?.content || '',
         translation: this.desktopLyricsTranslationEnabled ? secondaryLyric : '',
+        playing: this.player.playing,
+        volume: this.player.volume,
+      });
+    },
+    publishAmllLyrics() {
+      if (!this.amllEnabled) return;
+      const duration = Math.max(0, Number(this.currentTrack?.dt) || 0);
+      const lines = this.lyric
+        .filter(line => typeof line?.content === 'string' && line.content)
+        .map((line, index, source) => {
+          const startTime = Math.max(
+            0,
+            Math.round((Number(line.time) || 0) * 1000)
+          );
+          const nextTime = Math.round(
+            (Number(source[index + 1]?.time) || 0) * 1000
+          );
+          const endTime = Math.max(
+            startTime + 1,
+            nextTime > startTime ? nextTime : duration || startTime + 5000
+          );
+          const findSecondaryLine = lines =>
+            lines.find(
+              item =>
+                (line.rawTime &&
+                  item.rawTime &&
+                  item.rawTime === line.rawTime) ||
+                Number(item.time) === Number(line.time)
+            ) || lines[index];
+          const translatedLyric = findSecondaryLine(this.tlyric)?.content || '';
+          const romanLyric = findSecondaryLine(this.romalyric)?.content || '';
+          return {
+            startTime,
+            endTime,
+            words: [
+              {
+                startTime,
+                endTime,
+                word: line.content,
+                romanWord: romanLyric,
+              },
+            ],
+            translatedLyric,
+            romanLyric,
+            isBG: false,
+            isDuet: false,
+          };
+        });
+      amllWsProtocol.publish({
+        update: 'setLyric',
+        format: 'structured',
+        lines,
       });
     },
     clearDesktopLyrics() {
@@ -901,9 +1023,19 @@ export default {
     switchShuffle() {
       this.player.switchShuffle();
     },
-    getCoverColor() {
+    async getCoverColor() {
       if (this.settings.lyricsBackground !== true) return;
-      const picUrl = this.currentTrack?.al?.picUrl;
+      let picUrl = this.currentTrack?.al?.picUrl;
+      if (this.currentTrack?.local && window.electronAPI?.localMusic) {
+        try {
+          const currentTrack = await window.electronAPI.localMusic.get(
+            this.currentTrack.id
+          );
+          picUrl = currentTrack?.al?.picUrl || picUrl;
+        } catch {
+          // Keep the existing artwork URL if the desktop service is restarting.
+        }
+      }
       if (!picUrl) {
         this.background = '';
         return;
@@ -1163,6 +1295,10 @@ export default {
         font-size: 14px;
         line-height: 14px;
         opacity: 0.88;
+      }
+
+      .lyric-display-switch {
+        margin-left: 12px;
       }
     }
   }

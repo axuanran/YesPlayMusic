@@ -47,6 +47,13 @@ export default {
       show: false,
       afterCreateAddTrackID: 0,
     },
+    downloadTrackModal: {
+      show: false,
+      selectedTrack: null,
+    },
+    cachedTracksModal: {
+      show: false,
+    },
   },
   dailyTracks: [],
   lastfm: JSON.parse(localStorage.getItem('lastfm')) || {},

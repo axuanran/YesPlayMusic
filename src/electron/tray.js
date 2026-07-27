@@ -23,7 +23,7 @@ function applyMenuState(contextMenu, isPlaying, isLiked) {
   contextMenu.getMenuItemById('unlike').visible = isLiked;
 }
 
-function createMenuTemplate(win, store) {
+function createMenuTemplate(win, store, desktopLyrics) {
   const shortcuts = normalizeShortcuts(store.get('settings.shortcuts'));
   const accelerator = id => {
     const binding = shortcuts.find(shortcut => shortcut.id === id)?.local;
@@ -103,6 +103,24 @@ function createMenuTemplate(win, store) {
       visible: false,
     },
     {
+      label: '桌面歌词',
+      submenu: [
+        {
+          label: '显示/隐藏桌面歌词',
+          accelerator: accelerator('toggleDesktopLyrics'),
+          click: () => desktopLyrics?.toggle(),
+        },
+        {
+          label: '解锁桌面歌词',
+          click: () => desktopLyrics?.setLocked(false),
+        },
+        {
+          label: '锁定桌面歌词',
+          click: () => desktopLyrics?.setLocked(true),
+        },
+      ],
+    },
+    {
       label: '退出',
       icon: createMenuIcon('exit'),
       accelerator: 'CmdOrCtrl+W',
@@ -123,11 +141,12 @@ function createMenuTemplate(win, store) {
 // 添加左键支持
 // 2022.05.17
 class YPMTrayLinuxImpl {
-  constructor(tray, win, emitter, store) {
+  constructor(tray, win, emitter, store, desktopLyrics) {
     this.tray = tray;
     this.win = win;
     this.emitter = emitter;
     this.store = store;
+    this.desktopLyrics = desktopLyrics;
     this.template = undefined;
     this.isPlaying = false;
     this.isLiked = false;
@@ -138,7 +157,11 @@ class YPMTrayLinuxImpl {
   rebuildContextMenu() {
     // Linux 下鼠标左右键都可能呼出 contextMenu，
     // 因此菜单与单击事件都提供打开主界面的入口。
-    this.template = createMenuTemplate(this.win, this.store);
+    this.template = createMenuTemplate(
+      this.win,
+      this.store,
+      this.desktopLyrics
+    );
     this.contextMenu = Menu.buildFromTemplate(this.template);
     applyMenuState(this.contextMenu, this.isPlaying, this.isLiked);
     this.tray.setContextMenu(this.contextMenu);
@@ -192,12 +215,13 @@ class YPMTrayLinuxImpl {
 }
 
 class YPMTrayWindowsImpl {
-  constructor(tray, win, emitter, store) {
+  constructor(tray, win, emitter, store, desktopLyrics) {
     this.tray = tray;
     this.win = win;
     this.emitter = emitter;
     this.store = store;
-    this.template = createMenuTemplate(win, store);
+    this.desktopLyrics = desktopLyrics;
+    this.template = createMenuTemplate(win, store, desktopLyrics);
 
     this.isPlaying = false;
     this.curDisplayPlaying = false;
@@ -210,7 +234,11 @@ class YPMTrayWindowsImpl {
   }
 
   rebuildContextMenu() {
-    this.template = createMenuTemplate(this.win, this.store);
+    this.template = createMenuTemplate(
+      this.win,
+      this.store,
+      this.desktopLyrics
+    );
     this.contextMenu = Menu.buildFromTemplate(this.template);
     applyMenuState(this.contextMenu, this.isPlaying, this.isLiked);
     this.curDisplayPlaying = this.isPlaying;
@@ -275,7 +303,7 @@ class YPMTrayWindowsImpl {
   }
 }
 
-export function createTray(win, eventEmitter, store) {
+export function createTray(win, eventEmitter, store, desktopLyrics) {
   let trayIconSetting = store.get('settings.trayIconTheme') || 'auto';
   const iconTheme = resolveTrayIconTheme(
     trayIconSetting,
@@ -293,6 +321,6 @@ export function createTray(win, eventEmitter, store) {
   tray.setToolTip('YesPlayMusic');
 
   return isLinux
-    ? new YPMTrayLinuxImpl(tray, win, eventEmitter, store)
-    : new YPMTrayWindowsImpl(tray, win, eventEmitter, store);
+    ? new YPMTrayLinuxImpl(tray, win, eventEmitter, store, desktopLyrics)
+    : new YPMTrayWindowsImpl(tray, win, eventEmitter, store, desktopLyrics);
 }

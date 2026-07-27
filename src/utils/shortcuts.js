@@ -58,6 +58,12 @@ const defaultShortcuts = [
     local: createBinding('CommandOrControl+M'),
     global: createBinding('Alt+CommandOrControl+M'),
   },
+  {
+    id: 'toggleDesktopLyrics',
+    name: '显示/隐藏桌面歌词',
+    local: createBinding('', false),
+    global: createBinding('Alt+CommandOrControl+D', false),
+  },
 ];
 
 const normalizeBinding = (binding, legacyAccelerator, fallback) => {

@@ -7,7 +7,7 @@ const log = text => {
   console.log(`${clc.blueBright('[globalShortcut.js]')} ${text}`);
 };
 
-const createHandlers = win => ({
+const createHandlers = (win, desktopLyrics) => ({
   play: () => win.webContents.send('play'),
   next: () => win.webContents.send('next'),
   previous: () => win.webContents.send('previous'),
@@ -16,6 +16,7 @@ const createHandlers = win => ({
   like: () => win.webContents.send('like'),
   repeat: () => win.webContents.send('repeat'),
   shuffle: () => win.webContents.send('shuffle'),
+  toggleDesktopLyrics: () => desktopLyrics?.toggle(),
   minimize: () => {
     if (win.isVisible()) {
       win.hide();
@@ -25,7 +26,7 @@ const createHandlers = win => ({
   },
 });
 
-export function registerGlobalShortcuts(win, store) {
+export function registerGlobalShortcuts(win, store, desktopLyrics) {
   globalShortcut.unregisterAll();
 
   if (store.get('settings.enableGlobalShortcut') === false) {
@@ -34,7 +35,7 @@ export function registerGlobalShortcuts(win, store) {
   }
 
   const shortcuts = normalizeShortcuts(store.get('settings.shortcuts'));
-  const handlers = createHandlers(win);
+  const handlers = createHandlers(win, desktopLyrics);
   const results = [];
 
   for (const shortcut of shortcuts) {

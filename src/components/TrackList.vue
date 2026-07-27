@@ -17,6 +17,13 @@
         $t('contextMenu.addToQueue')
       }}</div>
       <div
+        v-if="isElectron && type !== 'cloudDisk' && !isExternalMusic"
+        class="item"
+        @click="openDownloadModal"
+      >
+        {{ $t('contextMenu.downloadTrack') }}
+      </div>
+      <div
         v-if="extraContextMenuItem.includes('removeTrackFromQueue')"
         class="item"
         @click="removeTrackFromQueue"
@@ -102,6 +109,7 @@ import { isAccountLoggedIn } from '@/utils/auth';
 import TrackListItem from '@/components/TrackListItem.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
 import locale from '@/locale';
+import { isElectron } from '@/utils/env';
 
 export default {
   name: 'TrackList',
@@ -172,6 +180,7 @@ export default {
       },
       rightClickedTrackIndex: -1,
       listStyles: {},
+      isElectron,
     };
   },
   computed: {
@@ -302,6 +311,18 @@ export default {
         modalName: 'addTrackToPlaylistModal',
         key: 'selectedTrackID',
         value: this.rightClickedTrack.id,
+      });
+    },
+    openDownloadModal() {
+      this.updateModal({
+        modalName: 'downloadTrackModal',
+        key: 'selectedTrack',
+        value: this.rightClickedTrack,
+      });
+      this.updateModal({
+        modalName: 'downloadTrackModal',
+        key: 'show',
+        value: true,
       });
     },
     removeTrackFromPlaylist() {

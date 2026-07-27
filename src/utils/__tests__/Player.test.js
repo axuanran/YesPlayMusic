@@ -183,7 +183,7 @@ describe('Player audio source flow', () => {
     mocks.mediaSession.setPositionState.mockClear();
   });
 
-  it('uses resolver source without touching legacy fallback', async () => {
+  it('checks the cache before using resolver source', async () => {
     const player = await createPlayer();
 
     await expect(player._resolver.resolveSource({ id: 1 })).resolves.toBe(
@@ -194,7 +194,7 @@ describe('Player audio source flow', () => {
       { id: 1 },
       expect.any(Object)
     );
-    expect(mocks.getTrackSource).not.toHaveBeenCalled();
+    expect(mocks.getTrackSource).toHaveBeenCalledWith('1');
     expect(mocks.getMP3).not.toHaveBeenCalled();
   });
 

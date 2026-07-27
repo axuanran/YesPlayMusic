@@ -8,12 +8,21 @@ function createTable(initialTracks = []) {
     count: vi.fn(async () => tracks.size),
     delete: vi.fn(async id => tracks.delete(id)),
     get: vi.fn(async id => tracks.get(id)),
-    orderBy: vi.fn(() => ({
-      first: async () =>
+    orderBy: vi.fn(() => {
+      const sortedTracks = () =>
         [...tracks.values()].sort(
           (left, right) => left.createTime - right.createTime
-        )[0],
-    })),
+        );
+      return {
+        first: async () => sortedTracks()[0],
+        reverse: () => ({
+          primaryKeys: async () =>
+            sortedTracks()
+              .reverse()
+              .map(track => track.id),
+        }),
+      };
+    }),
     put: vi.fn(async track => tracks.set(track.id, track)),
     toArray: vi.fn(async () => [...tracks.values()]),
   };
@@ -94,6 +103,36 @@ describe('track cache manager', () => {
     expect(table.put.mock.invocationCallOrder[0]).toBeLessThan(
       table.clear.mock.invocationCallOrder[0]
     );
+  });
+
+  it('lists newest cache IDs without reading source values', async () => {
+    const table = createTable([
+      createTrack(1, 100, 10),
+      createTrack(2, 200, 20),
+    ]);
+    const manager = createTrackCacheManager({
+      table,
+      getCacheLimit: () => false,
+    });
+
+    await expect(manager.listIds()).resolves.toEqual([2, 1]);
+    expect(table.toArray).not.toHaveBeenCalled();
+  });
+
+  it('removes one cached track and updates logical totals', async () => {
+    const table = createTable([createTrack(1, 100), createTrack(2, 200)]);
+    const manager = createTrackCacheManager({
+      table,
+      getCacheLimit: () => false,
+    });
+    await manager.initialize();
+
+    await expect(manager.remove(1)).resolves.toEqual({
+      bytes: 200,
+      deleted: 1,
+      length: 1,
+    });
+    expect(table.delete).toHaveBeenCalledWith(1);
   });
 
   it('does not report success before every table is cleared', async () => {

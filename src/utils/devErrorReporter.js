@@ -1,6 +1,6 @@
 import { env } from '@/utils/env';
 
-const ERROR_UPLOAD_URL = 'http://127.0.0.1:27232/dev/error';
+const ERROR_UPLOAD_URL = '/dev/error';
 
 const isEnabled = () =>
   env.NODE_ENV === 'development' &&

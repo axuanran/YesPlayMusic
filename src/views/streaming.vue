@@ -5,68 +5,9 @@
         <h1>{{ $t('streaming.title') }}</h1>
         <p>{{ $t('streaming.description') }}</p>
       </div>
-      <button
-        v-if="isElectron"
-        class="primary"
-        @click="showConnectionForm = !showConnectionForm"
-      >
-        <svg-icon icon-class="plus" />
-        {{ $t('streaming.addServer') }}
-      </button>
     </div>
 
     <p v-if="!isElectron" class="state">{{ $t('streaming.desktopOnly') }}</p>
-
-    <form
-      v-else-if="showConnectionForm"
-      class="connection-form"
-      @submit.prevent="connect"
-    >
-      <label>
-        {{ $t('streaming.provider') }}
-        <select v-model="form.provider">
-          <option value="emby">Emby</option>
-          <option value="jellyfin">Jellyfin</option>
-        </select>
-      </label>
-      <label>
-        {{ $t('streaming.connectionName') }}
-        <input
-          v-model.trim="form.name"
-          maxlength="128"
-          :placeholder="$t('streaming.connectionNamePlaceholder')"
-        />
-      </label>
-      <label>
-        {{ $t('streaming.serverUrl') }}
-        <input
-          v-model.trim="form.serverUrl"
-          type="url"
-          required
-          maxlength="2048"
-          placeholder="http://192.168.1.10:8096"
-        />
-      </label>
-      <label>
-        {{ $t('streaming.username') }}
-        <input v-model="form.username" required maxlength="256" />
-      </label>
-      <label>
-        {{ $t('streaming.password') }}
-        <input v-model="form.password" type="password" maxlength="4096" />
-      </label>
-      <div class="form-actions">
-        <button type="button" @click="showConnectionForm = false">
-          {{ $t('streaming.cancel') }}
-        </button>
-        <button class="primary" type="submit" :disabled="connecting">
-          {{
-            connecting ? $t('streaming.connecting') : $t('streaming.connect')
-          }}
-        </button>
-      </div>
-      <p v-if="connectionError" class="error">{{ connectionError }}</p>
-    </form>
 
     <template v-if="isElectron && connections.length">
       <div class="server-row">
@@ -98,9 +39,6 @@
             </option>
           </select>
         </label>
-        <button class="danger" @click="disconnect">
-          {{ $t('streaming.disconnect') }}
-        </button>
       </div>
 
       <div class="toolbar">
@@ -143,13 +81,6 @@
         {{ loading ? $t('streaming.loading') : $t('streaming.loadMore') }}
       </button>
     </template>
-
-    <p
-      v-else-if="isElectron && !showConnectionForm && !loadingConnections"
-      class="state"
-    >
-      {{ $t('streaming.noServers') }}
-    </p>
   </div>
 </template>
 
@@ -175,24 +106,14 @@ export default {
       search: '',
       loading: false,
       loadingConnections: true,
-      connecting: false,
-      showConnectionForm: false,
-      connectionError: '',
       loadError: '',
-      form: {
-        provider: 'emby',
-        name: '',
-        serverUrl: '',
-        username: '',
-        password: '',
-      },
     };
   },
   created() {
     this.loadConnections();
   },
   activated() {
-    if (this.connections.length) this.loadTracks(true);
+    if (!this.loadingConnections) this.loadConnections();
   },
   methods: {
     async loadConnections() {
@@ -210,30 +131,13 @@ export default {
           await this.selectConnection(
             stillAvailable ? this.activeConnectionId : this.connections[0].id
           );
+        } else {
+          this.$router.replace({ name: 'settings' });
         }
       } catch (error) {
         this.loadError = error?.message || this.$t('streaming.loadFailed');
       } finally {
         this.loadingConnections = false;
-      }
-    },
-    async connect() {
-      if (this.connecting) return;
-      this.connecting = true;
-      this.connectionError = '';
-      try {
-        const connection = await window.electronAPI.streaming.connect({
-          ...this.form,
-        });
-        this.form.password = '';
-        this.showConnectionForm = false;
-        await this.loadConnections();
-        await this.selectConnection(connection.id);
-      } catch (error) {
-        this.connectionError =
-          error?.message || this.$t('streaming.connectionFailed');
-      } finally {
-        this.connecting = false;
       }
     },
     async selectConnection(connectionId) {
@@ -249,20 +153,6 @@ export default {
         this.libraries = [];
         this.tracks = [];
         this.loadError = error?.message || this.$t('streaming.loadFailed');
-      }
-    },
-    async disconnect() {
-      if (!this.activeConnectionId) return;
-      if (!confirm(this.$t('streaming.disconnectConfirm'))) return;
-      this.connections = await window.electronAPI.streaming.disconnect(
-        this.activeConnectionId
-      );
-      this.activeConnectionId = '';
-      this.libraries = [];
-      this.tracks = [];
-      this.total = 0;
-      if (this.connections.length) {
-        await this.selectConnection(this.connections[0].id);
       }
     },
     async loadTracks(reset) {

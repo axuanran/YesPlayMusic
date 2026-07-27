@@ -126,6 +126,12 @@ export function ipcRenderer(vueInstance) {
     player.volume -= 0.1;
   });
 
+  appEvents?.onSetVolume(volume => {
+    if (Number.isFinite(volume)) {
+      player.volume = Math.min(1, Math.max(0, volume));
+    }
+  });
+
   appEvents?.onLike(() => {
     store.dispatch('likeATrack', player.currentTrack.id);
   });

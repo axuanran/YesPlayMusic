@@ -4,6 +4,7 @@ import {
   dialog,
   globalShortcut,
   ipcMain,
+  net,
   shell,
   session,
 } from 'electron';
@@ -14,10 +15,12 @@ import { createMenu } from './menu';
 import { isCreateTray, isMac } from '@/utils/platform';
 import { updateWindowShadow } from './windowAppearance.js';
 import {
+  canPublishDiscordPresence,
+  getDiscordStatus,
   getDiscordProgressTimestamps,
-  shouldShowDiscordStatus,
 } from './discordPresence.js';
 import { clearSessionDiskCache } from './cache.js';
+import { saveTrackDownload } from './trackDownload.js';
 
 const clc = require('cli-color');
 const log = text => {
@@ -92,6 +95,7 @@ const DISCORD_STATUS_CHANNEL = 'discord:status';
 let discordConnected = false;
 let discordPresenceEnabled = false;
 let discordStatusWindow = null;
+let pendingDiscordPresence = null;
 
 const publishDiscordStatus = () => {
   if (
@@ -103,13 +107,16 @@ const publishDiscordStatus = () => {
   }
   discordStatusWindow.webContents.send(
     DISCORD_STATUS_CHANNEL,
-    shouldShowDiscordStatus(discordConnected, discordPresenceEnabled)
+    getDiscordStatus(discordConnected, discordPresenceEnabled)
   );
 };
 
 client.on('connected', () => {
   discordConnected = true;
   publishDiscordStatus();
+  if (pendingDiscordPresence) {
+    updateDiscordPresence(pendingDiscordPresence);
+  }
 });
 
 client.on('error', err => {
@@ -120,11 +127,19 @@ client.on('error', err => {
 });
 
 const updateDiscordPresence = presence => {
+  if (
+    !canPublishDiscordPresence(discordConnected, discordPresenceEnabled) ||
+    !presence
+  ) {
+    return false;
+  }
   try {
     client.updatePresence(presence);
+    return true;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : `${err}`;
     log(`discord rich presence unavailable: ${errorMessage}`);
+    return false;
   }
 };
 
@@ -170,13 +185,34 @@ export function initIpcMain(
     store.get('settings.enableDiscordRichPresence') === true;
   win.webContents.on('did-finish-load', publishDiscordStatus);
   ipcMain.handle('discord:get-status', () =>
-    shouldShowDiscordStatus(discordConnected, discordPresenceEnabled)
+    getDiscordStatus(discordConnected, discordPresenceEnabled)
   );
   ipcMain.handle('cache:clear-disk', () =>
     clearSessionDiskCache(win.webContents.session, win.webContents.getURL())
   );
+  ipcMain.handle('download:track', (event, payload) => {
+    if (event.sender !== win.webContents) {
+      throw new Error('Invalid download sender');
+    }
+    return saveTrackDownload({
+      win,
+      dialog,
+      net,
+      payload,
+      onProgress: progress => {
+        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+          win.webContents.send('download:progress', progress);
+        }
+      },
+    });
+  });
 
   ipcMain.handle('local-music:list', () => localMusicService?.list() || []);
+  localMusicService?.onChange(change => {
+    if (!win.isDestroyed()) {
+      win.webContents.send('local-music:changed', change);
+    }
+  });
   ipcMain.handle('local-music:get', (_, id) => {
     if (typeof id !== 'string' || id.length > 128 || !id.startsWith('local:')) {
       return null;
@@ -225,6 +261,73 @@ export function initIpcMain(
       return localMusicService?.list() || [];
     }
     return localMusicService?.remove(ids) || [];
+  });
+  ipcMain.handle('local-music:list-folders', () => {
+    return localMusicService?.listFolders() || [];
+  });
+  ipcMain.handle('local-music:select-folders', async () => {
+    if (!localMusicService) return { folders: [], added: 0, skipped: 0 };
+    const result = await dialog.showOpenDialog(win, {
+      title: '选择本地音乐文件夹',
+      properties: ['openDirectory', 'multiSelections'],
+    });
+    if (result.canceled) {
+      return {
+        folders: localMusicService.listFolders(),
+        added: 0,
+        skipped: 0,
+      };
+    }
+    return localMusicService.addFolders(result.filePaths);
+  });
+  ipcMain.handle('local-music:open-folder', (_, folderId) => {
+    if (
+      typeof folderId !== 'string' ||
+      folderId.length > 128 ||
+      !folderId.startsWith('local-folder:')
+    ) {
+      return null;
+    }
+    return localMusicService?.activateFolder(folderId) || null;
+  });
+  ipcMain.handle('local-music:get-folder', (_, folderId) => {
+    if (
+      typeof folderId !== 'string' ||
+      folderId.length > 128 ||
+      !folderId.startsWith('local-folder:')
+    ) {
+      return null;
+    }
+    return localMusicService?.getFolder(folderId) || null;
+  });
+  ipcMain.handle('local-music:close-folder', (_, folderId) => {
+    if (
+      typeof folderId === 'string' &&
+      folderId.length <= 128 &&
+      folderId.startsWith('local-folder:')
+    ) {
+      localMusicService?.deactivateFolder(folderId);
+    }
+  });
+  ipcMain.handle('local-music:refresh-folder', (_, folderId) => {
+    if (
+      typeof folderId !== 'string' ||
+      folderId.length > 128 ||
+      !folderId.startsWith('local-folder:')
+    ) {
+      return null;
+    }
+    return localMusicService?.refreshFolder(folderId) || null;
+  });
+  ipcMain.handle('local-music:remove-folder', (_, folderId) => {
+    if (
+      typeof folderId !== 'string' ||
+      folderId.length > 128 ||
+      !folderId.startsWith('local-folder:')
+    ) {
+      return localMusicService?.listFolders() || [];
+    }
+    return localMusicService?.removeFolder(folderId) || [];
   });
 
   ipcMain.handle('streaming:list-connections', () =>
@@ -435,20 +538,53 @@ export function initIpcMain(
   ipcMain.on('settings', (event, options) => {
     if (!isRecord(options)) return;
     store.set('settings', options);
-    desktopLyrics?.setEnabled(options.enableDesktopLyrics === true);
+    desktopLyrics?.applySettings(options.desktopLyrics, { persist: false });
     discordPresenceEnabled = options.enableDiscordRichPresence === true;
     publishDiscordStatus();
+    if (discordPresenceEnabled && pendingDiscordPresence) {
+      updateDiscordPresence(pendingDiscordPresence);
+    }
     updateWindowShadow(win, options);
-    registerGlobalShortcuts(win, store);
+    registerGlobalShortcuts(win, store, desktopLyrics);
   });
 
-  ipcMain.on('desktop-lyrics:update', (_event, payload) => {
-    if (!isRecord(payload)) return;
+  ipcMain.on('desktop-lyrics:update', (event, payload) => {
+    if (event.sender !== win.webContents || !isRecord(payload)) return;
     desktopLyrics?.update({
       line: typeof payload.line === 'string' ? payload.line : '',
       translation:
         typeof payload.translation === 'string' ? payload.translation : '',
+      playing:
+        typeof payload.playing === 'boolean' ? payload.playing : undefined,
+      volume: isFiniteNumberInRange(payload.volume, 0, 1)
+        ? payload.volume
+        : undefined,
     });
+  });
+
+  ipcMain.on('desktop-lyrics:command', (event, command) => {
+    if (!desktopLyrics?.isSender(event.sender) || !isRecord(command)) return;
+    desktopLyrics.handleCommand(command);
+  });
+
+  ipcMain.on('desktop-lyrics:settings', (event, patch) => {
+    if (event.sender !== win.webContents || !isRecord(patch)) return;
+    desktopLyrics?.patchSettings(patch);
+  });
+
+  ipcMain.on('desktop-lyrics:toggle', event => {
+    if (event.sender !== win.webContents) return;
+    desktopLyrics?.toggle();
+  });
+
+  ipcMain.on('desktop-lyrics:reset-position', event => {
+    if (event.sender !== win.webContents) return;
+    desktopLyrics?.resetPosition();
+  });
+
+  ipcMain.on('desktop-lyrics:reset-style', event => {
+    if (event.sender !== win.webContents) return;
+    desktopLyrics?.resetStyle();
   });
 
   ipcMain.on('playDiscordPresence', (event, payload) => {
@@ -467,7 +603,7 @@ export function initIpcMain(
       playbackRate,
       positionSeconds: position,
     });
-    updateDiscordPresence({
+    pendingDiscordPresence = {
       details: track.name + ' - ' + track.ar.map(ar => ar.name).join(','),
       state: track.al.name,
       startTimestamp,
@@ -477,14 +613,15 @@ export function initIpcMain(
       smallImageKey: 'play',
       smallImageText: 'Playing',
       instance: true,
-    });
+    };
+    updateDiscordPresence(pendingDiscordPresence);
   });
 
   ipcMain.on('pauseDiscordPresence', (event, track) => {
     if (!isRecord(track) || !Array.isArray(track.ar) || !isRecord(track.al)) {
       return;
     }
-    updateDiscordPresence({
+    pendingDiscordPresence = {
       details: track.name + ' - ' + track.ar.map(ar => ar.name).join(','),
       state: track.al.name,
       largeImageKey: track.al.picUrl,
@@ -492,7 +629,8 @@ export function initIpcMain(
       smallImageKey: 'pause',
       smallImageText: 'Pause',
       instance: true,
-    });
+    };
+    updateDiscordPresence(pendingDiscordPresence);
   });
 
   ipcMain.on('setProxy', (event, config) => {
@@ -521,7 +659,7 @@ export function initIpcMain(
     if (status === 'disable') {
       globalShortcut.unregisterAll();
     } else {
-      registerGlobalShortcuts(win, store);
+      registerGlobalShortcuts(win, store, desktopLyrics);
     }
   });
 
@@ -552,7 +690,7 @@ export function initIpcMain(
     store.set('settings.shortcuts', currentShortcuts);
 
     createMenu(win, store);
-    registerGlobalShortcuts(win, store);
+    registerGlobalShortcuts(win, store, desktopLyrics);
   });
 
   ipcMain.on('restoreDefaultShortcuts', () => {
@@ -560,7 +698,7 @@ export function initIpcMain(
     store.set('settings.shortcuts', cloneDeep(shortcuts));
 
     createMenu(win, store);
-    registerGlobalShortcuts(win, store);
+    registerGlobalShortcuts(win, store, desktopLyrics);
   });
 
   if (isCreateTray) {

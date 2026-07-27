@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createLocalMusicFolderId,
   createLocalMusicId,
   createLocalMusicRecord,
   createLocalMusicService,
+  getAllowedLocalMediaOrigin,
   toPublicLocalMusicTrack,
 } from '../localMusic.js';
 
@@ -17,6 +19,17 @@ function createStore() {
 }
 
 describe('local music service', () => {
+  it('allows only loopback renderer origins for local media CORS', () => {
+    expect(getAllowedLocalMediaOrigin('http://127.0.0.1:20201')).toBe(
+      'http://127.0.0.1:20201'
+    );
+    expect(getAllowedLocalMediaOrigin('http://localhost:5173')).toBe(
+      'http://localhost:5173'
+    );
+    expect(getAllowedLocalMediaOrigin('https://example.com')).toBeNull();
+    expect(getAllowedLocalMediaOrigin('http://127.0.0.1.evil.test')).toBeNull();
+  });
+
   it('creates stable local IDs and maps metadata to the player track model', () => {
     const metadata = {
       common: {
@@ -25,6 +38,14 @@ describe('local music service', () => {
         album: 'Local Album',
         track: { no: 3 },
         picture: [{ format: 'image/png', data: new Uint8Array([1]) }],
+        lyrics: [
+          {
+            syncText: [
+              { timestamp: 1000, text: 'First line' },
+              { timestamp: 2500, text: 'Second line' },
+            ],
+          },
+        ],
       },
       format: { duration: 123.456 },
     };
@@ -41,6 +62,7 @@ describe('local music service', () => {
       no: 3,
       playable: true,
       local: true,
+      localLyrics: '[00:01.00]First line\n[00:02.50]Second line',
     });
     expect(track.sourceUrl).toContain(encodeURIComponent(record.id));
     expect(track.al.picUrl).toContain('/artwork');
@@ -61,6 +83,7 @@ describe('local music service', () => {
       baseUrl: 'http://127.0.0.1:3210',
       metadataParser,
       fileExists: filePath => existingFiles.has(filePath),
+      fileStat: async () => ({ size: 100, mtimeMs: 200 }),
     });
 
     const result = await service.importFiles([
@@ -84,9 +107,85 @@ describe('local music service', () => {
       baseUrl: 'http://127.0.0.1:3210',
       metadataParser: async () => ({ common: {}, format: {} }),
       fileExists: () => true,
+      fileStat: async () => ({ size: 100, mtimeMs: 200 }),
     });
     const { tracks } = await service.importFiles(['C:\\Music\\song.mp3']);
 
     expect(service.remove([tracks[0].id])).toEqual([]);
+  });
+
+  it('imports a folder as a playlist and only watches it while active', async () => {
+    const store = createStore();
+    const folderPath = 'C:\\Music';
+    let files = ['C:\\Music\\one.mp3', 'C:\\Music\\nested\\two.flac'];
+    const folderScanner = vi.fn(async () => files);
+    const watcher = { close: vi.fn(), on: vi.fn() };
+    const watchFactory = vi.fn(() => watcher);
+    const onChange = vi.fn();
+    const service = createLocalMusicService({
+      store,
+      baseUrl: 'http://127.0.0.1:3210',
+      metadataParser: async filePath => ({
+        common: {
+          title: filePath.includes('one') ? 'One' : 'Two',
+          picture: filePath.includes('one')
+            ? [{ format: 'image/jpeg', data: new Uint8Array([1]) }]
+            : [],
+        },
+        format: { duration: 60 },
+      }),
+      fileExists: () => true,
+      folderScanner,
+      fileStat: async () => ({ size: 100, mtimeMs: 200 }),
+      watchFactory,
+    });
+    service.onChange(onChange);
+
+    const result = await service.addFolders([folderPath]);
+    const folderId = createLocalMusicFolderId(folderPath);
+
+    expect(result).toMatchObject({ added: 1, skipped: 0 });
+    expect(result.folders).toEqual([
+      expect.objectContaining({
+        id: folderId,
+        name: 'Music',
+        trackCount: 2,
+        active: false,
+        coverUrl: expect.stringContaining('/artwork'),
+      }),
+    ]);
+    expect(watchFactory).not.toHaveBeenCalled();
+
+    const opened = await service.activateFolder(folderId);
+    expect(opened.tracks).toHaveLength(2);
+    expect(watchFactory).toHaveBeenCalledTimes(1);
+
+    files = ['C:\\Music\\one.mp3'];
+    const refreshed = await service.refreshFolder(folderId);
+    expect(refreshed.tracks).toHaveLength(1);
+    expect(onChange).toHaveBeenCalledWith({ folderId });
+
+    service.deactivateFolder(folderId);
+    expect(watcher.close).toHaveBeenCalledOnce();
+  });
+
+  it('removes a folder playlist without touching source files', async () => {
+    const store = createStore();
+    const folderPath = 'C:\\Music';
+    const service = createLocalMusicService({
+      store,
+      baseUrl: 'http://127.0.0.1:3210',
+      metadataParser: async () => ({ common: {}, format: {} }),
+      fileExists: () => true,
+      folderScanner: async () => ['C:\\Music\\song.mp3'],
+      fileStat: async () => ({ size: 100, mtimeMs: 200 }),
+      watchFactory: () => ({ close: vi.fn(), on: vi.fn() }),
+    });
+    await service.addFolders([folderPath]);
+
+    expect(service.removeFolder(createLocalMusicFolderId(folderPath))).toEqual(
+      []
+    );
+    expect(service.list()).toEqual([]);
   });
 });

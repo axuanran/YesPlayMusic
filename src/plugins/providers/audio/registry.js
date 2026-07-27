@@ -140,6 +140,7 @@ export function createAudioProviderRegistry({
         const result = await provider.resolve(track, quality, {
           store: getProviderStore(),
           events,
+          bypassCache: options.bypassCache === true,
           signal: options.signal,
         });
         const normalizedResult = normalizeResolveResult(

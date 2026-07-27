@@ -3,8 +3,10 @@ import { fileURLToPath, URL } from 'node:url';
 import path from 'node:path';
 import vue from '@vitejs/plugin-vue';
 import { createSvgIconsPlugin } from 'vite-plugin-svg-icons';
+import { configureDevResolverProxy } from './src/main/devResolverPort.js';
 
 const r = p => fileURLToPath(new URL(p, import.meta.url));
+const projectRoot = r('.');
 
 function createProcessEnv(mode) {
   const env = process.env;
@@ -52,7 +54,10 @@ export default defineConfig(({ mode }) => ({
     build: {
       outDir: r('./out/preload'),
       rollupOptions: {
-        input: r('./src/preload/index.js'),
+        input: {
+          index: r('./src/preload/index.js'),
+          desktopLyrics: r('./src/preload/desktopLyrics.js'),
+        },
       },
     },
   },
@@ -97,7 +102,22 @@ export default defineConfig(({ mode }) => ({
         '/resolver-api': {
           target: 'http://127.0.0.1:27232',
           changeOrigin: true,
-          rewrite: value => value.replace(/^\/resolver-api/, ''),
+          configure: proxy => configureDevResolverProxy(proxy, { projectRoot }),
+        },
+        '/local-music': {
+          target: 'http://127.0.0.1:27232',
+          changeOrigin: true,
+          configure: proxy => configureDevResolverProxy(proxy, { projectRoot }),
+        },
+        '/streaming': {
+          target: 'http://127.0.0.1:27232',
+          changeOrigin: true,
+          configure: proxy => configureDevResolverProxy(proxy, { projectRoot }),
+        },
+        '/dev': {
+          target: 'http://127.0.0.1:27232',
+          changeOrigin: true,
+          configure: proxy => configureDevResolverProxy(proxy, { projectRoot }),
         },
       },
     },

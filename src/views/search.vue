@@ -73,6 +73,23 @@
       />
     </div>
 
+    <div v-show="podcasts.length > 0" class="podcasts">
+      <div class="section-title"
+        >{{ $t('search.podcast')
+        }}<router-link :to="`/search/${keywords}/podcasts`">{{
+          $t('home.seeMore')
+        }}</router-link></div
+      >
+      <CoverRow
+        type="podcast"
+        :items="podcasts.slice(0, 12)"
+        sub-text="none"
+        :column-number="6"
+        gap="34px 24px"
+        :show-play-button="false"
+      />
+    </div>
+
     <div v-show="!haveResult" class="no-results">
       <div
         ><svg-icon icon-class="search" />
@@ -108,6 +125,7 @@ export default {
       artists: [],
       albums: [],
       playlists: [],
+      podcasts: [],
       musicVideos: [],
     };
   },
@@ -121,6 +139,7 @@ export default {
           this.artists.length +
           this.albums.length +
           this.playlists.length +
+          this.podcasts.length +
           this.musicVideos.length >
         0
       );
@@ -150,6 +169,7 @@ export default {
         albums: 10,
         artists: 100,
         playlists: 1000,
+        podcasts: 1009,
       };
       return search({
         keywords: this.keywords,
@@ -160,7 +180,12 @@ export default {
           return { result: result.result, type };
         })
         .catch(err => {
-          showToast(err.response.data.msg || err.response.data.message);
+          showToast(
+            err.response?.data?.msg ||
+              err.response?.data?.message ||
+              err.message
+          );
+          return { result: undefined, type };
         });
     },
     getData() {
@@ -197,6 +222,9 @@ export default {
               case 'playlists':
                 this.playlists = result.playlists ?? [];
                 break;
+              case 'podcasts':
+                this.podcasts = result.djRadios ?? [];
+                break;
             }
           });
           NProgress.done();
@@ -208,11 +236,12 @@ export default {
         this.search('artists'),
         this.search('albums'),
         this.search('tracks'),
+        this.search('musicVideos'),
+        this.search('playlists'),
+        this.search('podcasts'),
       ];
-      const requests2 = [this.search('musicVideos'), this.search('playlists')];
 
       requestAll(requests);
-      requestAll(requests2);
     },
     getTracksDetail() {
       const trackIDs = this.tracks.map(t => t.id);
@@ -259,7 +288,8 @@ export default {
 
 .tracks,
 .music-videos,
-.playlists {
+.playlists,
+.podcasts {
   margin-top: 46px;
 }
 

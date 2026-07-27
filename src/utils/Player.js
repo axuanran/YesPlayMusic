@@ -14,6 +14,7 @@ import { createActor } from 'xstate';
 import { createPlayerMachine } from '@/player/playerMachine';
 import PlayerResolver, { isCanceledRequest } from '@/player/playerResolver';
 import { normalizePlaybackRate } from '@/utils/playbackRate';
+import { createDiscordPresenceTrack } from '@/utils/discordPresencePayload';
 import {
   createMediaSessionMetadata,
   createMediaSessionPositionState,
@@ -1142,12 +1143,12 @@ export default class {
     electronPlayer?.playDiscordPresence({
       playbackRate: this.playbackRate,
       position: seekTime,
-      track,
+      track: createDiscordPresenceTrack(track),
     });
   }
   _pauseDiscordPresence(track) {
     if (!this._canDiscordPresence()) return null;
-    electronPlayer?.pauseDiscordPresence(track);
+    electronPlayer?.pauseDiscordPresence(createDiscordPresenceTrack(track));
   }
   _playNextTrack(isPersonal) {
     if (isPersonal) {

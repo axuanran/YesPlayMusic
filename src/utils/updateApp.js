@@ -1,6 +1,7 @@
 import initLocalStorage from '@/store/initLocalStorage.js';
 import { isElectron } from '@/utils/env';
 import { normalizeShortcuts } from '@/utils/shortcuts';
+import { normalizeDesktopLyricsSettings } from '@/utils/desktopLyricsSettings';
 import pkg from '../../package.json';
 
 const updateSetting = () => {
@@ -16,6 +17,10 @@ const updateSetting = () => {
   ) {
     settings.enableDesktopLyrics = true;
   }
+  settings.desktopLyrics = normalizeDesktopLyricsSettings(
+    parsedSettings?.desktopLyrics,
+    settings.enableDesktopLyrics
+  );
 
   // Older desktop builds pointed directly at the resolver port. The desktop
   // renderer and resolver now share an origin and the same prefix as Docker.

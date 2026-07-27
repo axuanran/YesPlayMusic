@@ -1,216 +1,267 @@
 <template>
-  <LocalPlaybackHistory v-if="!loggedIn" />
-  <div v-else v-show="show" ref="library">
-    <h1>
-      <img
-        class="avatar"
-        :src="resizeImage(data.user.avatarUrl)"
-        loading="lazy"
-      />{{ data.user.nickname }}{{ $t('library.sLibrary') }}
-    </h1>
-    <div class="section-one">
-      <div class="liked-songs" @click="goToLikedSongsList">
-        <div class="top">
-          <p>
-            <span
-              v-for="(line, index) in pickedLyric"
-              v-show="line !== ''"
-              :key="`${line}${index}`"
-              >{{ line }}<br
-            /></span>
-          </p>
-        </div>
-        <div class="bottom">
-          <div class="titles">
-            <div class="title">{{ $t('library.likedSongs') }}</div>
-            <div class="sub-title">
-              {{ liked.songs.length }} {{ $t('common.songs') }}
+  <div class="library-root">
+    <div v-if="!loggedIn">
+      <div v-if="isElectron" class="section-two local-only">
+        <div class="tabs-row">
+          <div class="tabs">
+            <div class="tab active">
+              {{ $t('contextMenu.allPlaylists') }}
             </div>
           </div>
-          <button @click.stop="openPlayModeTabMenu">
-            <svg-icon icon-class="play" />
+          <button
+            class="tab-button"
+            :disabled="importingLocalFolders"
+            @click="importLocalFolders"
+          >
+            <svg-icon icon-class="plus" />{{ $t('localMusic.importFolder') }}
           </button>
         </div>
-      </div>
-      <div class="songs">
-        <TrackList
-          :id="liked.playlists.length > 0 ? liked.playlists[0].id : 0"
-          :tracks="liked.songsWithDetails"
-          :column-number="3"
-          type="tracklist"
-          dbclick-track-func="playPlaylistByID"
+        <CoverRow
+          v-if="localPlaylistItems.length"
+          :items="localPlaylistItems"
+          type="playlist"
+          sub-text="creator"
+          :show-play-button="true"
+          :item-route="getPlaylistRoute"
+          :item-play-action="playPlaylistItem"
         />
+        <p v-else class="local-empty">{{ $t('localMusic.emptyFolders') }}</p>
       </div>
+      <LocalPlaybackHistory />
     </div>
-
-    <div class="section-two">
-      <div class="tabs-row">
-        <div class="tabs">
-          <div
-            class="tab dropdown"
-            :class="{ active: currentTab === 'playlists' }"
-            @click="updateCurrentTab('playlists')"
-          >
-            <span class="text">{{
-              {
-                all: $t('contextMenu.allPlaylists'),
-                mine: $t('contextMenu.minePlaylists'),
-                liked: $t('contextMenu.likedPlaylists'),
-              }[playlistFilter]
-            }}</span>
-            <span class="icon" @click.stop="openPlaylistTabMenu"
-              ><svg-icon icon-class="dropdown"
-            /></span>
+    <div v-else v-show="show" ref="library">
+      <h1>
+        <img
+          class="avatar"
+          :src="resizeImage(data.user.avatarUrl)"
+          loading="lazy"
+        />{{ data.user.nickname }}{{ $t('library.sLibrary') }}
+      </h1>
+      <div class="section-one">
+        <div class="liked-songs" @click="goToLikedSongsList">
+          <div class="top">
+            <p>
+              <span
+                v-for="(line, index) in pickedLyric"
+                v-show="line !== ''"
+                :key="`${line}${index}`"
+                >{{ line }}<br
+              /></span>
+            </p>
           </div>
-          <div
-            class="tab"
-            :class="{ active: currentTab === 'albums' }"
-            @click="updateCurrentTab('albums')"
-          >
-            {{ $t('library.albums') }}
-          </div>
-          <div
-            class="tab"
-            :class="{ active: currentTab === 'artists' }"
-            @click="updateCurrentTab('artists')"
-          >
-            {{ $t('library.artists') }}
-          </div>
-          <div
-            class="tab"
-            :class="{ active: currentTab === 'mvs' }"
-            @click="updateCurrentTab('mvs')"
-          >
-            {{ $t('library.mvs') }}
-          </div>
-          <div
-            class="tab"
-            :class="{ active: currentTab === 'cloudDisk' }"
-            @click="updateCurrentTab('cloudDisk')"
-          >
-            {{ $t('library.cloudDisk') }}
-          </div>
-          <div
-            class="tab"
-            :class="{ active: currentTab === 'playHistory' }"
-            @click="updateCurrentTab('playHistory')"
-          >
-            {{ $t('library.playHistory.title') }}
+          <div class="bottom">
+            <div class="titles">
+              <div class="title">{{ $t('library.likedSongs') }}</div>
+              <div class="sub-title">
+                {{ liked.songs.length }} {{ $t('common.songs') }}
+              </div>
+            </div>
+            <button @click.stop="openPlayModeTabMenu">
+              <svg-icon icon-class="play" />
+            </button>
           </div>
         </div>
-        <button
-          v-show="currentTab === 'playlists'"
-          class="tab-button"
-          @click="openAddPlaylistModal"
-          ><svg-icon icon-class="plus" />{{ $t('library.newPlayList') }}
-        </button>
-        <button
-          v-show="currentTab === 'cloudDisk'"
-          class="tab-button"
-          @click="selectUploadFiles"
-          ><svg-icon icon-class="arrow-up-alt" />{{ $t('library.uploadSongs') }}
-        </button>
-      </div>
-
-      <div v-show="currentTab === 'playlists'">
-        <div v-if="liked.playlists.length > 1">
-          <CoverRow
-            :items="filterPlaylists"
-            type="playlist"
-            sub-text="creator"
-            :show-play-button="true"
+        <div class="songs">
+          <TrackList
+            :id="liked.playlists.length > 0 ? liked.playlists[0].id : 0"
+            :tracks="liked.songsWithDetails"
+            :column-number="3"
+            type="tracklist"
+            dbclick-track-func="playPlaylistByID"
           />
         </div>
       </div>
 
-      <div v-show="currentTab === 'albums'">
-        <CoverRow
-          :items="liked.albums"
-          type="album"
-          sub-text="artist"
-          :show-play-button="true"
-        />
+      <div class="section-two">
+        <div class="tabs-row">
+          <div class="tabs">
+            <div
+              class="tab dropdown"
+              :class="{ active: currentTab === 'playlists' }"
+              @click="updateCurrentTab('playlists')"
+            >
+              <span class="text">{{
+                {
+                  all: $t('contextMenu.allPlaylists'),
+                  local: $t('contextMenu.localPlaylists'),
+                  mine: $t('contextMenu.minePlaylists'),
+                  liked: $t('contextMenu.likedPlaylists'),
+                }[playlistFilter]
+              }}</span>
+              <span class="icon" @click.stop="openPlaylistTabMenu"
+                ><svg-icon icon-class="dropdown"
+              /></span>
+            </div>
+            <div
+              class="tab"
+              :class="{ active: currentTab === 'albums' }"
+              @click="updateCurrentTab('albums')"
+            >
+              {{ $t('library.albums') }}
+            </div>
+            <div
+              class="tab"
+              :class="{ active: currentTab === 'artists' }"
+              @click="updateCurrentTab('artists')"
+            >
+              {{ $t('library.artists') }}
+            </div>
+            <div
+              class="tab"
+              :class="{ active: currentTab === 'mvs' }"
+              @click="updateCurrentTab('mvs')"
+            >
+              {{ $t('library.mvs') }}
+            </div>
+            <div
+              class="tab"
+              :class="{ active: currentTab === 'cloudDisk' }"
+              @click="updateCurrentTab('cloudDisk')"
+            >
+              {{ $t('library.cloudDisk') }}
+            </div>
+            <div
+              class="tab"
+              :class="{ active: currentTab === 'playHistory' }"
+              @click="updateCurrentTab('playHistory')"
+            >
+              {{ $t('library.playHistory.title') }}
+            </div>
+          </div>
+          <div v-show="currentTab === 'playlists'" class="tab-actions">
+            <button
+              v-if="isElectron"
+              class="tab-button"
+              :disabled="importingLocalFolders"
+              @click="importLocalFolders"
+            >
+              <svg-icon icon-class="plus" />{{ $t('localMusic.importFolder') }}
+            </button>
+            <button class="tab-button" @click="openAddPlaylistModal">
+              <svg-icon icon-class="plus" />{{ $t('library.newPlayList') }}
+            </button>
+          </div>
+          <button
+            v-show="currentTab === 'cloudDisk'"
+            class="tab-button"
+            @click="selectUploadFiles"
+            ><svg-icon icon-class="arrow-up-alt" />{{
+              $t('library.uploadSongs')
+            }}
+          </button>
+        </div>
+
+        <div v-show="currentTab === 'playlists'">
+          <div v-if="playlistItems.length">
+            <CoverRow
+              :items="playlistItems"
+              type="playlist"
+              sub-text="creator"
+              :show-play-button="true"
+              :item-route="getPlaylistRoute"
+              :item-play-action="playPlaylistItem"
+            />
+          </div>
+          <p v-else-if="playlistFilter === 'local'" class="local-empty">
+            {{ $t('localMusic.emptyFolders') }}
+          </p>
+        </div>
+
+        <div v-show="currentTab === 'albums'">
+          <CoverRow
+            :items="liked.albums"
+            type="album"
+            sub-text="artist"
+            :show-play-button="true"
+          />
+        </div>
+
+        <div v-show="currentTab === 'artists'">
+          <CoverRow
+            :items="liked.artists"
+            type="artist"
+            :show-play-button="true"
+          />
+        </div>
+
+        <div v-show="currentTab === 'mvs'">
+          <MvRow :mvs="liked.mvs" />
+        </div>
+
+        <div v-show="currentTab === 'cloudDisk'">
+          <TrackList
+            :id="-8"
+            :tracks="liked.cloudDisk"
+            :column-number="3"
+            type="cloudDisk"
+            dbclick-track-func="playCloudDisk"
+            :extra-context-menu-item="['removeTrackFromCloudDisk']"
+          />
+        </div>
+
+        <div v-show="currentTab === 'playHistory'">
+          <button
+            :class="{
+              'playHistory-button': true,
+              'playHistory-button--selected': playHistoryMode === 'week',
+            }"
+            @click="playHistoryMode = 'week'"
+          >
+            {{ $t('library.playHistory.week') }}
+          </button>
+          <button
+            :class="{
+              'playHistory-button': true,
+              'playHistory-button--selected': playHistoryMode === 'all',
+            }"
+            @click="playHistoryMode = 'all'"
+          >
+            {{ $t('library.playHistory.all') }}
+          </button>
+          <TrackList
+            :tracks="playHistoryList"
+            :column-number="1"
+            type="tracklist"
+          />
+        </div>
       </div>
 
-      <div v-show="currentTab === 'artists'">
-        <CoverRow
-          :items="liked.artists"
-          type="artist"
-          :show-play-button="true"
-        />
-      </div>
+      <input
+        ref="cloudDiskUploadInput"
+        type="file"
+        style="display: none"
+        @change="uploadSongToCloudDisk"
+      />
 
-      <div v-show="currentTab === 'mvs'">
-        <MvRow :mvs="liked.mvs" />
-      </div>
-
-      <div v-show="currentTab === 'cloudDisk'">
-        <TrackList
-          :id="-8"
-          :tracks="liked.cloudDisk"
-          :column-number="3"
-          type="cloudDisk"
-          dbclick-track-func="playCloudDisk"
-          :extra-context-menu-item="['removeTrackFromCloudDisk']"
-        />
-      </div>
-
-      <div v-show="currentTab === 'playHistory'">
-        <button
-          :class="{
-            'playHistory-button': true,
-            'playHistory-button--selected': playHistoryMode === 'week',
-          }"
-          @click="playHistoryMode = 'week'"
+      <ContextMenu ref="playlistTabMenu">
+        <div class="item" @click="changePlaylistFilter('all')">{{
+          $t('contextMenu.allPlaylists')
+        }}</div>
+        <div
+          v-if="isElectron"
+          class="item"
+          @click="changePlaylistFilter('local')"
+          >{{ $t('contextMenu.localPlaylists') }}</div
         >
-          {{ $t('library.playHistory.week') }}
-        </button>
-        <button
-          :class="{
-            'playHistory-button': true,
-            'playHistory-button--selected': playHistoryMode === 'all',
-          }"
-          @click="playHistoryMode = 'all'"
-        >
-          {{ $t('library.playHistory.all') }}
-        </button>
-        <TrackList
-          :tracks="playHistoryList"
-          :column-number="1"
-          type="tracklist"
-        />
-      </div>
+        <hr />
+        <div class="item" @click="changePlaylistFilter('mine')">{{
+          $t('contextMenu.minePlaylists')
+        }}</div>
+        <div class="item" @click="changePlaylistFilter('liked')">{{
+          $t('contextMenu.likedPlaylists')
+        }}</div>
+      </ContextMenu>
+
+      <ContextMenu ref="playModeTabMenu">
+        <div class="item" @click="playLikedSongs">{{
+          $t('library.likedSongs')
+        }}</div>
+        <hr />
+        <div class="item" @click="playIntelligenceList">{{
+          $t('contextMenu.cardiacMode')
+        }}</div>
+      </ContextMenu>
     </div>
-
-    <input
-      ref="cloudDiskUploadInput"
-      type="file"
-      style="display: none"
-      @change="uploadSongToCloudDisk"
-    />
-
-    <ContextMenu ref="playlistTabMenu">
-      <div class="item" @click="changePlaylistFilter('all')">{{
-        $t('contextMenu.allPlaylists')
-      }}</div>
-      <hr />
-      <div class="item" @click="changePlaylistFilter('mine')">{{
-        $t('contextMenu.minePlaylists')
-      }}</div>
-      <div class="item" @click="changePlaylistFilter('liked')">{{
-        $t('contextMenu.likedPlaylists')
-      }}</div>
-    </ContextMenu>
-
-    <ContextMenu ref="playModeTabMenu">
-      <div class="item" @click="playLikedSongs">{{
-        $t('library.likedSongs')
-      }}</div>
-      <hr />
-      <div class="item" @click="playIntelligenceList">{{
-        $t('contextMenu.cardiacMode')
-      }}</div>
-    </ContextMenu>
   </div>
 </template>
 
@@ -222,6 +273,7 @@ import { uploadSong } from '@/api/user';
 import { getLyric } from '@/api/track';
 import NProgress from 'nprogress';
 import locale from '@/locale';
+import { isElectron } from '@/utils/env';
 
 import ContextMenu from '@/components/ContextMenu.vue';
 import TrackList from '@/components/TrackList.vue';
@@ -229,6 +281,7 @@ import CoverRow from '@/components/CoverRow.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
 import MvRow from '@/components/MvRow.vue';
 import LocalPlaybackHistory from '@/components/LocalPlaybackHistory.vue';
+import localMusicCover from '@/assets/local-music-cover.svg';
 
 /**
  * Pick the lyric part from a string formed in `[timecode] lyric`.
@@ -252,11 +305,15 @@ export default {
   },
   data() {
     return {
+      isElectron,
       show: false,
       likedSongs: [],
       lyric: undefined,
       currentTab: 'playlists',
       playHistoryMode: 'week',
+      localFolders: [],
+      importingLocalFolders: false,
+      removeLocalMusicListener: null,
     };
   },
   computed: {
@@ -305,6 +362,23 @@ export default {
       }
       return playlists;
     },
+    localPlaylistItems() {
+      return this.localFolders.map(folder => ({
+        ...folder,
+        coverImgUrl: folder.coverUrl
+          ? `${folder.coverUrl}?v=${folder.coverUpdatedAt}`
+          : localMusicCover,
+        creator: { nickname: this.$t('localMusic.folderPlaylist') },
+        localFolder: true,
+      }));
+    },
+    playlistItems() {
+      if (this.playlistFilter === 'local') return this.localPlaylistItems;
+      if (this.playlistFilter === 'all') {
+        return [...this.filterPlaylists, ...this.localPlaylistItems];
+      }
+      return this.filterPlaylists;
+    },
     playHistoryList() {
       if (this.show && this.playHistoryMode === 'week') {
         return this.liked.playHistory.weekData;
@@ -316,6 +390,12 @@ export default {
     },
   },
   created() {
+    this.loadLocalFolders();
+    if (this.isElectron && window.electronAPI?.localMusic) {
+      this.removeLocalMusicListener = window.electronAPI.localMusic.onChanged(
+        this.loadLocalFolders
+      );
+    }
     if (!this.loggedIn) {
       this.show = true;
       return;
@@ -327,9 +407,13 @@ export default {
   },
   activated() {
     this.$parent?.$refs?.scrollbar?.restorePosition?.();
+    this.loadLocalFolders();
     if (!this.loggedIn) return;
     this.loadData();
     dailyTask();
+  },
+  beforeDestroy() {
+    this.removeLocalMusicListener?.();
   },
   methods: {
     ...mapActions(['showToast']),
@@ -406,6 +490,47 @@ export default {
         key: 'show',
         value: true,
       });
+    },
+    async loadLocalFolders() {
+      if (!this.isElectron || !window.electronAPI?.localMusic) return;
+      this.localFolders = await window.electronAPI.localMusic.listFolders();
+    },
+    async importLocalFolders() {
+      if (this.importingLocalFolders) return;
+      this.importingLocalFolders = true;
+      try {
+        const result = await window.electronAPI.localMusic.selectFolders();
+        this.localFolders = result.folders;
+        if (result.added || result.skipped) {
+          this.showToast(
+            this.$t('localMusic.folderImportResult', {
+              added: result.added,
+              skipped: result.skipped,
+            })
+          );
+        }
+      } finally {
+        this.importingLocalFolders = false;
+      }
+    },
+    getPlaylistRoute(item) {
+      if (!item.localFolder) return null;
+      return { name: 'localPlaylist', params: { id: item.id } };
+    },
+    async playPlaylistItem(item) {
+      if (!item.localFolder) {
+        this.$store.state.player.playPlaylistByID(item.id);
+        return;
+      }
+      const folder = await window.electronAPI.localMusic.refreshFolder(item.id);
+      if (!folder?.tracks.length) return;
+      this.$store.state.player.replacePlaylist(
+        folder.tracks.map(track => track.id),
+        folder.id,
+        'local',
+        'first',
+        { name: folder.name }
+      );
     },
     openPlaylistTabMenu(e) {
       this.$refs.playlistTabMenu.openMenu(e);
@@ -544,6 +669,22 @@ h1 {
   margin-bottom: 24px;
 }
 
+.tab-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.local-only {
+  margin-top: 0;
+}
+
+.local-empty {
+  padding: 48px 16px;
+  color: var(--color-text);
+  text-align: center;
+  opacity: 0.58;
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -610,6 +751,10 @@ button.tab-button {
   &:active {
     opacity: 1;
     transform: scale(0.92);
+  }
+  &:disabled {
+    cursor: default;
+    opacity: 0.4;
   }
 }
 

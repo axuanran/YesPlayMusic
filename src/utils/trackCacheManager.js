@@ -92,6 +92,32 @@ export function createTrackCacheManager({
       return serialize('cache count', countUnlocked);
     },
 
+    listIds() {
+      return serialize('cache list', () =>
+        table.orderBy('createTime').reverse().primaryKeys()
+      );
+    },
+
+    remove(id) {
+      return serialize('cache remove', async () => {
+        const track = await table.get(id);
+        if (!track) {
+          return {
+            bytes: trackedBytes,
+            deleted: 0,
+            length: await table.count(),
+          };
+        }
+        await table.delete(id);
+        trackedBytes = Math.max(0, trackedBytes - getTrackSourceBytes(track));
+        return {
+          bytes: trackedBytes,
+          deleted: 1,
+          length: await table.count(),
+        };
+      });
+    },
+
     enforceLimit(limitMiB = getCacheLimit()) {
       return serialize('cache eviction', async () => {
         await countUnlocked();

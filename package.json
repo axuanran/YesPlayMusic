@@ -27,6 +27,8 @@
     "electron:build-win-portable": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder -w portable",
     "electron:build-linux": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder -l",
     "electron:serve": "yarn desktop:dev",
+    "electron:repair": "node scripts/repair-electron.mjs",
+    "electron:repair-and-serve": "yarn electron:repair && yarn desktop:dev",
     "electron:publish": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder -mwl -p always",
     "postinstall": "electron-builder install-app-deps",
     "postuninstall": "electron-builder install-app-deps",

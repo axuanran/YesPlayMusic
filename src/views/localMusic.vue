@@ -1,164 +1,207 @@
 <template>
-  <div class="local-music">
-    <div class="header">
-      <div>
-        <h1>{{ $t('localMusic.title') }}</h1>
-        <p>{{ $t('localMusic.description') }}</p>
-      </div>
-      <div v-if="isElectron" class="actions">
-        <button :disabled="tracks.length === 0" @click="playAll">
-          <svg-icon icon-class="play" />
-          {{ $t('localMusic.playAll') }}
-        </button>
-        <button class="primary" :disabled="importing" @click="importFiles">
-          <svg-icon icon-class="plus" />
-          {{ importing ? $t('localMusic.importing') : $t('localMusic.import') }}
-        </button>
+  <div v-if="folder" class="local-playlist">
+    <div class="playlist-info">
+      <Cover
+        :id="folder.id"
+        :image-url="folderCoverUrl"
+        type="playlist"
+        :fixed-size="288"
+        :cover-hover="false"
+        :always-show-shadow="true"
+        :click-cover-to-play="true"
+        :play-action="playAll"
+      />
+      <div class="info">
+        <div class="title">{{ folder.name }}</div>
+        <div class="artist">{{ $t('localMusic.folderPlaylist') }}</div>
+        <div class="date-and-count">
+          {{ tracks.length }} {{ $t('common.songs') }}
+        </div>
+        <div class="description">{{ folder.path }}</div>
+        <div class="buttons">
+          <ButtonTwoTone icon-class="play" @click="playAll">
+            {{ $t('common.play') }}
+          </ButtonTwoTone>
+          <ButtonTwoTone color="grey" @click="refreshFolder">
+            {{ $t('localMusic.refresh') }}
+          </ButtonTwoTone>
+          <ButtonTwoTone color="grey" @click="removeFolder">
+            {{ $t('localMusic.removeFolder') }}
+          </ButtonTwoTone>
+        </div>
       </div>
     </div>
 
-    <p v-if="!isElectron" class="empty">{{ $t('localMusic.desktopOnly') }}</p>
-    <p v-else-if="loading" class="empty">{{ $t('localMusic.loading') }}</p>
+    <p v-if="refreshing" class="empty">{{ $t('localMusic.refreshing') }}</p>
     <p v-else-if="tracks.length === 0" class="empty">
-      {{ $t('localMusic.empty') }}
+      {{ $t('localMusic.emptyPlaylist') }}
     </p>
     <TrackList
       v-else
-      id="local-music"
+      :id="folder.id"
       :tracks="tracks"
       :column-number="1"
       type="localMusic"
       dbclick-track-func="playLocalMusic"
-      :extra-context-menu-item="['removeLocalTrack']"
-      @remove-track="removeTrack"
     />
   </div>
+  <p v-else class="empty">{{ $t('localMusic.loading') }}</p>
 </template>
 
 <script>
-import { isElectron } from '@/utils/env';
+import ButtonTwoTone from '@/components/ButtonTwoTone.vue';
+import Cover from '@/components/Cover.vue';
 import TrackList from '@/components/TrackList.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
+import localMusicCover from '@/assets/local-music-cover.svg';
+import { isElectron } from '@/utils/env';
 
 export default {
-  name: 'LocalMusic',
-  components: { SvgIcon, TrackList },
+  name: 'LocalPlaylist',
+  components: { ButtonTwoTone, Cover, TrackList },
   data() {
     return {
-      isElectron,
-      importing: false,
-      loading: true,
+      folder: null,
       tracks: [],
+      refreshing: false,
+      localMusicCover,
+      removeChangeListener: null,
     };
   },
-  created() {
-    this.loadTracks();
+  computed: {
+    folderCoverUrl() {
+      return this.folder?.coverUrl
+        ? `${this.folder.coverUrl}?v=${this.folder.coverUpdatedAt}`
+        : this.localMusicCover;
+    },
+  },
+  async created() {
+    if (!isElectron || !window.electronAPI?.localMusic) {
+      this.$router.replace('/library');
+      return;
+    }
+    this.removeChangeListener = window.electronAPI.localMusic.onChanged(
+      this.handleFolderChange
+    );
+    await this.openFolder();
   },
   activated() {
-    this.loadTracks();
+    if (isElectron && window.electronAPI?.localMusic) this.openFolder();
+  },
+  deactivated() {
+    this.closeFolder();
+  },
+  beforeDestroy() {
+    this.closeFolder();
+    this.removeChangeListener?.();
   },
   methods: {
-    async loadTracks() {
-      if (!this.isElectron || !window.electronAPI?.localMusic) {
-        this.loading = false;
-        return;
-      }
+    async openFolder() {
+      this.refreshing = true;
       try {
-        this.tracks = await window.electronAPI.localMusic.list();
+        this.folder = await window.electronAPI.localMusic.openFolder(
+          this.$route.params.id
+        );
+        this.tracks = this.folder?.tracks || [];
+        if (!this.folder) this.$router.replace('/library');
       } finally {
-        this.loading = false;
+        this.refreshing = false;
       }
     },
-    async importFiles() {
-      if (this.importing) return;
-      this.importing = true;
+    closeFolder() {
+      if (this.folder?.id) {
+        return window.electronAPI.localMusic.closeFolder(this.folder.id);
+      }
+      return undefined;
+    },
+    async refreshFolder() {
+      if (this.refreshing || !this.folder) return;
+      this.refreshing = true;
       try {
-        const result = await window.electronAPI.localMusic.selectFiles();
-        this.tracks = result.tracks;
-        if (result.imported || result.skipped) {
-          this.$store.dispatch(
-            'showToast',
-            this.$t('localMusic.importResult', {
-              imported: result.imported,
-              skipped: result.skipped,
-            })
-          );
-        }
+        this.folder = await window.electronAPI.localMusic.refreshFolder(
+          this.folder.id
+        );
+        this.tracks = this.folder?.tracks || [];
       } finally {
-        this.importing = false;
+        this.refreshing = false;
       }
     },
-    playAll() {
+    async handleFolderChange({ folderId }) {
+      if (folderId !== this.folder?.id) return;
+      this.folder = await window.electronAPI.localMusic.getFolder(folderId);
+      this.tracks = this.folder?.tracks || [];
+    },
+    async playAll() {
+      await this.refreshFolder();
       if (!this.tracks.length) return;
       this.$store.state.player.replacePlaylist(
         this.tracks.map(track => track.id),
-        'local-music',
+        this.folder.id,
         'local',
         'first',
-        { name: this.$t('localMusic.title') }
+        { name: this.folder.name }
       );
     },
-    async removeTrack(trackId) {
-      this.tracks = await window.electronAPI.localMusic.remove([trackId]);
+    async removeFolder() {
+      if (
+        !window.confirm(
+          this.$t('localMusic.removeFolderConfirm', {
+            name: this.folder.name,
+          })
+        )
+      ) {
+        return;
+      }
+      await window.electronAPI.localMusic.removeFolder(this.folder.id);
+      this.$router.replace('/library');
     },
   },
 };
 </script>
 
 <style lang="scss" scoped>
-.local-music {
+.local-playlist {
   padding-top: 32px;
 }
 
-.header {
+.playlist-info {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 32px;
+  margin-bottom: 40px;
 
-  h1 {
-    margin: 0 0 8px;
-    font-size: 42px;
-    color: var(--color-text);
+  .info {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    margin-left: 56px;
   }
 
-  p {
-    margin: 0;
+  .title {
+    color: var(--color-text);
+    font-size: 36px;
+    font-weight: 700;
+  }
+
+  .artist,
+  .date-and-count,
+  .description {
+    margin-top: 8px;
     color: var(--color-text);
     opacity: 0.68;
   }
+
+  .description {
+    overflow: hidden;
+    max-width: 560px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
-.actions {
+.buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-
-  button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    color: var(--color-text);
-    background: var(--color-secondary-bg);
-    border-radius: 8px;
-    font-weight: 600;
-
-    &.primary {
-      color: var(--color-primary-bg);
-      background: var(--color-primary);
-    }
-
-    &:disabled {
-      cursor: default;
-      opacity: 0.45;
-    }
-  }
-
-  .svg-icon {
-    width: 15px;
-    height: 15px;
-  }
+  margin-top: 24px;
 }
 
 .empty {
@@ -166,5 +209,18 @@ export default {
   color: var(--color-text);
   text-align: center;
   opacity: 0.58;
+}
+
+@media (max-width: 720px) {
+  .playlist-info {
+    align-items: center;
+    flex-direction: column;
+
+    .info {
+      align-items: center;
+      margin: 28px 0 0;
+      text-align: center;
+    }
+  }
 }
 </style>

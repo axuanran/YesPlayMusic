@@ -199,6 +199,9 @@
           >
         </div>
         <div class="right">
+          <button :disabled="clearingCache" @click="showCachedTracks">
+            {{ $t('settings.viewCachedTracks') }}
+          </button>
           <button :disabled="clearingCache" @click="clearCache()">
             {{
               clearingCache
@@ -208,6 +211,9 @@
           </button>
         </div>
       </div>
+
+      <h3 v-if="isElectron">{{ $t('streaming.serverSettings') }}</h3>
+      <StreamingServerSettings v-if="isElectron" />
 
       <h3>插件中心</h3>
       <div
@@ -262,6 +268,27 @@
               name="show-lyrics-translation"
             />
             <label for="show-lyrics-translation"></label>
+          </div>
+        </div>
+      </div>
+      <div v-if="isElectron" class="item">
+        <div class="left">
+          <div class="title">
+            {{ $t('settings.autoMatchLocalLyrics.title') }}
+          </div>
+          <div class="description">
+            {{ $t('settings.autoMatchLocalLyrics.description') }}
+          </div>
+        </div>
+        <div class="right">
+          <div class="toggle">
+            <input
+              id="auto-match-local-lyrics"
+              v-model="autoMatchLocalLyrics"
+              type="checkbox"
+              name="auto-match-local-lyrics"
+            />
+            <label for="auto-match-local-lyrics"></label>
           </div>
         </div>
       </div>
@@ -378,6 +405,165 @@
           </div>
         </div>
       </div>
+      <template v-if="isElectron && enableDesktopLyrics">
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.locked') }}
+            </div>
+          </div>
+          <div class="right">
+            <div class="toggle">
+              <input
+                id="desktop-lyrics-locked"
+                v-model="desktopLyricsLocked"
+                type="checkbox"
+              />
+              <label for="desktop-lyrics-locked"></label>
+            </div>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.secondaryFontSize') }}
+            </div>
+          </div>
+          <div class="right">
+            <select v-model.number="desktopLyricsSecondaryFontSize">
+              <option
+                v-for="size in [12, 14, 16, 18, 20, 24, 28, 32]"
+                :key="size"
+                :value="size"
+              >
+                {{ size }}px
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.colors') }}
+            </div>
+          </div>
+          <div class="right desktop-lyrics-colors">
+            <input
+              v-model="desktopLyricsTextColor"
+              type="color"
+              :title="$t('settings.desktopLyrics.primaryColor')"
+            />
+            <input
+              v-model="desktopLyricsSecondaryColor"
+              type="color"
+              :title="$t('settings.desktopLyrics.secondaryColor')"
+            />
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.alwaysOnTop') }}
+            </div>
+          </div>
+          <div class="right">
+            <div class="toggle">
+              <input
+                id="desktop-lyrics-always-on-top"
+                v-model="desktopLyricsAlwaysOnTop"
+                type="checkbox"
+              />
+              <label for="desktop-lyrics-always-on-top"></label>
+            </div>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.showSecondary') }}
+            </div>
+          </div>
+          <div class="right">
+            <div class="toggle">
+              <input
+                id="desktop-lyrics-show-secondary"
+                v-model="desktopLyricsShowSecondary"
+                type="checkbox"
+              />
+              <label for="desktop-lyrics-show-secondary"></label>
+            </div>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.fontSize') }}
+            </div>
+          </div>
+          <div class="right">
+            <select v-model.number="desktopLyricsFontSize">
+              <option
+                v-for="size in [24, 28, 32, 36, 42, 48, 56, 64]"
+                :key="size"
+                :value="size"
+              >
+                {{ size }}px
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.textAlign') }}
+            </div>
+          </div>
+          <div class="right">
+            <select v-model="desktopLyricsTextAlign">
+              <option value="left">{{
+                $t('settings.desktopLyrics.left')
+              }}</option>
+              <option value="center">{{
+                $t('settings.desktopLyrics.center')
+              }}</option>
+              <option value="right">{{
+                $t('settings.desktopLyrics.right')
+              }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.backgroundOpacity') }}
+            </div>
+          </div>
+          <div class="right">
+            <input
+              v-model.number="desktopLyricsBackgroundOpacity"
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+            />
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.recovery') }}
+            </div>
+          </div>
+          <div class="right desktop-lyrics-actions">
+            <button @click="resetDesktopLyricsPosition">
+              {{ $t('settings.desktopLyrics.resetPosition') }}
+            </button>
+            <button @click="resetDesktopLyricsStyle">
+              {{ $t('settings.desktopLyrics.resetStyle') }}
+            </button>
+          </div>
+        </div>
+      </template>
 
       <h3>{{ $t('settings.customization') }}</h3>
       <div class="item">
@@ -440,6 +626,45 @@
       </div>
 
       <h3>{{ $t('settings.others') }}</h3>
+      <div v-if="isElectron" class="item">
+        <div class="left">
+          <div class="title">
+            {{ $t('settings.amllWsProtocol.title') }}
+          </div>
+          <div class="description">
+            {{ $t('settings.amllWsProtocol.description') }}
+          </div>
+        </div>
+        <div class="right">
+          <div class="toggle">
+            <input
+              id="enable-amll-ws-protocol"
+              v-model="enableAmllWsProtocol"
+              type="checkbox"
+              name="enable-amll-ws-protocol"
+            />
+            <label for="enable-amll-ws-protocol"></label>
+          </div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="left">
+          <div class="title">
+            {{ $t('settings.showPlaybackRateControl') }}
+          </div>
+        </div>
+        <div class="right">
+          <div class="toggle">
+            <input
+              id="show-playback-rate-control"
+              v-model="showPlaybackRateControl"
+              type="checkbox"
+              name="show-playback-rate-control"
+            />
+            <label for="show-playback-rate-control"></label>
+          </div>
+        </div>
+      </div>
       <div v-if="isElectron && !isMac" class="item">
         <div class="left">
           <div class="title"> {{ $t('settings.closeAppOption.text') }} </div>
@@ -759,7 +984,7 @@
 </template>
 
 <script>
-import { mapState, mapActions } from 'vuex';
+import { mapState, mapActions, mapMutations } from 'vuex';
 import { isLooseLoggedIn, doLogout } from '@/utils/auth';
 import { auth as lastfmAuth } from '@/api/lastfm';
 import {
@@ -772,12 +997,18 @@ import {
   clearDB,
   countDBSize,
   enforceTrackCacheLimit,
+  onTrackCacheChanged,
 } from '@/utils/db';
 import { getResolverConfig, updateResolverConfig } from '@/api/audioResolver';
 import pkg from '../../package.json';
 import { isElectron } from '@/utils/env';
 import { isLinux, isMac } from '@/utils/platform';
 import { getBuiltinPlugins, setPluginEnabled, syncPlugins } from '@/plugins';
+import StreamingServerSettings from '@/components/StreamingServerSettings.vue';
+import {
+  mergeDesktopLyricsSettings,
+  normalizeDesktopLyricsSettings,
+} from '@/utils/desktopLyricsSettings';
 
 const electronSettings = window.electronAPI?.settings;
 
@@ -846,8 +1077,23 @@ const setting = (key, defaults) => ({
   },
 });
 
+const desktopLyricsSetting = (key, fallback) => ({
+  get() {
+    return (
+      normalizeDesktopLyricsSettings(
+        this.settings.desktopLyrics,
+        this.settings.enableDesktopLyrics
+      )[key] ?? fallback
+    );
+  },
+  set(value) {
+    this.updateDesktopLyricsSettings({ [key]: value });
+  },
+});
+
 export default {
   name: 'Settings',
+  components: { StreamingServerSettings },
   data() {
     return {
       tracksCache: {
@@ -855,6 +1101,7 @@ export default {
         length: 0,
       },
       clearingCache: false,
+      removeTrackCacheListener: null,
       allOutputDevices: [
         {
           deviceId: 'default',
@@ -1033,6 +1280,7 @@ export default {
       },
     },
     showPlaylistsByAppleMusic: setting('showPlaylistsByAppleMusic', true),
+    showPlaybackRateControl: setting('showPlaybackRateControl', false),
     nyancatStyle: setting('nyancatStyle', false),
     performanceMode: {
       get() {
@@ -1066,13 +1314,46 @@ export default {
       },
     },
     showLyricsTranslation: setting('showLyricsTranslation'),
+    autoMatchLocalLyrics: setting('autoMatchLocalLyrics', true),
     lyricsBackground: setting('lyricsBackground', false),
     lyricsAutoResumeDelay: setting('lyricsAutoResumeDelay', 5000),
     lyricsAutoResumeWhenVisible: setting('lyricsAutoResumeWhenVisible', true),
     showLyricsTime: setting('showLyricsTime'),
-    enableDesktopLyrics: setting('enableDesktopLyrics', false),
+    enableDesktopLyrics: {
+      get() {
+        return normalizeDesktopLyricsSettings(
+          this.settings.desktopLyrics,
+          this.settings.enableDesktopLyrics
+        ).enabled;
+      },
+      set(value) {
+        this.updateDesktopLyricsSettings({
+          enabled: value,
+          visible: value,
+        });
+      },
+    },
+    desktopLyricsLocked: desktopLyricsSetting('locked', true),
+    desktopLyricsAlwaysOnTop: desktopLyricsSetting('alwaysOnTop', true),
+    desktopLyricsShowSecondary: desktopLyricsSetting('showSecondary', true),
+    desktopLyricsFontSize: desktopLyricsSetting('fontSize', 32),
+    desktopLyricsSecondaryFontSize: desktopLyricsSetting(
+      'secondaryFontSize',
+      18
+    ),
+    desktopLyricsTextColor: desktopLyricsSetting('textColor', '#ffffff'),
+    desktopLyricsSecondaryColor: desktopLyricsSetting(
+      'secondaryColor',
+      '#d6e0ff'
+    ),
+    desktopLyricsTextAlign: desktopLyricsSetting('textAlign', 'center'),
+    desktopLyricsBackgroundOpacity: desktopLyricsSetting(
+      'backgroundOpacity',
+      0
+    ),
     closeAppOption: setting('closeAppOption'),
     enableDiscordRichPresence: setting('enableDiscordRichPresence'),
+    enableAmllWsProtocol: setting('enableAmllWsProtocol', false),
     subTitleDefault: setting('subTitleDefault'),
     enableReversedMode: {
       get() {
@@ -1164,6 +1445,7 @@ export default {
     },
   },
   created() {
+    this.removeTrackCacheListener = onTrackCacheChanged(this.updateTracksCache);
     this.countDBSize('tracks');
     if (isElectron) this.getAllOutputDevices();
   },
@@ -1171,8 +1453,41 @@ export default {
     this.countDBSize('tracks');
     if (isElectron) this.getAllOutputDevices();
   },
+  beforeUnmount() {
+    this.removeTrackCacheListener?.();
+  },
   methods: {
     ...mapActions(['showToast']),
+    ...mapMutations(['updateModal']),
+    showCachedTracks() {
+      this.updateModal({
+        modalName: 'cachedTracksModal',
+        key: 'show',
+        value: true,
+      });
+    },
+    updateDesktopLyricsSettings(patch) {
+      const value = mergeDesktopLyricsSettings(
+        this.settings.desktopLyrics,
+        patch,
+        this.settings.enableDesktopLyrics
+      );
+      this.$store.commit('updateSettings', {
+        key: 'desktopLyrics',
+        value,
+      });
+      this.$store.commit('updateSettings', {
+        key: 'enableDesktopLyrics',
+        value: value.enabled,
+      });
+      window.electronAPI?.desktopLyrics?.updateSettings(patch);
+    },
+    resetDesktopLyricsPosition() {
+      window.electronAPI?.desktopLyrics?.resetPosition();
+    },
+    resetDesktopLyricsStyle() {
+      window.electronAPI?.desktopLyrics?.resetStyle();
+    },
     getAllOutputDevices() {
       navigator.mediaDevices.enumerateDevices().then(devices => {
         this.allOutputDevices = devices.filter(device => {
@@ -1566,6 +1881,22 @@ button {
   &:active {
     transform: scale(0.94);
   }
+}
+
+.desktop-lyrics-actions,
+.desktop-lyrics-colors {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.desktop-lyrics-colors input {
+  width: 42px;
+  height: 34px;
+  padding: 2px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--color-secondary-bg);
 }
 
 input.text-input.margin-right-0 {

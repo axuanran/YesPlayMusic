@@ -26,6 +26,8 @@
     <Toast />
     <ModalAddTrackToPlaylist v-if="isAccountLoggedIn" />
     <ModalNewPlaylist v-if="isAccountLoggedIn" />
+    <ModalDownloadTrack v-if="isElectron" />
+    <ModalCachedTracks v-if="isElectron" />
     <transition v-if="enablePlayer" name="slide-up">
       <Lyrics v-show="showLyrics" />
     </transition>
@@ -35,6 +37,8 @@
 <script>
 import ModalAddTrackToPlaylist from './components/ModalAddTrackToPlaylist.vue';
 import ModalNewPlaylist from './components/ModalNewPlaylist.vue';
+import ModalDownloadTrack from './components/ModalDownloadTrack.vue';
+import ModalCachedTracks from './components/ModalCachedTracks.vue';
 import Scrollbar from './components/Scrollbar.vue';
 import Navbar from './components/Navbar.vue';
 import Player from './components/Player.vue';
@@ -53,6 +57,8 @@ export default {
     Toast,
     ModalAddTrackToPlaylist,
     ModalNewPlaylist,
+    ModalDownloadTrack,
+    ModalCachedTracks,
     Lyrics,
     Scrollbar,
   },
@@ -60,6 +66,7 @@ export default {
     return {
       isElectron,
       userSelectNone: false,
+      removeDesktopLyricsSettingsListener: null,
       // keep-alive :include matches component name (PascalCase), not route name
       keepAliveComponents: [
         'Home',
@@ -102,7 +109,20 @@ export default {
     },
   },
   created() {
-    if (this.isElectron) ipcRenderer(this);
+    if (this.isElectron) {
+      ipcRenderer(this);
+      this.removeDesktopLyricsSettingsListener =
+        window.electronAPI?.desktopLyrics?.onSettingsChanged?.(value => {
+          this.$store.commit('updateSettings', {
+            key: 'desktopLyrics',
+            value,
+          });
+          this.$store.commit('updateSettings', {
+            key: 'enableDesktopLyrics',
+            value: value?.enabled === true,
+          });
+        }) || null;
+    }
     window.addEventListener('keydown', this.handleKeydown);
     window.addEventListener('focus', this.syncPlaybackState);
     document.addEventListener('visibilitychange', this.syncPlaybackState);
@@ -112,6 +132,7 @@ export default {
     window.removeEventListener('keydown', this.handleKeydown);
     window.removeEventListener('focus', this.syncPlaybackState);
     document.removeEventListener('visibilitychange', this.syncPlaybackState);
+    this.removeDesktopLyricsSettingsListener?.();
   },
   methods: {
     syncPlaybackState() {

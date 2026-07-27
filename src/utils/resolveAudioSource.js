@@ -13,7 +13,7 @@ export async function resolveTrackSource(track, options = {}) {
   const trackId = typeof track === 'object' ? track.id : track;
   const providerSource = await resolveTrackSourceWithProviders(
     track,
-    undefined,
+    options.quality,
     options
   );
   if (providerSource) {

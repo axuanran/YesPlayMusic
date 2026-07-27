@@ -2,6 +2,7 @@ import { playlistCategories } from '@/utils/staticData';
 import shortcuts from '@/utils/shortcuts';
 import { isElectron } from '@/utils/env';
 import { getCurrentPageResolverURL } from '@/api/audioResolver';
+import { DEFAULT_DESKTOP_LYRICS_SETTINGS } from '@/utils/desktopLyricsSettings';
 
 const enabledPlaylistCategories = playlistCategories
   .filter(c => c.enable)
@@ -25,13 +26,16 @@ let localStorage = {
     performanceMode: 'off',
     lowPerformanceMode: false,
     showLyricsTranslation: true,
+    autoMatchLocalLyrics: true,
     lyricsBackground: true,
     lyricsAutoResumeDelay: 5000,
     lyricsAutoResumeWhenVisible: true,
     enableDesktopLyrics: false,
+    desktopLyrics: { ...DEFAULT_DESKTOP_LYRICS_SETTINGS },
     enableOsdlyricsSupport: false,
     closeAppOption: 'ask',
     enableDiscordRichPresence: false,
+    enableAmllWsProtocol: false,
     enableGlobalShortcut: true,
     showLibraryDefault: false,
     subTitleDefault: false,

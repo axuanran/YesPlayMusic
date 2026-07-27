@@ -26,6 +26,22 @@
         sub-text="copywriter"
       />
     </div>
+    <div id="podcasts" class="index-row">
+      <div class="title">{{ $t('podcast.title') }}</div>
+      <div v-if="podcasts.error" class="podcast-error">
+        <span>{{ $t('podcast.loadFailed') }}</span>
+        <ButtonTwoTone color="grey" @click="loadPodcasts">
+          {{ $t('podcast.retry') }}
+        </ButtonTwoTone>
+      </div>
+      <CoverRow
+        v-else
+        type="podcast"
+        :items="podcasts.items"
+        sub-text="none"
+        :show-play-button="false"
+      />
+    </div>
     <div class="index-row for-you-section">
       <div class="title"> For You </div>
       <div class="for-you-row">
@@ -75,19 +91,25 @@ import { toplistOfArtists } from '@/api/artist';
 import { newAlbums } from '@/api/album';
 import { byAppleMusic } from '@/utils/staticData';
 import { getRecommendPlayList } from '@/utils/playList';
+import { getRecommendedPodcasts } from '@/api/podcast';
 import NProgress from 'nprogress';
 import { mapState } from 'vuex';
 import CoverRow from '@/components/CoverRow.vue';
 import FMCard from '@/components/FMCard.vue';
 import DailyTracksCard from '@/components/DailyTracksCard.vue';
+import ButtonTwoTone from '@/components/ButtonTwoTone.vue';
 
 export default {
   name: 'Home',
-  components: { CoverRow, FMCard, DailyTracksCard },
+  components: { ButtonTwoTone, CoverRow, FMCard, DailyTracksCard },
   data() {
     return {
       show: true,
       recommendPlaylist: { items: [] },
+      podcasts: {
+        error: false,
+        items: [],
+      },
       newReleasesAlbum: { items: [] },
       topList: {
         items: [],
@@ -115,6 +137,7 @@ export default {
         this.recommendPlaylist.items = items;
         NProgress.done();
       });
+      this.loadPodcasts();
       newAlbums({
         area: this.settings.musicLanguage ?? 'ALL',
         limit: 10,
@@ -148,6 +171,17 @@ export default {
         );
       });
       this.$refs.DailyTracksCard.loadDailyTracks();
+    },
+    async loadPodcasts() {
+      this.podcasts.error = false;
+      try {
+        const data = await getRecommendedPodcasts();
+        this.podcasts.items = Array.isArray(data?.djRadios)
+          ? data.djRadios
+          : [];
+      } catch {
+        this.podcasts.error = true;
+      }
     },
   },
 };
@@ -203,5 +237,15 @@ footer {
   gap: 24px;
   min-height: 198px;
   margin-bottom: 78px;
+}
+
+.podcast-error {
+  display: flex;
+  min-height: 200px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--color-text);
 }
 </style>

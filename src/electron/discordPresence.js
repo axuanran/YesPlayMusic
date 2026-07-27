@@ -20,3 +20,14 @@ export function getDiscordProgressTimestamps({
 export function shouldShowDiscordStatus(connected, enabled) {
   return connected === true && enabled === true;
 }
+
+export function getDiscordStatus(connected, enabled) {
+  return {
+    connected: connected === true,
+    enabled: enabled === true,
+  };
+}
+
+export function canPublishDiscordPresence(connected, enabled) {
+  return connected === true && enabled === true;
+}

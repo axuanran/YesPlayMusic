@@ -35,6 +35,8 @@ describe('PlayerResolver', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getOuterAudioUrl.mockImplementation(id => `outer:${id}`);
+    mocks.getTrackSource.mockResolvedValue(null);
+    mocks.cacheTrackSource.mockResolvedValue({});
     globalThis.yesplaymusicStore = {
       state: {
         settings: {
@@ -61,6 +63,50 @@ describe('PlayerResolver', () => {
       'provider-url'
     );
     expect(mocks.getMP3).not.toHaveBeenCalled();
+  });
+
+  it('uses a cached source before requesting a provider', async () => {
+    const source = new ArrayBuffer(8);
+    mocks.getTrackSource.mockResolvedValue({ source });
+    const createBlobUrl = vi.fn(() => 'blob:cached');
+    const resolver = new PlayerResolver({ createBlobUrl });
+
+    await expect(resolver.resolveSource({ id: 1 })).resolves.toBe(
+      'blob:cached'
+    );
+    expect(createBlobUrl).toHaveBeenCalledWith(source);
+    expect(mocks.resolveTrackSource).not.toHaveBeenCalled();
+  });
+
+  it('caches a successful provider source in the background', async () => {
+    const track = { id: 10, name: 'demo', ar: [], al: {} };
+    mocks.resolveTrackSource.mockResolvedValue(
+      'https://example.test/audio.mp3'
+    );
+    const resolver = new PlayerResolver();
+
+    await expect(resolver.resolveSource(track)).resolves.toBe(
+      'https://example.test/audio.mp3'
+    );
+    await vi.waitFor(() => {
+      expect(mocks.cacheTrackSource).toHaveBeenCalledWith(
+        track,
+        'https://example.test/audio.mp3',
+        undefined,
+        'resolver'
+      );
+    });
+  });
+
+  it('does not cache when automatic caching is disabled', async () => {
+    globalThis.yesplaymusicStore.state.settings.automaticallyCacheSongs = false;
+    mocks.resolveTrackSource.mockResolvedValue(
+      'https://example.test/audio.mp3'
+    );
+    const resolver = new PlayerResolver();
+
+    await resolver.resolveSource({ id: 11 });
+    expect(mocks.cacheTrackSource).not.toHaveBeenCalled();
   });
 
   it('loads local tracks and returns their source without network requests', async () => {

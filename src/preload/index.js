@@ -138,6 +138,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     get: id => ipcRenderer.invoke('local-music:get', id),
     selectFiles: () => ipcRenderer.invoke('local-music:select'),
     remove: ids => ipcRenderer.invoke('local-music:remove', ids),
+    listFolders: () => ipcRenderer.invoke('local-music:list-folders'),
+    selectFolders: () => ipcRenderer.invoke('local-music:select-folders'),
+    openFolder: folderId =>
+      ipcRenderer.invoke('local-music:open-folder', folderId),
+    getFolder: folderId =>
+      ipcRenderer.invoke('local-music:get-folder', folderId),
+    closeFolder: folderId =>
+      ipcRenderer.invoke('local-music:close-folder', folderId),
+    refreshFolder: folderId =>
+      ipcRenderer.invoke('local-music:refresh-folder', folderId),
+    removeFolder: folderId =>
+      ipcRenderer.invoke('local-music:remove-folder', folderId),
+    onChanged: callback => on('local-music:changed', callback),
   },
   streaming: {
     listConnections: () => ipcRenderer.invoke('streaming:list-connections'),
@@ -152,9 +165,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cache: {
     clearDiskCache: () => ipcRenderer.invoke('cache:clear-disk'),
   },
+  download: {
+    saveTrack: payload => {
+      const sanitizedPayload = sanitizeSerializableValue(payload);
+      if (!isPlainObject(sanitizedPayload)) {
+        return Promise.reject(new Error('Invalid download request'));
+      }
+      return ipcRenderer.invoke('download:track', sanitizedPayload);
+    },
+    onProgress: callback => on('download:progress', callback),
+  },
   desktopLyrics: {
     update: payload => sendObject('desktop-lyrics:update', payload),
-    onUpdate: callback => on('desktop-lyrics:render', callback),
+    toggle: () => ipcRenderer.send('desktop-lyrics:toggle'),
+    updateSettings: patch => sendObject('desktop-lyrics:settings', patch),
+    resetPosition: () => ipcRenderer.send('desktop-lyrics:reset-position'),
+    resetStyle: () => ipcRenderer.send('desktop-lyrics:reset-style'),
+    onSettingsChanged: callback =>
+      on('desktop-lyrics:settings-changed', callback),
   },
   appEvents: {
     getDiscordStatus: () => ipcRenderer.invoke('discord:get-status'),
@@ -166,6 +194,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onPrevious: callback => on('previous', callback),
     onIncreaseVolume: callback => on('increaseVolume', callback),
     onDecreaseVolume: callback => on('decreaseVolume', callback),
+    onSetVolume: callback => on('setVolume', callback),
     onLike: callback => on('like', callback),
     onRepeat: callback => on('repeat', callback),
     onShuffle: callback => on('shuffle', callback),

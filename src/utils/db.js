@@ -3,6 +3,7 @@ import Dexie from 'dexie';
 import store from '@/store';
 import { isElectron } from '@/utils/env';
 import { createTrackCacheManager } from '@/utils/trackCacheManager';
+import { toNumericDatabaseKey } from '@/utils/dbCacheKey';
 // import pkg from "../../package.json";
 
 const db = new Dexie('yesplaymusic');
@@ -39,6 +40,17 @@ const trackCacheManager = createTrackCacheManager({
   getCacheLimit: () => store.state?.settings?.cacheLimit ?? false,
   onError: logCacheError,
 });
+const trackCacheChangeListeners = new Set();
+
+const notifyTrackCacheChanged = state => {
+  for (const listener of trackCacheChangeListeners) listener(state);
+};
+
+export function onTrackCacheChanged(listener) {
+  if (typeof listener !== 'function') return () => {};
+  trackCacheChangeListeners.add(listener);
+  return () => trackCacheChangeListeners.delete(listener);
+}
 
 // 等待 settings 可用
 async function waitForSettingsReady(timeoutMs = 5000) {
@@ -82,16 +94,17 @@ export function enforceTrackCacheLimit(limitMiB) {
 
 export function cacheTrackSource(trackInfo, url, bitRate, from = 'netease') {
   if (!isElectron) return;
+  const trackId = toNumericDatabaseKey(trackInfo.id);
+  if (trackId === null) return;
   const name = trackInfo.name;
   const artist =
     (trackInfo.ar && trackInfo.ar[0]?.name) ||
     (trackInfo.artists && trackInfo.artists[0]?.name) ||
     'Unknown';
-  let cover = trackInfo.al.picUrl;
-  if (cover.slice(0, 5) !== 'https') {
-    cover = 'https' + cover.slice(4);
-  }
+  let cover = trackInfo.al?.picUrl || trackInfo.album?.picUrl || '';
+  if (cover.startsWith('http:')) cover = `https:${cover.slice(5)}`;
   const cacheCover = size => {
+    if (!cover) return;
     axios.get(`${cover}?param=${size}y${size}`).catch(error => {
       logCacheError(`cover ${size}px request`, error);
     });
@@ -104,8 +117,8 @@ export function cacheTrackSource(trackInfo, url, bitRate, from = 'netease') {
       responseType: 'arraybuffer',
     })
     .then(async response => {
-      await trackCacheManager.put({
-        id: trackInfo.id,
+      const cacheState = await trackCacheManager.put({
+        id: trackId,
         source: response.data,
         bitRate,
         from,
@@ -113,12 +126,20 @@ export function cacheTrackSource(trackInfo, url, bitRate, from = 'netease') {
         artist,
         createTime: new Date().getTime(),
       });
-      return { trackID: trackInfo.id, source: response.data, bitRate };
+      notifyTrackCacheChanged(cacheState);
+      return {
+        trackID: trackInfo.id,
+        source: response.data,
+        bitRate,
+        cacheState,
+      };
     });
 }
 
 export function getTrackSource(id) {
-  return db.trackSources.get(Number(id)).then(track => {
+  const key = toNumericDatabaseKey(id);
+  if (key === null) return Promise.resolve(null);
+  return db.trackSources.get(key).then(track => {
     if (!track) return null;
     return track;
   });
@@ -154,30 +175,38 @@ export function getTrackDetailFromCache(ids) {
 }
 
 export function cacheLyric(id, lyrics) {
+  const key = toNumericDatabaseKey(id);
+  if (key === null) return;
   db.lyric.put({
-    id,
+    id: key,
     lyrics,
     updateTime: new Date().getTime(),
   });
 }
 
 export function getLyricFromCache(id) {
-  return db.lyric.get(Number(id)).then(result => {
+  const key = toNumericDatabaseKey(id);
+  if (key === null) return Promise.resolve(undefined);
+  return db.lyric.get(key).then(result => {
     if (!result) return undefined;
     return result.lyrics;
   });
 }
 
 export function cacheAlbum(id, album) {
+  const key = toNumericDatabaseKey(id);
+  if (key === null) return;
   db.album.put({
-    id: Number(id),
+    id: key,
     album,
     updateTime: new Date().getTime(),
   });
 }
 
 export function getAlbumFromCache(id) {
-  return db.album.get(Number(id)).then(result => {
+  const key = toNumericDatabaseKey(id);
+  if (key === null) return Promise.resolve(undefined);
+  return db.album.get(key).then(result => {
     if (!result) return undefined;
     return result.album;
   });
@@ -185,6 +214,31 @@ export function getAlbumFromCache(id) {
 
 export function countDBSize() {
   return trackCacheManager.count();
+}
+
+export async function listCachedTracks() {
+  const ids = await trackCacheManager.listIds();
+  const details = await db.trackDetail.bulkGet(ids);
+  return ids.map((id, index) => {
+    const track = details[index]?.detail;
+    return {
+      id,
+      name: track?.name || `#${id}`,
+      artists: (track?.ar || track?.artists || [])
+        .map(artist => artist?.name)
+        .filter(Boolean),
+      album: track?.al?.name || track?.album?.name || '',
+      cover: track?.al?.picUrl || track?.album?.picUrl || '',
+    };
+  });
+}
+
+export async function removeCachedTrack(id) {
+  const key = toNumericDatabaseKey(id);
+  if (key === null) return null;
+  const state = await trackCacheManager.remove(key);
+  notifyTrackCacheChanged(state);
+  return state;
 }
 
 export function clearDB() {

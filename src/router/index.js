@@ -101,7 +101,11 @@ const routes = [
     },
   },
   {
-    path: '/podcast/:id?',
+    path: '/podcast',
+    redirect: { name: 'home' },
+  },
+  {
+    path: '/podcast/:id',
     name: 'podcast',
     component: () => import('@/views/podcast.vue'),
     meta: {
@@ -120,7 +124,11 @@ const routes = [
   },
   {
     path: '/local-music',
-    name: 'localMusic',
+    redirect: '/library',
+  },
+  {
+    path: '/local-playlist/:id',
+    name: 'localPlaylist',
     component: () => import('@/views/localMusic.vue'),
     meta: {
       keepAlive: true,

@@ -34,7 +34,7 @@
 <script>
 export default {
   props: {
-    id: { type: Number, required: true },
+    id: { type: [Number, String], required: true },
     type: { type: String, required: true },
     imageUrl: { type: String, required: true },
     fixedSize: { type: Number, default: 0 },
@@ -47,6 +47,8 @@ export default {
     radius: { type: Number, default: 12 },
     imageLoading: { type: String, default: 'lazy' },
     imageFetchPriority: { type: String, default: 'auto' },
+    route: { type: [String, Object], default: null },
+    playAction: { type: Function, default: null },
   },
   computed: {
     containerStyles() {
@@ -76,6 +78,10 @@ export default {
   },
   methods: {
     play() {
+      if (this.playAction) {
+        this.playAction();
+        return;
+      }
       const player = this.$store.state.player;
       const playActions = {
         album: player.playAlbumByID,
@@ -85,6 +91,10 @@ export default {
       playActions[this.type].bind(player)(this.id);
     },
     goTo() {
+      if (this.route) {
+        this.$router.push(this.route);
+        return;
+      }
       this.$router.push({ name: this.type, params: { id: this.id } });
     },
   },

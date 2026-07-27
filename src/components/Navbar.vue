@@ -26,21 +26,10 @@
           >{{ $t('nav.library') }}</router-link
         >
         <router-link
-          v-if="isElectron"
-          to="/local-music"
-          :class="{ active: $route.name === 'localMusic' }"
-          >{{ $t('nav.localMusic') }}</router-link
-        >
-        <router-link
-          v-if="isElectron"
+          v-if="isElectron && streamingAvailable"
           to="/streaming"
           :class="{ active: $route.name === 'streaming' }"
           >{{ $t('nav.streaming') }}</router-link
-        >
-        <router-link
-          to="/podcast"
-          :class="{ active: $route.name === 'podcast' }"
-          >{{ $t('nav.podcast') }}</router-link
         >
       </div>
       <div class="right-part">
@@ -105,6 +94,7 @@ import ContextMenu from '@/components/ContextMenu.vue';
 import ButtonIcon from '@/components/ButtonIcon.vue';
 import { isElectron } from '@/utils/env';
 import { isLinux, isWindows } from '@/utils/platform';
+import { STREAMING_CONNECTIONS_CHANGED } from '@/utils/streamingConnections';
 
 export default {
   name: 'Navbar',
@@ -122,6 +112,8 @@ export default {
       enableWin32Titlebar: false,
       enableLinuxTitlebar: false,
       isElectron,
+      streamingAvailable: false,
+      streamingConnectionsListener: null,
     };
   },
   computed: {
@@ -144,8 +136,35 @@ export default {
     } else if (isLinux && this.settings.linuxEnableCustomTitlebar) {
       this.enableLinuxTitlebar = true;
     }
+    if (isElectron && window.electronAPI?.streaming) {
+      this.streamingConnectionsListener = event => {
+        this.streamingAvailable = event.detail.length > 0;
+      };
+      window.addEventListener(
+        STREAMING_CONNECTIONS_CHANGED,
+        this.streamingConnectionsListener
+      );
+      this.loadStreamingAvailability();
+    }
+  },
+  beforeDestroy() {
+    if (this.streamingConnectionsListener) {
+      window.removeEventListener(
+        STREAMING_CONNECTIONS_CHANGED,
+        this.streamingConnectionsListener
+      );
+    }
   },
   methods: {
+    async loadStreamingAvailability() {
+      try {
+        const connections =
+          (await window.electronAPI.streaming.listConnections()) || [];
+        this.streamingAvailable = connections.length > 0;
+      } catch {
+        this.streamingAvailable = false;
+      }
+    },
     go(where) {
       if (where === 'back') this.$router.go(-1);
       else this.$router.go(1);

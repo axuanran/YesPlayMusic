@@ -47,6 +47,10 @@ import { spawn } from 'child_process';
 import clc from 'cli-color';
 import { listenOnAvailablePort } from './localServer.js';
 import {
+  clearDevResolverPort,
+  writeDevResolverPort,
+} from './devResolverPort.js';
+import {
   shouldUseWindowShadow,
   updateWindowShadow,
 } from '../electron/windowAppearance.js';
@@ -257,11 +261,17 @@ class Background {
     this.desktopLyrics = null;
     this.localMusicService = createLocalMusicService({
       store: this.store,
-      baseUrl: () => `http://127.0.0.1:${this.expressPort}`,
+      baseUrl: () =>
+        isDevelopment && process.env.ELECTRON_RENDERER_URL
+          ? new URL(process.env.ELECTRON_RENDERER_URL).origin
+          : `http://127.0.0.1:${this.expressPort}`,
     });
     this.streamingService = createStreamingService({
       store: this.store,
-      baseUrl: () => `http://127.0.0.1:${this.expressPort}`,
+      baseUrl: () =>
+        isDevelopment && process.env.ELECTRON_RENDERER_URL
+          ? new URL(process.env.ELECTRON_RENDERER_URL).origin
+          : `http://127.0.0.1:${this.expressPort}`,
     });
     this.willQuitApp = !isMac;
 
@@ -395,6 +405,9 @@ class Background {
     const server = await listenOnAvailablePort(expressApp, 27232);
     this.expressApp = server;
     this.expressPort = server.address().port;
+    if (isDevelopment) {
+      writeDevResolverPort(this.expressPort);
+    }
     log(`express app listening on 127.0.0.1:${this.expressPort}`);
     return server;
   }
@@ -651,13 +664,11 @@ class Background {
       // create window
       this.createWindow();
       this.desktopLyrics = new DesktopLyricsWindow({
-        preloadPath: path.join(__dirname, '../preload/index.js'),
+        mainWindow: this.window,
+        preloadPath: path.join(__dirname, '../preload/desktopLyrics.js'),
+        store: this.store,
       });
-      const desktopLyricsEnabled =
-        this.store.get('settings.enableDesktopLyrics') ??
-        this.store.get('settings.enableOsdlyricsSupport') ??
-        false;
-      this.desktopLyrics.setEnabled(desktopLyricsEnabled);
+      this.desktopLyrics.applySettings(this.desktopLyrics.settings);
       this.window.once('ready-to-show', () => {
         this.window.show();
       });
@@ -669,7 +680,8 @@ class Background {
         this.ypmTrayImpl = createTray(
           this.window,
           this.trayEventEmitter,
-          this.store
+          this.store,
+          this.desktopLyrics
         );
       }
 
@@ -712,7 +724,7 @@ class Background {
 
       // register global shortcuts
       if (this.store.get('settings.enableGlobalShortcut') !== false) {
-        registerGlobalShortcuts(this.window, this.store);
+        registerGlobalShortcuts(this.window, this.store, this.desktopLyrics);
       }
     });
 
@@ -736,8 +748,12 @@ class Background {
     });
 
     app.on('quit', () => {
+      if (isDevelopment) {
+        clearDevResolverPort();
+      }
       this.mpris?.dispose();
       this.desktopLyrics?.dispose();
+      this.localMusicService?.dispose();
       if (this.expressApp) {
         this.expressApp.close();
       }

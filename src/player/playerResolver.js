@@ -10,6 +10,15 @@ function getRuntimeStore() {
   return globalThis?.yesplaymusicStore || null;
 }
 
+const pendingTrackCaches = new Set();
+
+function isCacheableOnlineSource(source) {
+  return (
+    typeof source === 'string' &&
+    (/^https?:\/\//i.test(source) || source.startsWith('/'))
+  );
+}
+
 function getLocalMusicApi() {
   return globalThis?.window?.electronAPI?.localMusic || null;
 }
@@ -76,16 +85,22 @@ export default class PlayerResolver {
         .getTrack(track.id)
         .then(currentTrack => currentTrack?.sourceUrl || null);
     }
-    return resolveTrackSource(track, options).catch(error => {
-      if (isCanceledRequest(error)) throw error;
-      return this.resolveLegacySource(track, options);
+    return this.resolveCachedSource(String(track.id)).then(cachedSource => {
+      if (cachedSource) return cachedSource;
+      return resolveTrackSource(track, options)
+        .then(source => {
+          this.cacheResolvedSource(track, source, undefined, 'resolver');
+          return source;
+        })
+        .catch(error => {
+          if (isCanceledRequest(error)) throw error;
+          return this.resolveLegacySource(track, options);
+        });
     });
   }
 
   resolveLegacySource(track, options = {}) {
-    return this.resolveCachedSource(String(track.id)).then(source => {
-      return source ?? this.resolveNeteaseSource(track, options);
-    });
+    return this.resolveNeteaseSource(track, options);
   }
 
   resolveCachedSource(id) {
@@ -97,7 +112,9 @@ export default class PlayerResolver {
 
   resolveNeteaseSource(track, options = {}) {
     if (!isAccountLoggedIn()) {
-      return Promise.resolve(getOuterAudioUrl(track.id));
+      const source = getOuterAudioUrl(track.id);
+      this.cacheResolvedSource(track, source, undefined, 'outer');
+      return Promise.resolve(source);
     }
 
     return getMP3(track.id, options)
@@ -106,19 +123,30 @@ export default class PlayerResolver {
         if (!result.data[0].url) return null;
         if (result.data[0].freeTrialInfo !== null) return null;
         const source = result.data[0].url.replace(/^http:/, 'https:');
-        if (getRuntimeStore()?.state?.settings?.automaticallyCacheSongs) {
-          cacheTrackSource(track, source, result.data[0].br).catch(error => {
-            console.error(
-              `[track-cache] failed to cache track ${track.id}`,
-              error
-            );
-          });
-        }
+        this.cacheResolvedSource(track, source, result.data[0].br, 'netease');
         return source;
       })
       .catch(error => {
         if (isCanceledRequest(error)) throw error;
         return null;
       });
+  }
+
+  cacheResolvedSource(track, source, bitRate, from) {
+    if (
+      !getRuntimeStore()?.state?.settings?.automaticallyCacheSongs ||
+      !Number.isFinite(Number(track?.id)) ||
+      !isCacheableOnlineSource(source)
+    ) {
+      return;
+    }
+    const cacheKey = String(track.id);
+    if (pendingTrackCaches.has(cacheKey)) return;
+    pendingTrackCaches.add(cacheKey);
+    Promise.resolve(cacheTrackSource(track, source, bitRate, from))
+      .catch(error => {
+        console.error(`[track-cache] failed to cache track ${track.id}`, error);
+      })
+      .finally(() => pendingTrackCaches.delete(cacheKey));
   }
 }
