@@ -52,7 +52,7 @@
               </span>
             </div>
           </div>
-          <div class="like-button">
+          <div class="track-action-buttons">
             <button-icon
               :title="
                 player.isCurrentTrackLiked
@@ -69,6 +69,13 @@
                 v-show="player.isCurrentTrackLiked"
                 icon-class="heart-solid"
               ></svg-icon>
+            </button-icon>
+            <button-icon
+              :class="{ disabled: !canAddCurrentTrackToPlaylist }"
+              :title="$t('player.addToPlaylist')"
+              @click="addCurrentTrackToPlaylist"
+            >
+              <svg-icon icon-class="plus"></svg-icon>
             </button-icon>
           </div>
         </div>
@@ -191,6 +198,8 @@ import '@/assets/css/slider.css';
 import ButtonIcon from '@/components/ButtonIcon.vue';
 import VueSlider from 'vue-slider-component';
 import { goToListSource, hasListSource } from '@/utils/playList';
+import { isAccountLoggedIn } from '@/utils/auth';
+import locale from '@/locale';
 
 export default {
   name: 'Player',
@@ -247,6 +256,9 @@ export default {
         ? '音源来自酷我音乐'
         : '';
     },
+    canAddCurrentTrackToPlaylist() {
+      return !this.player.isTrackPending && Boolean(this.currentTrack?.id);
+    },
   },
   mounted() {
     this.setupMediaControls();
@@ -256,8 +268,8 @@ export default {
     window.removeEventListener('keydown', this.handleKeydown);
   },
   methods: {
-    ...mapMutations(['toggleLyrics']),
-    ...mapActions(['showToast', 'likeATrack']),
+    ...mapMutations(['toggleLyrics', 'updateModal']),
+    ...mapActions(['showToast', 'likeATrack', 'fetchLikedPlaylist']),
     handleClick(event) {
       if (event.target == this.mouseDownTarget) {
         this.toggleLyrics();
@@ -303,6 +315,24 @@ export default {
     likeCurrentTrack() {
       if (this.player.isTrackPending) return;
       this.likeATrack(this.player.currentTrack.id);
+    },
+    addCurrentTrackToPlaylist() {
+      if (!this.canAddCurrentTrackToPlaylist) return;
+      if (!isAccountLoggedIn()) {
+        this.showToast(locale.t('toast.needToLogin'));
+        return;
+      }
+      this.fetchLikedPlaylist();
+      this.updateModal({
+        modalName: 'addTrackToPlaylistModal',
+        key: 'selectedTrackID',
+        value: this.currentTrack.id,
+      });
+      this.updateModal({
+        modalName: 'addTrackToPlaylistModal',
+        key: 'show',
+        value: true,
+      });
     },
     goToNextTracksPage() {
       if (this.player.isPersonalFM) return;
@@ -572,7 +602,10 @@ export default {
   }
 }
 
-.like-button {
+.track-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-left: 16px;
 }
 

@@ -105,6 +105,7 @@ export default {
     nextUp: '即將播放',
   },
   player: {
+    addToPlaylist: '收藏至歌單',
     like: '喜歡',
     unlike: '取消喜歡',
     previous: '上一首',

@@ -109,6 +109,7 @@ export default {
     nextUp: 'Next Up',
   },
   player: {
+    addToPlaylist: 'Add to playlist',
     like: 'Like',
     unlike: 'Unlike',
     previous: 'Previous Song',

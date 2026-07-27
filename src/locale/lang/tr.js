@@ -106,6 +106,7 @@ export default {
     nextUp: 'Sıradaki',
   },
   player: {
+    addToPlaylist: 'Çalma listesine ekle',
     like: 'Beğen',
     unlike: 'Aksine',
     previous: 'Önceki Müzik',
