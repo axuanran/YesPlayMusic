@@ -245,9 +245,12 @@ jobs:
     runs-on: ubuntu-latest
     environment: aur
     env:
-      AUR_PACKAGE: yesplaymusic
+      AUR_PACKAGE: yesplaymusic-axuanran-bin
 
     steps:
+      - name: Check out AUR package template
+        uses: actions/checkout@v4
+
       - name: Configure AUR SSH
         env:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
@@ -278,8 +281,13 @@ jobs:
             exit 1
           fi
 
-          git clone "ssh://aur@aur.archlinux.org/${AUR_PACKAGE}.git" aur
-          cd aur
+          aur_dir="${RUNNER_TEMP}/aur"
+          git clone "ssh://aur@aur.archlinux.org/${AUR_PACKAGE}.git" "$aur_dir"
+          cd "$aur_dir"
+
+          if [[ ! -f PKGBUILD ]]; then
+            install -m 644 "${GITHUB_WORKSPACE}/.github/aur/PKGBUILD" PKGBUILD
+          fi
 
           sed -Ei "s/^pkgver=.*/pkgver=${version}/" PKGBUILD
           sed -Ei "s/^pkgrel=.*/pkgrel=1/" PKGBUILD

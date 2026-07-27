@@ -1,0 +1,51 @@
+# Maintainer: YesPlayMusic contributors
+
+pkgname=yesplaymusic-axuanran-bin
+pkgver=0.0.0
+pkgrel=1
+pkgdesc="A third-party Netease Cloud Music player"
+arch=('x86_64')
+url="https://github.com/axuanran/YesPlayMusic"
+license=('MIT')
+provides=('yesplaymusic')
+conflicts=(
+    'yesplaymusic'
+    'yesplaymusic-bin'
+    'yesplaymusic-electron'
+    'yesplaymusic-git'
+)
+depends=(
+    'alsa-lib'
+    'gtk3'
+    'libxss'
+    'nss'
+)
+optdepends=(
+    'libnotify: desktop notifications'
+    'libayatana-appindicator: system tray support'
+    'xdg-utils: open URLs with default browser'
+)
+options=('!strip' '!debug')
+source=(
+    "YesPlayMusic-${pkgver}.pacman::${url}/releases/download/v${pkgver}/yesplaymusic-${pkgver}.pacman"
+    "LICENSE-${pkgver}::https://raw.githubusercontent.com/axuanran/YesPlayMusic/v${pkgver}/LICENSE"
+)
+sha256sums=('SKIP'
+            'SKIP')
+
+package() {
+    tar -xf "YesPlayMusic-${pkgver}.pacman" -C "$pkgdir"
+
+    rm -f "$pkgdir"/.{PKGINFO,MTREE,INSTALL}
+
+    install -dm755 "$pkgdir/usr/bin"
+    ln -sf '/opt/YesPlayMusic/yesplaymusic' "$pkgdir/usr/bin/yesplaymusic"
+
+    chmod 4755 "$pkgdir/opt/YesPlayMusic/chrome-sandbox"
+
+    sed -i 's|Categories=Music;|Categories=Music;AudioVideo;Player;|' \
+        "$pkgdir/usr/share/applications/yesplaymusic.desktop"
+
+    install -Dm644 "$srcdir/LICENSE-${pkgver}" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
