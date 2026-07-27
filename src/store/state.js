@@ -50,6 +50,8 @@ export default {
     downloadTrackModal: {
       show: false,
       selectedTrack: null,
+      selectedTracks: [],
+      playlistName: '',
     },
     cachedTracksModal: {
       show: false,

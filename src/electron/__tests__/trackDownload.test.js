@@ -3,8 +3,11 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
+  beginTrackDownloadBatch,
+  finishTrackDownloadBatch,
   normalizeTrackDownloadRequest,
   saveTrackDownload,
+  saveTrackDownloadToBatch,
 } from '../trackDownload.js';
 
 const temporaryDirectories = [];
@@ -27,6 +30,21 @@ describe('track download request validation', () => {
     ).toEqual({
       url: 'https://example.test/audio?id=1',
       suggestedName: 'Artist_A_Song_.mp3',
+    });
+  });
+
+  it('resolves development resolver paths against the renderer URL', () => {
+    expect(
+      normalizeTrackDownloadRequest(
+        {
+          url: '/resolver-api/audio/track.mp3',
+          suggestedName: 'track.mp3',
+        },
+        'http://127.0.0.1:20201/#/settings'
+      )
+    ).toEqual({
+      url: 'http://127.0.0.1:20201/resolver-api/audio/track.mp3',
+      suggestedName: 'track.mp3',
     });
   });
 
@@ -54,7 +72,11 @@ describe('track download request validation', () => {
     const body = new Uint8Array([1, 2, 3, 4]);
 
     const result = await saveTrackDownload({
-      win: {},
+      win: {
+        webContents: {
+          getURL: () => 'http://127.0.0.1:20201/',
+        },
+      },
       dialog: {
         showSaveDialog: vi.fn().mockResolvedValue({
           canceled: false,
@@ -89,5 +111,64 @@ describe('track download request validation', () => {
       received: body.length,
       total: body.length,
     });
+  });
+
+  it('downloads a batch into one directory and avoids duplicate names', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'ypm-batch-test-'));
+    temporaryDirectories.push(directory);
+    const ownerId = 7;
+    const win = {
+      webContents: {
+        getURL: () => 'http://127.0.0.1:20201/',
+      },
+    };
+    const batch = await beginTrackDownloadBatch({
+      win,
+      dialog: {
+        showOpenDialog: vi.fn().mockResolvedValue({
+          canceled: false,
+          filePaths: [directory],
+        }),
+      },
+      ownerId,
+      playlistName: 'Playlist',
+    });
+    const net = {
+      fetch: vi.fn().mockImplementation(
+        async () =>
+          new Response(new Uint8Array([1, 2]), {
+            headers: { 'content-type': 'audio/mpeg' },
+          })
+      ),
+    };
+
+    for (let index = 0; index < 2; index += 1) {
+      await saveTrackDownloadToBatch({
+        win,
+        net,
+        ownerId,
+        payload: {
+          batchId: batch.batchId,
+          url: '/resolver-api/track',
+          suggestedName: 'track.mp3',
+        },
+      });
+    }
+
+    expect(await readFile(path.join(directory, 'track.mp3'))).toBeTruthy();
+    expect(await readFile(path.join(directory, 'track (2).mp3'))).toBeTruthy();
+    expect(finishTrackDownloadBatch(ownerId, batch.batchId)).toBe(true);
+    await expect(
+      saveTrackDownloadToBatch({
+        win,
+        net,
+        ownerId,
+        payload: {
+          batchId: batch.batchId,
+          url: '/resolver-api/track',
+          suggestedName: 'track.mp3',
+        },
+      })
+    ).rejects.toThrow('Invalid or expired download batch');
   });
 });

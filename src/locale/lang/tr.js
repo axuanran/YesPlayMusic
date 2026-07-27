@@ -380,6 +380,14 @@ export default {
       },
     },
   },
+  addToPlaylistModal: {
+    title: 'Çalma listesine ekle',
+    newPlaylist: 'Yeni çalma listesi',
+    loading: 'Çalma listeleri yükleniyor…',
+    empty: 'Yazılabilir çalma listesi yok. Önce bir liste oluşturun.',
+    trackCount: '{count} parça',
+    loadFailed: 'Çalma listeleri yüklenemedi. Daha sonra tekrar deneyin.',
+  },
   contextMenu: {
     play: 'Oynat',
     addToQueue: 'Sonrakini Oynat',
@@ -399,9 +407,18 @@ export default {
     copyLyric: 'Şarkı sözünü kopyala',
     copyLyricWithTranslation: 'Şarkı sözünü çeviriyle kopyala',
     downloadTrack: 'Parçayı indir',
+    downloadPlaylist: 'Tüm çalma listesini indir',
   },
   downloadTrack: {
     title: 'Parçayı indir',
+    playlistTitle: 'Çalma listesini indir',
+    trackCount: '{count} parça',
+    batchProgress: 'Parça {current} / {total}',
+    failedCount: '{count} başarısız',
+    batchCompleted:
+      'Çalma listesi indirildi: {completed} başarılı, {failed} başarısız',
+    emptyPlaylist: 'Çalma listesinde indirilebilir parça yok',
+    prepareFailed: 'Çalma listesi yüklenemedi: {error}',
     quality: 'Kalite',
     download: 'Konum seç ve indir',
     downloading: 'İndiriliyor…',

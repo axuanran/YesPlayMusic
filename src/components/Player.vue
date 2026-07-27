@@ -277,6 +277,10 @@ export default {
       if (version < 0) return this.player.displayTrack;
       return this.player.displayTrack;
     },
+    resolvedCurrentTrack() {
+      void this.playerVersion;
+      return this.player.currentTrack;
+    },
     volume: {
       get() {
         return this.player.volume;
@@ -317,11 +321,14 @@ export default {
         : '';
     },
     canAddCurrentTrackToPlaylist() {
+      const displayedTrackID = this.currentTrack?.id;
+      const resolvedTrackID = this.resolvedCurrentTrack?.id;
       return (
-        !this.player.isTrackPending &&
-        !this.currentTrack?.local &&
-        !this.currentTrack?.streaming &&
-        Boolean(this.currentTrack?.id)
+        displayedTrackID != null &&
+        resolvedTrackID != null &&
+        String(displayedTrackID) === String(resolvedTrackID) &&
+        !this.resolvedCurrentTrack.local &&
+        !this.resolvedCurrentTrack.streaming
       );
     },
     desktopLyricsVisible() {
@@ -575,14 +582,14 @@ export default {
     addCurrentTrackToPlaylist() {
       if (!this.canAddCurrentTrackToPlaylist) return;
       if (!isAccountLoggedIn()) {
-        this.showToast(locale.t('toast.needToLogin'));
+        this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
       this.fetchLikedPlaylist();
       this.updateModal({
         modalName: 'addTrackToPlaylistModal',
         key: 'selectedTrackID',
-        value: this.currentTrack.id,
+        value: this.resolvedCurrentTrack.id,
       });
       this.updateModal({
         modalName: 'addTrackToPlaylistModal',

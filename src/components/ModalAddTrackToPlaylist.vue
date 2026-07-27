@@ -4,13 +4,24 @@
     :show="show"
     :close="close"
     :show-footer="false"
-    title="添加到歌单"
+    :title="$t('addToPlaylistModal.title')"
     width="25vw"
   >
-    <template slot="default">
+    <template #default>
       <div class="new-playlist-button" @click="newPlaylist"
-        ><svg-icon icon-class="plus" />新建歌单</div
+        ><svg-icon icon-class="plus" />{{
+          $t('addToPlaylistModal.newPlaylist')
+        }}</div
       >
+      <div v-if="loading && ownPlaylists.length === 0" class="empty-state">
+        {{ $t('addToPlaylistModal.loading') }}
+      </div>
+      <div
+        v-else-if="!loading && ownPlaylists.length === 0"
+        class="empty-state"
+      >
+        {{ $t('addToPlaylistModal.empty') }}
+      </div>
       <div
         v-for="playlist in ownPlaylists"
         :key="playlist.id"
@@ -20,7 +31,13 @@
         <img :src="resizeImage(playlist.coverImgUrl, 224)" loading="lazy" />
         <div class="info">
           <div class="title">{{ playlist.name }}</div>
-          <div class="track-count">{{ playlist.trackCount }} 首</div>
+          <div class="track-count">
+            {{
+              $t('addToPlaylistModal.trackCount', {
+                count: playlist.trackCount,
+              })
+            }}
+          </div>
         </div>
       </div>
     </template>
@@ -32,6 +49,7 @@ import { mapActions, mapMutations, mapState } from 'vuex';
 import Modal from '@/components/Modal.vue';
 import locale from '@/locale';
 import { addOrRemoveTrackFromPlaylist } from '@/api/playlist';
+import { getWritableUserPlaylists } from '@/utils/userPlaylists';
 
 export default {
   name: 'ModalAddTrackToPlaylist',
@@ -41,6 +59,7 @@ export default {
   data() {
     return {
       playlists: [],
+      loading: false,
     };
   },
   computed: {
@@ -63,16 +82,34 @@ export default {
       },
     },
     ownPlaylists() {
-      return this.liked.playlists.filter(
-        p =>
-          p.creator.userId === this.data.user.userId &&
-          p.id !== this.data.likedSongPlaylistID
+      return getWritableUserPlaylists(
+        this.liked.playlists,
+        this.data.user?.userId,
+        this.data.likedSongPlaylistID
       );
+    },
+  },
+  watch: {
+    show(value) {
+      if (value) this.loadPlaylists();
     },
   },
   methods: {
     ...mapMutations(['updateModal']),
-    ...mapActions(['showToast']),
+    ...mapActions(['showToast', 'fetchLikedPlaylist', 'fetchUserProfile']),
+    async loadPlaylists() {
+      if (this.loading) return;
+      this.loading = true;
+      try {
+        if (!this.data.user?.userId) await this.fetchUserProfile();
+        await this.fetchLikedPlaylist();
+      } catch (error) {
+        console.error('[playlist] failed to load user playlists', error);
+        this.showToast(this.$t('addToPlaylistModal.loadFailed'));
+      } finally {
+        this.loading = false;
+      }
+    },
     close() {
       this.show = false;
     },
@@ -84,7 +121,7 @@ export default {
       }).then(data => {
         if (data.body.code === 200) {
           this.show = false;
-          this.showToast(locale.t('toast.savedToPlaylist'));
+          this.showToast(locale.global.t('toast.savedToPlaylist'));
         } else {
           this.showToast(data.body.message);
         }
@@ -133,6 +170,13 @@ export default {
     background: var(--color-primary-bg-for-transparent);
   }
 }
+
+.empty-state {
+  padding: 28px 8px;
+  text-align: center;
+  opacity: 0.68;
+}
+
 .playlist {
   display: flex;
   padding: 6px;

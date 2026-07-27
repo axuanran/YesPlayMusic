@@ -456,7 +456,7 @@ export default {
     },
     updateCurrentTab(tab) {
       if (!isAccountLoggedIn() && tab !== 'playlists') {
-        this.showToast(locale.t('toast.needToLogin'));
+        this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
       this.currentTab = tab;
@@ -482,7 +482,7 @@ export default {
     },
     openAddPlaylistModal() {
       if (!isAccountLoggedIn()) {
-        this.showToast(locale.t('toast.needToLogin'));
+        this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
       this.updateModal({

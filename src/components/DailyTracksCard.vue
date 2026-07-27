@@ -68,7 +68,7 @@ export default {
     },
     playDailyTracks() {
       if (!isAccountLoggedIn()) {
-        this.showToast(locale.t('toast.needToLogin'));
+        this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
       let trackIDs = this.dailyTracks.map(t => t.id);

@@ -299,7 +299,7 @@ export default {
     },
     addTrackToPlaylist() {
       if (!isAccountLoggedIn()) {
-        this.showToast(locale.t('toast.needToLogin'));
+        this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
       this.updateModal({
@@ -321,13 +321,23 @@ export default {
       });
       this.updateModal({
         modalName: 'downloadTrackModal',
+        key: 'selectedTracks',
+        value: [],
+      });
+      this.updateModal({
+        modalName: 'downloadTrackModal',
+        key: 'playlistName',
+        value: '',
+      });
+      this.updateModal({
+        modalName: 'downloadTrackModal',
         key: 'show',
         value: true,
       });
     },
     removeTrackFromPlaylist() {
       if (!isAccountLoggedIn()) {
-        this.showToast(locale.t('toast.needToLogin'));
+        this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
       if (confirm(`确定要从歌单删除 ${this.rightClickedTrack.name}？`)) {
@@ -339,7 +349,7 @@ export default {
         }).then(data => {
           this.showToast(
             data.body.code === 200
-              ? locale.t('toast.removedFromPlaylist')
+              ? locale.global.t('toast.removedFromPlaylist')
               : data.body.message
           );
           this.$parent.removeTrack(trackID);
@@ -355,10 +365,10 @@ export default {
         `https://music.163.com/song?id=${this.rightClickedTrack.id}`
       )
         .then(() => {
-          this.showToast(locale.t('toast.copied'));
+          this.showToast(locale.global.t('toast.copied'));
         })
         .catch(err => {
-          this.showToast(`${locale.t('toast.copyFailed')}${err}`);
+          this.showToast(`${locale.global.t('toast.copyFailed')}${err}`);
         });
     },
     removeTrackFromQueue() {

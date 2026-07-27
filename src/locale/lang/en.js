@@ -389,6 +389,14 @@ export default {
       },
     },
   },
+  addToPlaylistModal: {
+    title: 'Add to playlist',
+    newPlaylist: 'New playlist',
+    loading: 'Loading playlists…',
+    empty: 'No writable playlists. Create a playlist first.',
+    trackCount: '{count} tracks',
+    loadFailed: 'Unable to load playlists. Try again later.',
+  },
   contextMenu: {
     play: 'Play',
     addToQueue: 'Add to queue',
@@ -408,9 +416,18 @@ export default {
     copyLyric: 'Copy Lyric',
     copyLyricWithTranslation: 'Copy Lyric With Translation',
     downloadTrack: 'Download track',
+    downloadPlaylist: 'Download entire playlist',
   },
   downloadTrack: {
     title: 'Download track',
+    playlistTitle: 'Download playlist',
+    trackCount: '{count} tracks',
+    batchProgress: 'Track {current} / {total}',
+    failedCount: '{count} failed',
+    batchCompleted:
+      'Playlist download complete: {completed} succeeded, {failed} failed',
+    emptyPlaylist: 'The playlist has no downloadable tracks',
+    prepareFailed: 'Unable to load the complete playlist: {error}',
     quality: 'Quality',
     download: 'Choose location and download',
     downloading: 'Downloading…',

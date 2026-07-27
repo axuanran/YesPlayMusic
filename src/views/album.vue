@@ -238,7 +238,7 @@ export default {
     },
     likeAlbum(toast = false) {
       if (!isAccountLoggedIn()) {
-        this.showToast(locale.t('toast.needToLogin'));
+        this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
       likeAAlbum({
@@ -312,10 +312,10 @@ export default {
       let showToast = this.showToast;
       this.$copyText(`https://music.163.com/#/album?id=${id}`)
         .then(function () {
-          showToast(locale.t('toast.copied'));
+          showToast(locale.global.t('toast.copied'));
         })
         .catch(error => {
-          showToast(`${locale.t('toast.copyFailed')}${error}`);
+          showToast(`${locale.global.t('toast.copyFailed')}${error}`);
         });
     },
     openInBrowser(id) {

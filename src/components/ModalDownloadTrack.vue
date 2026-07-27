@@ -3,12 +3,18 @@
     class="download-track-modal"
     :show="show"
     :close="close"
-    :title="$t('downloadTrack.title')"
+    :title="modalTitle"
     width="28rem"
     min-width="calc(min(28rem, 92vw))"
   >
     <template #default>
-      <div class="track-info">
+      <div v-if="isPlaylist" class="playlist-info">
+        <div class="playlist-name">{{ playlistName }}</div>
+        <div class="track-artist">
+          {{ $t('downloadTrack.trackCount', { count: tracks.length }) }}
+        </div>
+      </div>
+      <div v-else class="track-info">
         <img
           v-if="track.al?.picUrl"
           :src="resizeImage(track.al.picUrl, 224)"
@@ -36,6 +42,18 @@
           <div class="progress-value" :style="{ width: progressPercent }"></div>
         </div>
         <span>{{ progressLabel }}</span>
+      </div>
+      <div v-if="downloading && isPlaylist" class="batch-progress">
+        <span>{{
+          $t('downloadTrack.batchProgress', {
+            current: currentTrackIndex,
+            total: tracks.length,
+          })
+        }}</span>
+        <span class="current-track">{{ currentTrackName }}</span>
+        <span v-if="failedTracks > 0">
+          {{ $t('downloadTrack.failedCount', { count: failedTracks }) }}
+        </span>
       </div>
     </template>
     <template #footer>
@@ -79,6 +97,11 @@ export default {
       downloading: false,
       receivedBytes: 0,
       totalBytes: 0,
+      currentTrackIndex: 0,
+      currentTrackName: '',
+      completedTracks: 0,
+      failedTracks: 0,
+      activeBatchId: '',
       removeProgressListener: null,
       qualities: TRACK_DOWNLOAD_QUALITIES,
     };
@@ -99,6 +122,20 @@ export default {
     },
     track() {
       return this.modals.downloadTrackModal.selectedTrack || {};
+    },
+    tracks() {
+      return this.modals.downloadTrackModal.selectedTracks || [];
+    },
+    playlistName() {
+      return this.modals.downloadTrackModal.playlistName || '';
+    },
+    isPlaylist() {
+      return this.tracks.length > 0;
+    },
+    modalTitle() {
+      return this.$t(
+        this.isPlaylist ? 'downloadTrack.playlistTitle' : 'downloadTrack.title'
+      );
     },
     artistNames() {
       return (this.track.ar || [])
@@ -126,12 +163,20 @@ export default {
       this.quality = normalizeTrackDownloadQuality(this.settings.musicQuality);
       this.receivedBytes = 0;
       this.totalBytes = 0;
+      this.currentTrackIndex = 0;
+      this.currentTrackName = '';
+      this.completedTracks = 0;
+      this.failedTracks = 0;
+      this.activeBatchId = '';
     },
   },
   mounted() {
     this.removeProgressListener =
       window.electronAPI?.download?.onProgress?.(progress => {
         if (!this.downloading) return;
+        if (this.activeBatchId && progress?.batchId !== this.activeBatchId) {
+          return;
+        }
         this.receivedBytes = Math.max(0, Number(progress?.received) || 0);
         this.totalBytes = Math.max(0, Number(progress?.total) || 0);
       }) || null;
@@ -146,23 +191,21 @@ export default {
       if (!this.downloading) this.show = false;
     },
     async download() {
-      if (this.downloading || !this.track?.id) return;
+      if (
+        this.downloading ||
+        (!this.isPlaylist && !this.track?.id) ||
+        (this.isPlaylist && this.tracks.length === 0)
+      ) {
+        return;
+      }
       this.downloading = true;
       this.receivedBytes = 0;
       this.totalBytes = 0;
       try {
-        const url = await resolveTrackSource(this.track, {
-          quality: this.quality,
-          bypassCache: true,
-        });
-        if (!url) throw new Error(this.$t('downloadTrack.sourceUnavailable'));
-        const result = await window.electronAPI?.download?.saveTrack?.({
-          url,
-          suggestedName: createTrackDownloadFilename(this.track, this.quality),
-        });
-        if (result?.status === 'completed') {
-          this.showToast(this.$t('downloadTrack.completed'));
-          this.show = false;
+        if (this.isPlaylist) {
+          await this.downloadPlaylist();
+        } else {
+          await this.downloadSingle();
         }
       } catch (error) {
         this.showToast(
@@ -173,6 +216,73 @@ export default {
       } finally {
         this.downloading = false;
       }
+    },
+    async downloadSingle() {
+      const url = await this.resolveDownloadUrl(this.track);
+      const result = await window.electronAPI?.download?.saveTrack?.({
+        url,
+        suggestedName: createTrackDownloadFilename(this.track, this.quality),
+      });
+      if (result?.status === 'completed') {
+        this.showToast(this.$t('downloadTrack.completed'));
+        this.show = false;
+      }
+    },
+    async downloadPlaylist() {
+      const downloadApi = window.electronAPI?.download;
+      const batch = await downloadApi?.beginBatch?.({
+        playlistName: this.playlistName,
+      });
+      if (!batch || batch.status === 'canceled') return;
+
+      this.activeBatchId = batch.batchId;
+      this.completedTracks = 0;
+      this.failedTracks = 0;
+      try {
+        for (let index = 0; index < this.tracks.length; index += 1) {
+          const track = this.tracks[index];
+          this.currentTrackIndex = index + 1;
+          this.currentTrackName = track.name || `#${track.id}`;
+          this.receivedBytes = 0;
+          this.totalBytes = 0;
+          try {
+            const url = await this.resolveDownloadUrl(track);
+            await downloadApi.saveBatchTrack({
+              batchId: batch.batchId,
+              index: index + 1,
+              totalTracks: this.tracks.length,
+              url,
+              suggestedName: createTrackDownloadFilename(track, this.quality),
+            });
+            this.completedTracks += 1;
+          } catch (error) {
+            this.failedTracks += 1;
+            console.error(
+              `[track-download] failed to download ${track.id}`,
+              error
+            );
+          }
+        }
+      } finally {
+        await downloadApi.finishBatch(batch.batchId);
+        this.activeBatchId = '';
+      }
+
+      this.showToast(
+        this.$t('downloadTrack.batchCompleted', {
+          completed: this.completedTracks,
+          failed: this.failedTracks,
+        })
+      );
+      this.show = false;
+    },
+    async resolveDownloadUrl(track) {
+      const url = await resolveTrackSource(track, {
+        quality: this.quality,
+        bypassCache: true,
+      });
+      if (!url) throw new Error(this.$t('downloadTrack.sourceUnavailable'));
+      return url;
     },
   },
 };
@@ -191,6 +301,18 @@ export default {
     border-radius: 8px;
     object-fit: cover;
   }
+}
+
+.playlist-info {
+  margin-bottom: 20px;
+}
+
+.playlist-name {
+  overflow: hidden;
+  font-size: 18px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .track-name {
@@ -221,6 +343,24 @@ export default {
   margin-top: 20px;
   font-size: 12px;
   opacity: 0.8;
+}
+
+.batch-progress {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.68;
+
+  .current-track {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .progress-track {

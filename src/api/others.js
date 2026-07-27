@@ -18,12 +18,13 @@ import { mapTrackPlayableStatus } from '@/utils/common';
  */
 export function search(params) {
   return request({
-    url: '/search',
+    url: '/cloudsearch',
     method: 'get',
     params,
   }).then(data => {
-    if (data.result?.song !== undefined)
-      data.result.song.songs = mapTrackPlayableStatus(data.result.song.songs);
+    if (Array.isArray(data.result?.songs)) {
+      data.result.songs = mapTrackPlayableStatus(data.result.songs);
+    }
     return data;
   });
 }

@@ -656,7 +656,7 @@ export default {
     },
     addToPlaylist() {
       if (!isAccountLoggedIn()) {
-        this.showToast(locale.t('toast.needToLogin'));
+        this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
       this.$store.dispatch('fetchLikedPlaylist');

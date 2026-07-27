@@ -6,7 +6,7 @@
     title="新建歌单"
     width="25vw"
   >
-    <template slot="default">
+    <template #default>
       <input
         v-model="title"
         type="text"
@@ -22,7 +22,7 @@
         <label for="checkbox-private">设置为隐私歌单</label>
       </div>
     </template>
-    <template slot="footer">
+    <template #footer>
       <button class="primary block" @click="createPlaylist">创建</button>
     </template>
   </Modal>
@@ -76,7 +76,7 @@ export default {
     },
     createPlaylist() {
       let params = { name: this.title };
-      if (this.private) params.type = 10;
+      if (this.privatePlaylist) params.type = 10;
       createPlaylist(params).then(data => {
         if (data.code === 200) {
           if (this.modals.newPlaylistModal.afterCreateAddTrackID !== 0) {
@@ -86,7 +86,7 @@ export default {
               tracks: this.modals.newPlaylistModal.afterCreateAddTrackID,
             }).then(data => {
               if (data.body.code === 200) {
-                this.showToast(locale.t('toast.savedToPlaylist'));
+                this.showToast(locale.global.t('toast.savedToPlaylist'));
               } else {
                 this.showToast(data.body.message);
               }
@@ -103,7 +103,7 @@ export default {
     resetAfterCreateAddTrackID() {
       this.updateModal({
         modalName: 'newPlaylistModal',
-        key: 'AfterCreateAddTrackID',
+        key: 'afterCreateAddTrackID',
         value: 0,
       });
     },

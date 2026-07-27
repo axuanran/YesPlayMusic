@@ -20,7 +20,12 @@ import {
   getDiscordProgressTimestamps,
 } from './discordPresence.js';
 import { clearSessionDiskCache } from './cache.js';
-import { saveTrackDownload } from './trackDownload.js';
+import {
+  beginTrackDownloadBatch,
+  finishTrackDownloadBatch,
+  saveTrackDownload,
+  saveTrackDownloadToBatch,
+} from './trackDownload.js';
 
 const clc = require('cli-color');
 const log = text => {
@@ -205,6 +210,44 @@ export function initIpcMain(
         }
       },
     });
+  });
+  ipcMain.handle('download:batch-begin', (event, payload) => {
+    if (event.sender !== win.webContents) {
+      throw new Error('Invalid download sender');
+    }
+    return beginTrackDownloadBatch({
+      win,
+      dialog,
+      ownerId: event.sender.id,
+      playlistName: payload?.playlistName,
+    });
+  });
+  ipcMain.handle('download:batch-track', (event, payload) => {
+    if (event.sender !== win.webContents) {
+      throw new Error('Invalid download sender');
+    }
+    return saveTrackDownloadToBatch({
+      win,
+      net,
+      ownerId: event.sender.id,
+      payload,
+      onProgress: progress => {
+        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+          win.webContents.send('download:progress', {
+            ...progress,
+            batchId: payload?.batchId,
+            index: payload?.index,
+            totalTracks: payload?.totalTracks,
+          });
+        }
+      },
+    });
+  });
+  ipcMain.handle('download:batch-finish', (event, batchId) => {
+    if (event.sender !== win.webContents || typeof batchId !== 'string') {
+      return false;
+    }
+    return finishTrackDownloadBatch(event.sender.id, batchId);
   });
 
   ipcMain.handle('local-music:list', () => localMusicService?.list() || []);

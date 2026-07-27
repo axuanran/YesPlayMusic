@@ -216,6 +216,13 @@
         $t('contextMenu.searchInPlaylist')
       }}</div>
       <div
+        v-if="isElectron && playlist.trackIds.length > 0"
+        class="item"
+        @click="openPlaylistDownload"
+      >
+        {{ $t('contextMenu.downloadPlaylist') }}
+      </div>
+      <div
         v-if="playlist.creator.userId === data.user.userId"
         class="item"
         @click="editPlaylist"
@@ -243,6 +250,7 @@ import { getTrackDetail } from '@/api/track';
 import { isAccountLoggedIn } from '@/utils/auth';
 import nativeAlert from '@/utils/nativeAlert';
 import locale from '@/locale';
+import { isElectron } from '@/utils/env';
 
 import ButtonTwoTone from '@/components/ButtonTwoTone.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
@@ -381,6 +389,7 @@ export default {
       searchInputWidth: '0px', // 搜索框宽度
       loadMorePromise: null,
       locatingCurrentTrack: false,
+      isElectron,
     };
   },
   computed: {
@@ -446,7 +455,7 @@ export default {
     }, 1000);
   },
   methods: {
-    ...mapMutations(['appendTrackToPlayerList']),
+    ...mapMutations(['appendTrackToPlayerList', 'updateModal']),
     ...mapActions(['playFirstTrackOnList', 'playTrackOnListByID', 'showToast']),
     playPlaylistByID(trackID = 'first') {
       let trackIDs = this.playlist.trackIds.map(t => t.id);
@@ -463,7 +472,7 @@ export default {
     },
     likePlaylist(toast = false) {
       if (!isAccountLoggedIn()) {
-        this.showToast(locale.t('toast.needToLogin'));
+        this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
       subscribePlaylist({
@@ -552,9 +561,60 @@ export default {
     openMenu(e) {
       this.$refs.playlistMenu.openMenu(e);
     },
+    async openPlaylistDownload() {
+      NProgress.start();
+      try {
+        if (this.loadMorePromise) await this.loadMorePromise;
+        while (this.lastLoadedTrackIndex < this.playlist.trackIds.length - 1) {
+          const previousIndex = this.lastLoadedTrackIndex;
+          await this.loadMore(100);
+          if (this.lastLoadedTrackIndex === previousIndex) break;
+        }
+
+        const tracksById = new Map(
+          this.tracks.map(track => [String(track.id), track])
+        );
+        const tracks = this.playlist.trackIds
+          .map(track => tracksById.get(String(track.id)))
+          .filter(Boolean);
+        if (tracks.length === 0) {
+          this.showToast(this.$t('downloadTrack.emptyPlaylist'));
+          return;
+        }
+        this.updateModal({
+          modalName: 'downloadTrackModal',
+          key: 'selectedTrack',
+          value: null,
+        });
+        this.updateModal({
+          modalName: 'downloadTrackModal',
+          key: 'selectedTracks',
+          value: tracks,
+        });
+        this.updateModal({
+          modalName: 'downloadTrackModal',
+          key: 'playlistName',
+          value: this.playlist.name || this.$t('downloadTrack.playlistTitle'),
+        });
+        this.updateModal({
+          modalName: 'downloadTrackModal',
+          key: 'show',
+          value: true,
+        });
+      } catch (error) {
+        console.error('[track-download] failed to prepare playlist', error);
+        this.showToast(
+          this.$t('downloadTrack.prepareFailed', {
+            error: error?.message || String(error),
+          })
+        );
+      } finally {
+        NProgress.done();
+      }
+    },
     deletePlaylist() {
       if (!isAccountLoggedIn()) {
-        this.showToast(locale.t('toast.needToLogin'));
+        this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
       let confirmation = confirm(`确定要删除歌单 ${this.playlist.name}？`);
@@ -585,7 +645,7 @@ export default {
     },
     removeTrack(trackID) {
       if (!isAccountLoggedIn()) {
-        this.showToast(locale.t('toast.needToLogin'));
+        this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
       this.tracks = this.tracks.filter(t => t.id !== trackID);

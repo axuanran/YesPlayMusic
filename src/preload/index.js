@@ -173,6 +173,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
       }
       return ipcRenderer.invoke('download:track', sanitizedPayload);
     },
+    beginBatch: payload => {
+      const sanitizedPayload = sanitizeSerializableValue(payload);
+      if (!isPlainObject(sanitizedPayload)) {
+        return Promise.reject(new Error('Invalid download batch'));
+      }
+      return ipcRenderer.invoke('download:batch-begin', sanitizedPayload);
+    },
+    saveBatchTrack: payload => {
+      const sanitizedPayload = sanitizeSerializableValue(payload);
+      if (!isPlainObject(sanitizedPayload)) {
+        return Promise.reject(new Error('Invalid batch track'));
+      }
+      return ipcRenderer.invoke('download:batch-track', sanitizedPayload);
+    },
+    finishBatch: batchId =>
+      isBoundedString(batchId, 1, 128)
+        ? ipcRenderer.invoke('download:batch-finish', batchId)
+        : Promise.resolve(false),
     onProgress: callback => on('download:progress', callback),
   },
   desktopLyrics: {

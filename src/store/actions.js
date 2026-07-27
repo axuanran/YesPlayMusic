@@ -105,17 +105,19 @@ export default {
         limit: 2000, // 最多只加载2000个歌单（等有用户反馈问题再修）
         timestamp: new Date().getTime(),
       }).then(result => {
-        if (result.playlist) {
-          commit('updateLikedXXX', {
-            name: 'playlists',
-            data: result.playlist,
-          });
+        const playlists = Array.isArray(result.playlist) ? result.playlist : [];
+        commit('updateLikedXXX', {
+          name: 'playlists',
+          data: playlists,
+        });
+        if (playlists.length > 0) {
           // 更新用户”喜欢的歌曲“歌单ID
           commit('updateData', {
             key: 'likedSongPlaylistID',
-            value: result.playlist[0].id,
+            value: playlists[0].id,
           });
         }
+        return playlists;
       });
     } else {
       // TODO:搜索ID登录的用户
