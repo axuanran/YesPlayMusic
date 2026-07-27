@@ -37,6 +37,16 @@ export default {
       week: 'Latest Week',
       all: 'All Time',
     },
+    clientHistory: {
+      title: 'Cihazdaki Oynatma Geçmişi',
+      description:
+        'Bu kayıtlar yalnızca bu cihazda saklanır. Giriş yapmak gerekmez.',
+      tracks: 'Parça Geçmişi',
+      playlists: 'Çalma Listesi Geçmişi',
+      emptyTracks: 'Çaldığınız parçalar burada görünür.',
+      emptyPlaylists: 'Çaldığınız çalma listeleri burada görünür.',
+      unknownPlaylist: 'Çalma listesi #{id}',
+    },
     userProfileMenu: {
       settings: 'Ayarlar',
       logout: 'Çıkış Yap',

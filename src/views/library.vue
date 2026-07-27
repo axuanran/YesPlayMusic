@@ -1,5 +1,6 @@
 <template>
-  <div v-show="show" ref="library">
+  <LocalPlaybackHistory v-if="!loggedIn" />
+  <div v-else v-show="show" ref="library">
     <h1>
       <img
         class="avatar"
@@ -216,7 +217,7 @@
 <script>
 import { mapActions, mapMutations, mapState } from 'vuex';
 import { randomNum, dailyTask } from '@/utils/common';
-import { isAccountLoggedIn } from '@/utils/auth';
+import { isAccountLoggedIn, isLooseLoggedIn } from '@/utils/auth';
 import { uploadSong } from '@/api/user';
 import { getLyric } from '@/api/track';
 import NProgress from 'nprogress';
@@ -227,6 +228,7 @@ import TrackList from '@/components/TrackList.vue';
 import CoverRow from '@/components/CoverRow.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
 import MvRow from '@/components/MvRow.vue';
+import LocalPlaybackHistory from '@/components/LocalPlaybackHistory.vue';
 
 /**
  * Pick the lyric part from a string formed in `[timecode] lyric`.
@@ -240,7 +242,14 @@ function extractLyricPart(rawLyric) {
 
 export default {
   name: 'Library',
-  components: { SvgIcon, CoverRow, TrackList, MvRow, ContextMenu },
+  components: {
+    SvgIcon,
+    CoverRow,
+    TrackList,
+    MvRow,
+    ContextMenu,
+    LocalPlaybackHistory,
+  },
   data() {
     return {
       show: false,
@@ -252,6 +261,11 @@ export default {
   },
   computed: {
     ...mapState(['data', 'liked']),
+    loggedIn() {
+      void this.data.loginMode;
+      void this.data.user?.userId;
+      return isLooseLoggedIn();
+    },
     /**
      * @returns {string[]}
      */
@@ -302,6 +316,10 @@ export default {
     },
   },
   created() {
+    if (!this.loggedIn) {
+      this.show = true;
+      return;
+    }
     setTimeout(() => {
       if (!this.show) NProgress.start();
     }, 1000);
@@ -309,6 +327,7 @@ export default {
   },
   activated() {
     this.$parent?.$refs?.scrollbar?.restorePosition?.();
+    if (!this.loggedIn) return;
     this.loadData();
     dailyTask();
   },
@@ -316,6 +335,7 @@ export default {
     ...mapActions(['showToast']),
     ...mapMutations(['updateModal', 'updateData']),
     loadData() {
+      if (!this.loggedIn) return;
       if (this.liked.songsWithDetails.length > 0) {
         NProgress.done();
         this.show = true;

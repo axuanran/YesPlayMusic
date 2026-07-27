@@ -114,7 +114,6 @@ const routes = [
     name: 'library',
     component: () => import('@/views/library.vue'),
     meta: {
-      requireLogin: true,
       keepAlive: true,
       savePosition: true,
     },

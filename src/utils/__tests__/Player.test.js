@@ -124,6 +124,7 @@ vi.mock('@/plugins/playerEvents', () => ({
 }));
 
 function installBrowserGlobals() {
+  globalThis.yesplaymusicStore = mocks.store;
   globalThis.window = {
     electronAPI: undefined,
     MediaMetadata: vi.fn(),
@@ -234,6 +235,60 @@ describe('Player audio source flow', () => {
     expect(player.playbackRate).toBe(1.5);
     expect(audio.playbackRate).toHaveBeenLastCalledWith(1.5);
     expect(JSON.parse(localStorage.getItem('player'))._playbackRate).toBe(1.5);
+  });
+
+  it('records a track once per load and a playlist once per queue', async () => {
+    const player = await createPlayer();
+    player._currentTrack = {
+      id: 1,
+      name: 'Track 1',
+      ar: [{ name: 'Artist' }],
+      al: { name: 'Album' },
+      dt: 180000,
+    };
+    player._playlistSource = {
+      id: 8,
+      type: 'playlist',
+      name: 'Playlist',
+      coverImgUrl: 'playlist.jpg',
+    };
+
+    player.play();
+    await vi.waitFor(() => {
+      expect(mocks.store.commit).toHaveBeenCalledWith(
+        'recordClientPlayback',
+        expect.objectContaining({
+          recordSource: true,
+          track: expect.objectContaining({ id: 1 }),
+        })
+      );
+    });
+    player.play();
+    await Promise.resolve();
+
+    let historyCalls = mocks.store.commit.mock.calls.filter(
+      ([name]) => name === 'recordClientPlayback'
+    );
+    expect(historyCalls).toHaveLength(1);
+
+    player._setCurrentTrack({
+      id: 2,
+      name: 'Track 2',
+      ar: [{ name: 'Artist' }],
+      al: { name: 'Album' },
+      dt: 180000,
+    });
+    player.play();
+    await vi.waitFor(() => {
+      historyCalls = mocks.store.commit.mock.calls.filter(
+        ([name]) => name === 'recordClientPlayback'
+      );
+      expect(historyCalls).toHaveLength(2);
+    });
+    expect(historyCalls[1][1]).toMatchObject({
+      recordSource: false,
+      track: { id: 2 },
+    });
   });
 
   it('re-resolves the current source when playback stalls without an audio error', async () => {

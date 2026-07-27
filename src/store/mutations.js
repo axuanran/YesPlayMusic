@@ -1,5 +1,9 @@
 import shortcuts, { normalizeShortcuts } from '@/utils/shortcuts';
 import cloneDeep from 'lodash/cloneDeep';
+import {
+  recordClientPlayback,
+  saveClientPlaybackHistory,
+} from '@/utils/clientPlaybackHistory';
 
 export default {
   updateLikedXXX(state, { name, data }) {
@@ -7,6 +11,13 @@ export default {
     if (name === 'songs') {
       state.player.sendSelfToIpcMain();
     }
+  },
+  recordClientPlayback(state, payload) {
+    state.clientPlaybackHistory = recordClientPlayback(
+      state.clientPlaybackHistory,
+      payload
+    );
+    saveClientPlaybackHistory(state.clientPlaybackHistory);
   },
   changeLang(state, lang) {
     state.settings.lang = lang;

@@ -454,7 +454,11 @@ export default {
         trackIDs,
         this.playlist.id,
         'playlist',
-        trackID
+        trackID,
+        {
+          name: this.playlist.name,
+          coverImgUrl: this.playlist.coverImgUrl,
+        }
       );
     },
     likePlaylist(toast = false) {

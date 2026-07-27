@@ -237,6 +237,9 @@ export default {
       } else if (this.dbclickTrackFunc === 'playPodcast') {
         let trackIDs = this.tracks.map(t => t.id || t.songId);
         this.player.replacePlaylist(trackIDs, this.id, 'podcast', trackID);
+      } else if (this.dbclickTrackFunc === 'playLocalHistory') {
+        let trackIDs = this.tracks.map(t => t.id || t.songId);
+        this.player.replacePlaylist(trackIDs, '/library', 'url', trackID);
       }
     },
     playThisListDefault(trackID) {

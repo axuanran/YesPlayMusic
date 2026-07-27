@@ -37,6 +37,16 @@ export default {
       week: 'Latest Week',
       all: 'All Time',
     },
+    clientHistory: {
+      title: 'On-Device Playback History',
+      description:
+        'These records are stored only on this device. No sign-in is required.',
+      tracks: 'Track History',
+      playlists: 'Playlist History',
+      emptyTracks: 'Tracks you play will appear here.',
+      emptyPlaylists: 'Playlists you play will appear here.',
+      unknownPlaylist: 'Playlist #{id}',
+    },
     userProfileMenu: {
       settings: 'Settings',
       logout: 'Logout',

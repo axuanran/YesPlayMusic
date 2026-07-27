@@ -34,6 +34,15 @@ export default {
       week: '最近一周',
       all: '所有時間',
     },
+    clientHistory: {
+      title: '用戶端播放記錄',
+      description: '這些記錄只儲存在目前裝置，不需要登入。',
+      tracks: '歌曲記錄',
+      playlists: '歌單記錄',
+      emptyTracks: '播放歌曲後，記錄會顯示在這裡。',
+      emptyPlaylists: '播放歌單後，記錄會顯示在這裡。',
+      unknownPlaylist: '歌單 #{id}',
+    },
     userProfileMenu: {
       settings: '設定',
       logout: '登出',

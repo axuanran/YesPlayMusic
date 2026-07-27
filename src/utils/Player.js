@@ -141,6 +141,8 @@ export default class {
     this._stallRecoveryTimer = null;
     this._stallRecoveryToken = 0;
     this._recoveringStall = false;
+    this._historyRecordedForTrack = false;
+    this._playlistHistoryRecorded = false;
     this._lastProgressUiSyncAt = 0;
     this._progressSyncTimer = null;
     this._progressPersistTimer = null;
@@ -249,6 +251,12 @@ export default class {
       enumerable: false,
     });
     Object.defineProperty(this, '_recoveringStall', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_historyRecordedForTrack', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_playlistHistoryRecorded', {
       enumerable: false,
     });
     Object.defineProperty(this, '_lastProgressUiSyncAt', {
@@ -569,6 +577,7 @@ export default class {
       `[debug][Player.js] currentTrack => ${formatTrackDebugLabel(track)}`
     );
     this._currentTrack = track;
+    this._historyRecordedForTrack = false;
     this._displayTrack = track;
     this._displayTrackID = track?.id ?? 0;
     this._isTrackPending = false;
@@ -616,6 +625,18 @@ export default class {
       }, PROGRESS_STORAGE_INTERVAL);
     }
     this._schedulePersist();
+  }
+  _recordClientPlayback() {
+    if (this._historyRecordedForTrack || !this._currentTrack?.id) return;
+    const runtimeStore = getRuntimeStore();
+    if (!runtimeStore) return;
+    runtimeStore.commit('recordClientPlayback', {
+      track: this._currentTrack,
+      source: this._playlistSource,
+      recordSource: !this._playlistHistoryRecorded,
+    });
+    this._historyRecordedForTrack = true;
+    this._playlistHistoryRecorded = true;
   }
   _startProgressLoop() {
     if (this._progressFrame !== null) return;
@@ -1236,7 +1257,10 @@ export default class {
     this._enabled = true;
     this._audio
       ?.play()
-      .then(() => this._audio?.fade(0, this.volume, PLAY_PAUSE_FADE_DURATION))
+      .then(() => {
+        this._recordClientPlayback();
+        return this._audio?.fade(0, this.volume, PLAY_PAUSE_FADE_DURATION);
+      })
       .then(() => {
         this._setPlaying(true);
         this._startProgressLoop();
@@ -1309,13 +1333,18 @@ export default class {
     trackIDs,
     playlistSourceID,
     playlistSourceType,
-    autoPlayTrackID = 'first'
+    autoPlayTrackID = 'first',
+    playlistSourceMeta = {}
   ) {
     this._isPersonalFM = false;
     this._playlistSource = {
       type: playlistSourceType,
       id: playlistSourceID,
+      name: playlistSourceMeta.name || '',
+      coverImgUrl:
+        playlistSourceMeta.coverImgUrl || playlistSourceMeta.picUrl || '',
     };
+    this._playlistHistoryRecorded = false;
     const trackID = this._queue.replace(trackIDs, autoPlayTrackID);
     this._exportQueueState();
     this._setDisplayTrackTarget(trackID);
@@ -1337,7 +1366,10 @@ export default class {
       console.debug(
         `[debug][Player.js] playlistReady => playlist:${id} picked:${picked} target:${formatTrackDebugLabel({ id: picked, name: 'pending' })}`
       );
-      this.replacePlaylist(trackIDs, id, 'playlist', trackID);
+      this.replacePlaylist(trackIDs, id, 'playlist', trackID, {
+        name: data.playlist.name,
+        coverImgUrl: data.playlist.coverImgUrl,
+      });
     });
   }
   playArtistByID(id, trackID = 'first') {
@@ -1360,7 +1392,10 @@ export default class {
       const songId = data.playlist.trackIds[randomId].id;
       intelligencePlaylist({ id: songId, pid: id }).then(result => {
         let trackIDs = result.data.map(t => t.id);
-        this.replacePlaylist(trackIDs, id, 'playlist', trackID);
+        this.replacePlaylist(trackIDs, id, 'playlist', trackID, {
+          name: data.playlist.name,
+          coverImgUrl: data.playlist.coverImgUrl,
+        });
       });
     });
   }
