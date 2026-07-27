@@ -16,6 +16,7 @@ const DEFAULT_CONFIG = {
     proxyStream: true,
     defaultQuality: 'standard',
     cacheTtl: 1800,
+    cacheDir: '',
     providerOrder: ['netease', 'lx', 'unblock', 'fallback'],
     fallbackToLegacy: true,
     unblock: {

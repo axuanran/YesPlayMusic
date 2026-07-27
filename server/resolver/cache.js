@@ -5,24 +5,28 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getConfig } from '../config.js';
-import { getStoragePath } from '../storagePaths.js';
+import { getCachePath } from '../storagePaths.js';
 
-const CACHE_PATH = getStoragePath('cache.json');
+function cachePath() {
+  return getCachePath('cache.json', getConfig().audio?.cacheDir);
+}
 
 function readCache() {
+  const currentCachePath = cachePath();
   try {
-    if (!fs.existsSync(CACHE_PATH)) return {};
-    return JSON.parse(fs.readFileSync(CACHE_PATH, 'utf-8'));
+    if (!fs.existsSync(currentCachePath)) return {};
+    return JSON.parse(fs.readFileSync(currentCachePath, 'utf-8'));
   } catch {
     return {};
   }
 }
 
 function writeCache(data) {
+  const currentCachePath = cachePath();
   try {
-    const dir = path.dirname(CACHE_PATH);
+    const dir = path.dirname(currentCachePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(CACHE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(currentCachePath, JSON.stringify(data, null, 2), 'utf-8');
   } catch {
     // Silent fail
   }

@@ -332,6 +332,7 @@
             proxyStream: true,
             defaultQuality: 'standard',
             cacheTtl: 1800,
+            cacheDir: '',
             providerOrder: ['netease', 'lx', 'unblock', 'fallback'],
             fallbackToLegacy: true,
             useCookie: true,
@@ -574,6 +575,7 @@
           <option value="lossless">Lossless</option>
         </select>
         <label>Cache TTL (seconds)</label><input v-model.number="cfg.audio.cacheTtl" type="number">
+        <label>Cache Directory</label><input v-model.trim="cfg.audio.cacheDir" placeholder="Default: platform cache directory">
         <label>Fallback to Legacy</label>
         <select v-model="cfg.audio.fallbackToLegacy">
           <option :value="true">Enabled</option>
