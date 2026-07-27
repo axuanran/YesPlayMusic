@@ -45,6 +45,10 @@ import StoreModule from 'electron-store';
 import { spawn } from 'child_process';
 import clc from 'cli-color';
 import { listenOnAvailablePort } from './localServer.js';
+import {
+  shouldUseWindowShadow,
+  updateWindowShadow,
+} from '../electron/windowAppearance.js';
 const Store = StoreModule.default || StoreModule;
 const installExtension =
   devtoolsInstaller.installExtension || devtoolsInstaller.default;
@@ -408,6 +412,7 @@ class Background {
 
     const appearance = this.store.get('settings.appearance');
     const showLibraryDefault = this.store.get('settings.showLibraryDefault');
+    const settings = this.store.get('settings') || {};
 
     const options = {
       width: this.store.get('window.width') || 1440,
@@ -419,6 +424,12 @@ class Background {
         isWindows ||
         (isLinux && this.store.get('settings.linuxEnableCustomTitlebar'))
       ),
+      ...(isWindows
+        ? {
+            hasShadow: shouldUseWindowShadow(settings),
+            thickFrame: true,
+          }
+        : {}),
       title: 'YesPlayMusic',
       show: false,
       webPreferences: {
@@ -477,6 +488,7 @@ class Background {
     }
 
     this.window = new BrowserWindow(options);
+    updateWindowShadow(this.window, settings);
 
     // hide menu bar on Microsoft Windows and Linux
     this.window.setMenuBarVisibility(false);

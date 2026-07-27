@@ -12,6 +12,7 @@ import cloneDeep from 'lodash/cloneDeep';
 import shortcuts, { normalizeShortcuts } from '@/utils/shortcuts';
 import { createMenu } from './menu';
 import { isCreateTray, isMac } from '@/utils/platform';
+import { updateWindowShadow } from './windowAppearance.js';
 
 const clc = require('cli-color');
 const log = text => {
@@ -273,6 +274,7 @@ export function initIpcMain(win, store, trayEventEmitter) {
   ipcMain.on('settings', (event, options) => {
     if (!isRecord(options)) return;
     store.set('settings', options);
+    updateWindowShadow(win, options);
     registerGlobalShortcuts(win, store);
   });
 
