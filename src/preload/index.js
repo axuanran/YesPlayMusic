@@ -133,6 +133,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     pauseDiscordPresence: track => sendObject('pauseDiscordPresence', track),
     player: payload => sendObject('player', payload),
   },
+  localMusic: {
+    list: () => ipcRenderer.invoke('local-music:list'),
+    get: id => ipcRenderer.invoke('local-music:get', id),
+    selectFiles: () => ipcRenderer.invoke('local-music:select'),
+    remove: ids => ipcRenderer.invoke('local-music:remove', ids),
+  },
   desktopLyrics: {
     update: payload => sendObject('desktop-lyrics:update', payload),
     onUpdate: callback => on('desktop-lyrics:render', callback),

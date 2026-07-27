@@ -42,6 +42,7 @@ describe('PlayerResolver', () => {
         },
       },
     };
+    globalThis.window = { electronAPI: undefined };
   });
 
   it('loads a single track detail', async () => {
@@ -60,6 +61,25 @@ describe('PlayerResolver', () => {
       'provider-url'
     );
     expect(mocks.getMP3).not.toHaveBeenCalled();
+  });
+
+  it('loads local tracks and returns their source without network requests', async () => {
+    const track = {
+      id: 'local:track',
+      local: true,
+      sourceUrl: 'http://127.0.0.1:3210/local-music/local%3Atrack/audio',
+    };
+    window.electronAPI = {
+      localMusic: {
+        get: vi.fn().mockResolvedValue(track),
+      },
+    };
+    const resolver = new PlayerResolver();
+
+    await expect(resolver.loadTrack(track.id)).resolves.toBe(track);
+    await expect(resolver.resolveSource(track)).resolves.toBe(track.sourceUrl);
+    expect(mocks.getTrackDetail).not.toHaveBeenCalled();
+    expect(mocks.resolveTrackSource).not.toHaveBeenCalled();
   });
 
   it('falls back to legacy source when provider fails', async () => {

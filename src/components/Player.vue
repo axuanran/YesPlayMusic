@@ -60,7 +60,7 @@
               </span>
             </div>
           </div>
-          <div class="track-action-buttons">
+          <div v-if="!currentTrack.local" class="track-action-buttons">
             <button-icon
               :title="
                 player.isCurrentTrackLiked
@@ -295,7 +295,11 @@ export default {
         : '';
     },
     canAddCurrentTrackToPlaylist() {
-      return !this.player.isTrackPending && Boolean(this.currentTrack?.id);
+      return (
+        !this.player.isTrackPending &&
+        !this.currentTrack?.local &&
+        Boolean(this.currentTrack?.id)
+      );
     },
   },
   mounted() {
@@ -371,7 +375,7 @@ export default {
       }
     },
     likeCurrentTrack() {
-      if (this.player.isTrackPending) return;
+      if (this.player.isTrackPending || this.currentTrack?.local) return;
       this.likeATrack(this.player.currentTrack.id);
     },
     addCurrentTrackToPlaylist() {

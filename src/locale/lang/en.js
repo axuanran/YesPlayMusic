@@ -7,6 +7,7 @@ export default {
     home: 'Home',
     explore: 'Explore',
     library: 'Library',
+    localMusic: 'Local Music',
     podcast: 'Podcasts',
     search: 'Search',
     github: 'GitHub Repo',
@@ -51,6 +52,19 @@ export default {
       settings: 'Settings',
       logout: 'Logout',
     },
+  },
+  localMusic: {
+    title: 'Local Music',
+    description:
+      'Play music files from this device. File paths stay on this device.',
+    import: 'Import Music',
+    importing: 'Importing',
+    playAll: 'Play All',
+    loading: 'Loading local music…',
+    empty: 'No music imported yet. Select Import Music to choose files.',
+    desktopOnly: 'Local music is available in the desktop app only.',
+    importResult: 'Imported {imported}; skipped {skipped} files',
+    remove: 'Remove from Local Music',
   },
   explore: {
     explore: 'Explore',

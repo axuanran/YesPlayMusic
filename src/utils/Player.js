@@ -766,11 +766,13 @@ export default class {
     );
     const trackDuration = ~~(track.dt / 1000);
     time = completed ? trackDuration : ~~time;
-    scrobble({
-      id: track.id,
-      sourceid: this.playlistSource.id,
-      time,
-    });
+    if (!track.local) {
+      scrobble({
+        id: track.id,
+        sourceid: this.playlistSource.id,
+        time,
+      });
+    }
     if (
       store.state.lastfm.key !== undefined &&
       (time >= trackDuration / 2 || time >= 240)
@@ -1062,7 +1064,9 @@ export default class {
         artwork: metadata.artwork.at(-1)?.src || '',
         length,
         trackId: track.id,
-        url: `https://music.163.com/song?id=${track.id}`,
+        url: track.local
+          ? track.sourceUrl
+          : `https://music.163.com/song?id=${track.id}`,
       },
     });
   }

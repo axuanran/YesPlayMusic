@@ -156,7 +156,13 @@ const getNeteaseCookieString = async loginSession => {
   return cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
 };
 
-export function initIpcMain(win, store, trayEventEmitter, desktopLyrics) {
+export function initIpcMain(
+  win,
+  store,
+  trayEventEmitter,
+  desktopLyrics,
+  localMusicService
+) {
   discordStatusWindow = win;
   discordPresenceEnabled =
     store.get('settings.enableDiscordRichPresence') === true;
@@ -164,6 +170,57 @@ export function initIpcMain(win, store, trayEventEmitter, desktopLyrics) {
   ipcMain.handle('discord:get-status', () =>
     shouldShowDiscordStatus(discordConnected, discordPresenceEnabled)
   );
+
+  ipcMain.handle('local-music:list', () => localMusicService?.list() || []);
+  ipcMain.handle('local-music:get', (_, id) => {
+    if (typeof id !== 'string' || id.length > 128 || !id.startsWith('local:')) {
+      return null;
+    }
+    return localMusicService?.get(id) || null;
+  });
+  ipcMain.handle('local-music:select', async () => {
+    if (!localMusicService) return { tracks: [], imported: 0, skipped: 0 };
+    const result = await dialog.showOpenDialog(win, {
+      title: '选择本地音乐',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        {
+          name: 'Audio',
+          extensions: [
+            'mp3',
+            'flac',
+            'm4a',
+            'aac',
+            'ogg',
+            'oga',
+            'opus',
+            'wav',
+          ],
+        },
+      ],
+    });
+    if (result.canceled) {
+      return {
+        tracks: localMusicService.list(),
+        imported: 0,
+        skipped: 0,
+      };
+    }
+    return localMusicService.importFiles(result.filePaths);
+  });
+  ipcMain.handle('local-music:remove', (_, ids) => {
+    if (
+      !Array.isArray(ids) ||
+      ids.length > 256 ||
+      ids.some(
+        id =>
+          typeof id !== 'string' || id.length > 128 || !id.startsWith('local:')
+      )
+    ) {
+      return localMusicService?.list() || [];
+    }
+    return localMusicService?.remove(ids) || [];
+  });
 
   ipcMain.handle('open-netease-web-login', async () => {
     const loginSession = session.fromPartition('persist:netease-web-login');

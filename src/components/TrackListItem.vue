@@ -61,9 +61,10 @@
     </div>
 
     <div v-if="showAlbumName" class="album">
-      <router-link v-if="album && album.id" :to="`/album/${album.id}`">{{
-        album.name
-      }}</router-link>
+      <router-link v-if="album && album.id" :to="`/album/${album.id}`">
+        {{ album.name }}
+      </router-link>
+      <span v-else-if="album">{{ album.name }}</span>
       <div></div>
     </div>
 
@@ -113,7 +114,7 @@ export default {
       default: () => [],
     },
     rightClickedTrackId: {
-      type: Number,
+      type: [Number, String],
       default: 0,
     },
     albumObject: {
@@ -138,10 +139,11 @@ export default {
     },
     imgUrl() {
       let image =
-        this.track?.al?.picUrl ??
-        this.track?.album?.picUrl ??
+        this.track?.al?.picUrl ||
+        this.track?.album?.picUrl ||
         'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg';
-      return image + '?param=224y224';
+      const separator = image.includes('?') ? '&' : '?';
+      return `${image}${separator}param=224y224`;
     },
     artists() {
       const { ar, artists } = this.track;
@@ -213,7 +215,7 @@ export default {
       return isElectron ? !this.$store.state.settings.useAudioResolver : true;
     },
     showLikeButton() {
-      return this.type !== 'tracklist' && this.type !== 'cloudDisk';
+      return !['tracklist', 'cloudDisk', 'localMusic'].includes(this.type);
     },
     showOrderNumber() {
       return this.type === 'album';

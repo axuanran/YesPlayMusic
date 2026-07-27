@@ -26,6 +26,12 @@
           >{{ $t('nav.library') }}</router-link
         >
         <router-link
+          v-if="isElectron"
+          to="/local-music"
+          :class="{ active: $route.name === 'localMusic' }"
+          >{{ $t('nav.localMusic') }}</router-link
+        >
+        <router-link
           to="/podcast"
           :class="{ active: $route.name === 'podcast' }"
           >{{ $t('nav.podcast') }}</router-link
@@ -109,6 +115,7 @@ export default {
       keywords: '',
       enableWin32Titlebar: false,
       enableLinuxTitlebar: false,
+      isElectron,
     };
   },
   computed: {

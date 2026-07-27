@@ -24,14 +24,22 @@
       >
       <hr v-show="type !== 'cloudDisk'" />
       <div
-        v-show="!isRightClickedTrackLiked && type !== 'cloudDisk'"
+        v-show="
+          !isRightClickedTrackLiked &&
+          type !== 'cloudDisk' &&
+          type !== 'localMusic'
+        "
         class="item"
         @click="like"
       >
         {{ $t('contextMenu.saveToMyLikedSongs') }}
       </div>
       <div
-        v-show="isRightClickedTrackLiked && type !== 'cloudDisk'"
+        v-show="
+          isRightClickedTrackLiked &&
+          type !== 'cloudDisk' &&
+          type !== 'localMusic'
+        "
         class="item"
         @click="like"
       >
@@ -44,14 +52,23 @@
         >从歌单中删除</div
       >
       <div
-        v-show="type !== 'cloudDisk'"
+        v-show="type !== 'cloudDisk' && type !== 'localMusic'"
         class="item"
         @click="addTrackToPlaylist"
         >{{ $t('contextMenu.addToPlaylist') }}</div
       >
-      <div v-show="type !== 'cloudDisk'" class="item" @click="copyLink">{{
-        $t('contextMenu.copyUrl')
-      }}</div>
+      <div
+        v-show="type !== 'cloudDisk' && type !== 'localMusic'"
+        class="item"
+        @click="copyLink"
+        >{{ $t('contextMenu.copyUrl') }}</div
+      >
+      <div
+        v-if="extraContextMenuItem.includes('removeLocalTrack')"
+        class="item"
+        @click="removeLocalTrack"
+        >{{ $t('localMusic.remove') }}</div
+      >
       <div
         v-if="extraContextMenuItem.includes('removeTrackFromCloudDisk')"
         class="item"
@@ -108,7 +125,7 @@ export default {
       default: 'tracklist',
     }, // tracklist | album | playlist | cloudDisk
     id: {
-      type: Number,
+      type: [Number, String],
       default: 0,
     },
     dbclickTrackFunc: {
@@ -148,6 +165,7 @@ export default {
       default: 'id',
     },
   },
+  emits: ['remove-track'],
   data() {
     return {
       rightClickedTrack: {
@@ -240,6 +258,11 @@ export default {
       } else if (this.dbclickTrackFunc === 'playLocalHistory') {
         let trackIDs = this.tracks.map(t => t.id || t.songId);
         this.player.replacePlaylist(trackIDs, '/library', 'url', trackID);
+      } else if (this.dbclickTrackFunc === 'playLocalMusic') {
+        let trackIDs = this.tracks.map(t => t.id);
+        this.player.replacePlaylist(trackIDs, 'local-music', 'local', trackID, {
+          name: this.$t('localMusic.title'),
+        });
       }
     },
     playThisListDefault(trackID) {
@@ -297,6 +320,10 @@ export default {
           this.$parent.removeTrack(trackID);
         });
       }
+    },
+    removeLocalTrack() {
+      this.$emit('remove-track', this.rightClickedTrack.id);
+      this.closeMenu();
     },
     copyLink() {
       this.$copyText(

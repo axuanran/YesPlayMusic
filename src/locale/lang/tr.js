@@ -7,6 +7,7 @@ export default {
     home: 'Anasayfa',
     explore: 'Keşfet',
     library: 'Kitaplık',
+    localMusic: 'Yerel Müzik',
     podcast: 'Podcastler',
     search: 'Ara',
     github: 'GitHub Repo',
@@ -51,6 +52,19 @@ export default {
       settings: 'Ayarlar',
       logout: 'Çıkış Yap',
     },
+  },
+  localMusic: {
+    title: 'Yerel Müzik',
+    description:
+      'Bu cihazdaki müzik dosyalarını çalın. Dosya yolları yalnızca bu cihazda kalır.',
+    import: 'Müzik İçe Aktar',
+    importing: 'İçe Aktarılıyor',
+    playAll: 'Tümünü Oynat',
+    loading: 'Yerel müzik yükleniyor…',
+    empty: 'Henüz müzik içe aktarılmadı.',
+    desktopOnly: 'Yerel müzik yalnızca masaüstü uygulamasında kullanılabilir.',
+    importResult: '{imported} içe aktarıldı; {skipped} dosya atlandı',
+    remove: 'Yerel Müzikten Kaldır',
   },
   explore: {
     explore: 'Keşfet',

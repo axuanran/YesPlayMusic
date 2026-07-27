@@ -69,6 +69,7 @@ export default {
         'Search',
         'Explore',
         'Library',
+        'LocalMusic',
       ],
     };
   },

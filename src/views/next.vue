@@ -3,7 +3,7 @@
     <h1>{{ $t('next.nowPlaying') }}</h1>
     <TrackList
       :tracks="[currentTrack]"
-      type="playlist"
+      :type="queueTrackType"
       dbclick-track-func="none"
     />
     <h1 v-show="playNextList.length > 0"
@@ -13,7 +13,7 @@
     <TrackList
       v-show="playNextList.length > 0"
       :tracks="playNextTracks"
-      type="playlist"
+      :type="queueTrackType"
       :highlight-playing-track="false"
       dbclick-track-func="playTrackOnListByID"
       item-key="id+index"
@@ -22,7 +22,7 @@
     <h1>{{ $t('next.nextUp') }}</h1>
     <TrackList
       :tracks="filteredTracks"
-      type="playlist"
+      :type="queueTrackType"
       :highlight-playing-track="false"
       dbclick-track-func="playTrackOnListByID"
     />
@@ -51,6 +51,9 @@ export default {
     },
     playerShuffle() {
       return this.player.shuffle;
+    },
+    queueTrackType() {
+      return this.currentTrack?.local ? 'localMusic' : 'playlist';
     },
     filteredTracks() {
       let trackIDs = this.player.list.slice(
@@ -87,7 +90,7 @@ export default {
   },
   methods: {
     ...mapActions(['playTrackOnListByID']),
-    loadTracks() {
+    async loadTracks() {
       // 获取播放列表当前歌曲后100首歌
       let trackIDs = this.player.list.slice(
         this.player.current + 1,
@@ -100,14 +103,25 @@ export default {
       // 获取已经加载了的歌曲
       let loadedTrackIDs = this.tracks.map(t => t.id);
 
-      if (trackIDs.length > 0) {
-        getTrackDetail(trackIDs.join(',')).then(data => {
-          let newTracks = data.songs.filter(
-            t => !loadedTrackIDs.includes(t.id)
-          );
-          this.tracks.push(...newTracks);
-        });
-      }
+      const missingTrackIDs = [
+        ...new Set(trackIDs.filter(id => !loadedTrackIDs.includes(id))),
+      ];
+      const localTrackIDs = missingTrackIDs.filter(
+        id => typeof id === 'string' && id.startsWith('local:')
+      );
+      const remoteTrackIDs = missingTrackIDs.filter(
+        id => !localTrackIDs.includes(id)
+      );
+
+      const [localTracks, remoteTracks] = await Promise.all([
+        Promise.all(
+          localTrackIDs.map(id => window.electronAPI?.localMusic?.get(id))
+        ),
+        remoteTrackIDs.length
+          ? getTrackDetail(remoteTrackIDs.join(',')).then(data => data.songs)
+          : Promise.resolve([]),
+      ]);
+      this.tracks.push(...localTracks.filter(Boolean), ...remoteTracks);
     },
   },
 };

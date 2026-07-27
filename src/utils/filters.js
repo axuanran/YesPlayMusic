@@ -65,6 +65,10 @@ export const filters = {
 
   resizeImage(imgUrl, size = 512) {
     if (!imgUrl) return '';
+    if (/^https?:\/\/127\.0\.0\.1:\d+\/local-music\//.test(imgUrl)) {
+      const separator = imgUrl.includes('?') ? '&' : '?';
+      return `${imgUrl}${separator}param=${size}y${size}`;
+    }
     let httpsImgUrl = imgUrl;
     if (imgUrl.slice(0, 5) !== 'https') {
       httpsImgUrl = 'https' + imgUrl.slice(4);

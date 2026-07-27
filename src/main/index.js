@@ -50,6 +50,10 @@ import {
   shouldUseWindowShadow,
   updateWindowShadow,
 } from '../electron/windowAppearance.js';
+import {
+  createLocalMusicService,
+  registerLocalMusicRoutes,
+} from '../electron/localMusic.js';
 const Store = StoreModule.default || StoreModule;
 const installExtension =
   devtoolsInstaller.installExtension || devtoolsInstaller.default;
@@ -247,6 +251,10 @@ class Background {
     this.expressPort = null;
     this.mpris = null;
     this.desktopLyrics = null;
+    this.localMusicService = createLocalMusicService({
+      store: this.store,
+      baseUrl: () => `http://127.0.0.1:${this.expressPort}`,
+    });
     this.willQuitApp = !isMac;
 
     this.init();
@@ -324,6 +332,8 @@ class Background {
     expressApp.use('/resolver-api/api', audioRoutes);
 
     expressApp.use('/resolver-api/api/admin', adminRoutes);
+
+    registerLocalMusicRoutes(expressApp, this.localMusicService);
 
     // Serve the resolver admin panel from the same prefix as its API.
     const adminDir = path.join(__dirname, '../../admin');
@@ -659,7 +669,8 @@ class Background {
         this.window,
         this.store,
         this.trayEventEmitter,
-        this.desktopLyrics
+        this.desktopLyrics,
+        this.localMusicService
       );
 
       // expose the player to Linux desktop environments through MPRIS
