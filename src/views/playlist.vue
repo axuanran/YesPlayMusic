@@ -177,8 +177,8 @@
     </div>
 
     <TrackList
-      ref="trackList"
       :id="playlist.id"
+      ref="trackList"
       :tracks="filteredTracks"
       type="playlist"
       :extra-context-menu-item="
