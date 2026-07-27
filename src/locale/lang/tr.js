@@ -65,6 +65,7 @@ export default {
     playlist: 'Çalma Listeleri',
     updatedAt: 'Tarihinde Güncellendş',
     search: 'Çalma Listesinde Ara',
+    locateCurrentTrack: 'Çalan parçaya git',
   },
   login: {
     accessToAll: 'Tüm verilere eriş',

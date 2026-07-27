@@ -69,6 +69,7 @@ export default {
     playlist: 'Playlists',
     updatedAt: 'Updated at',
     search: 'Search in playlist',
+    locateCurrentTrack: 'Go to current track',
   },
   login: {
     accessToAll: 'Access to all data',

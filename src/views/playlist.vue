@@ -165,7 +165,19 @@
       </div>
     </div>
 
+    <div v-if="currentTrackIndex >= 0" class="track-list-toolbar">
+      <ButtonTwoTone
+        icon-class="volume"
+        color="grey"
+        :loading="locatingCurrentTrack"
+        @click="scrollToCurrentTrack"
+      >
+        {{ $t('playlist.locateCurrentTrack') }}
+      </ButtonTwoTone>
+    </div>
+
     <TrackList
+      ref="trackList"
       :id="playlist.id"
       :tracks="filteredTracks"
       type="playlist"
@@ -367,6 +379,8 @@ export default {
       inputFocus: false,
       debounceTimeout: null,
       searchInputWidth: '0px', // 搜索框宽度
+      loadMorePromise: null,
+      locatingCurrentTrack: false,
     };
   },
   computed: {
@@ -381,6 +395,23 @@ export default {
       return (
         this.playlist.creator.userId === this.data.user.userId &&
         this.playlist.id !== this.data.likedSongPlaylistID
+      );
+    },
+    currentTrackID() {
+      void this.$store.state.playerVersion;
+      return this.player.displayTrackID;
+    },
+    isCurrentPlaylist() {
+      void this.$store.state.playerVersion;
+      return (
+        this.player.playlistSource?.type === 'playlist' &&
+        String(this.player.playlistSource.id) === String(this.playlist.id)
+      );
+    },
+    currentTrackIndex() {
+      if (!this.isCurrentPlaylist) return -1;
+      return this.playlist.trackIds.findIndex(
+        track => track.id === this.currentTrackID
       );
     },
     filteredTracks() {
@@ -467,6 +498,8 @@ export default {
         });
     },
     loadMore(loadNum = 100) {
+      if (this.loadMorePromise) return this.loadMorePromise;
+
       let trackIDs = this.playlist.trackIds.filter((t, index) => {
         if (
           index > this.lastLoadedTrackIndex &&
@@ -476,16 +509,41 @@ export default {
         }
       });
       trackIDs = trackIDs.map(t => t.id);
-      getTrackDetail(trackIDs.join(',')).then(data => {
-        this.tracks.push(...data.songs);
-        this.lastLoadedTrackIndex += trackIDs.length;
-        this.loadingMore = false;
-        if (this.lastLoadedTrackIndex + 1 === this.playlist.trackIds.length) {
-          this.hasMore = false;
-        } else {
-          this.hasMore = true;
+      if (trackIDs.length === 0) return Promise.resolve();
+
+      this.loadingMore = true;
+      this.loadMorePromise = getTrackDetail(trackIDs.join(','))
+        .then(data => {
+          this.tracks.push(...data.songs);
+          this.lastLoadedTrackIndex += trackIDs.length;
+          this.hasMore =
+            this.lastLoadedTrackIndex + 1 !== this.playlist.trackIds.length;
+        })
+        .finally(() => {
+          this.loadingMore = false;
+          this.loadMorePromise = null;
+        });
+      return this.loadMorePromise;
+    },
+    async scrollToCurrentTrack() {
+      const targetIndex = this.currentTrackIndex;
+      if (targetIndex < 0 || this.locatingCurrentTrack) return;
+
+      this.locatingCurrentTrack = true;
+      try {
+        if (this.searchKeyWords || this.inputSearchKeyWords) {
+          this.searchKeyWords = '';
+          this.inputSearchKeyWords = '';
         }
-      });
+        if (this.loadMorePromise) await this.loadMorePromise;
+        if (targetIndex > this.lastLoadedTrackIndex) {
+          await this.loadMore(targetIndex - this.lastLoadedTrackIndex);
+        }
+        await this.$nextTick();
+        this.$refs.trackList?.scrollToTrack(this.currentTrackID);
+      } finally {
+        this.locatingCurrentTrack = false;
+      }
     },
     openMenu(e) {
       this.$refs.playlistMenu.openMenu(e);
@@ -549,6 +607,11 @@ export default {
 <style lang="scss" scoped>
 .playlist {
   margin-top: 32px;
+}
+.track-list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
 }
 .playlist-info {
   display: flex;

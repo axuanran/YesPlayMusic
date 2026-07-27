@@ -62,6 +62,7 @@ export default {
     playlist: '歌單',
     updatedAt: '最後更新於',
     search: '搜尋歌單內音樂',
+    locateCurrentTrack: '跳至目前播放',
   },
   login: {
     accessToAll: '可存取全部資料',

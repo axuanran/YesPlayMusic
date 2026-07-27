@@ -202,6 +202,20 @@ export default {
       };
       this.rightClickedTrackIndex = -1;
     },
+    scrollToTrack(trackID) {
+      const trackIndex = this.tracks.findIndex(
+        track => (track.id || track.songId) === trackID
+      );
+      if (trackIndex < 0) return false;
+
+      const trackElement = this.$el.querySelectorAll('.track')[trackIndex];
+      if (!trackElement) return false;
+      trackElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+      return true;
+    },
     playThisList(trackID) {
       if (this.dbclickTrackFunc === 'default') {
         this.playThisListDefault(trackID);
