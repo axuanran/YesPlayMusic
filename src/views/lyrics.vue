@@ -80,7 +80,7 @@
                 </div>
               </div>
               <div class="top-right">
-                <div class="volume-control">
+                <div class="volume-control" @wheel.prevent="handleVolumeWheel">
                   <button-icon :title="$t('player.mute')" @click="mute">
                     <svg-icon v-show="volume > 0.5" icon-class="volume" />
                     <svg-icon v-show="volume === 0" icon-class="volume-mute" />
@@ -321,6 +321,7 @@ import Color from 'color';
 import { isAccountLoggedIn } from '@/utils/auth';
 import { hasListSource, getListSourcePath } from '@/utils/playList';
 import locale from '@/locale';
+import { getWheelAdjustedVolume } from '@/utils/volume';
 
 export default {
   name: 'Lyrics',
@@ -929,6 +930,9 @@ export default {
     },
     mute() {
       this.player.mute();
+    },
+    handleVolumeWheel(event) {
+      this.volume = getWheelAdjustedVolume(this.volume, event.deltaY);
     },
   },
 };

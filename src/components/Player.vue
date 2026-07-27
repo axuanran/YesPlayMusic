@@ -188,7 +188,7 @@
               </button>
             </div>
           </details>
-          <div class="volume-control">
+          <div class="volume-control" @wheel.prevent="handleVolumeWheel">
             <button-icon :title="$t('player.mute')" @click="mute">
               <svg-icon v-show="volume > 0.5" icon-class="volume" />
               <svg-icon v-show="volume === 0" icon-class="volume-mute" />
@@ -234,6 +234,7 @@ import { goToListSource, hasListSource } from '@/utils/playList';
 import { isAccountLoggedIn } from '@/utils/auth';
 import locale from '@/locale';
 import { PLAYBACK_RATES } from '@/utils/playbackRate';
+import { getWheelAdjustedVolume } from '@/utils/volume';
 
 export default {
   name: 'Player',
@@ -450,6 +451,9 @@ export default {
     },
     mute() {
       this.player.mute();
+    },
+    handleVolumeWheel(event) {
+      this.volume = getWheelAdjustedVolume(this.volume, event.deltaY);
     },
 
     handleKeydown(event) {
