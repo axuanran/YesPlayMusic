@@ -1,4 +1,4 @@
-import defaultShortcuts from '@/utils/shortcuts';
+import { normalizeShortcuts } from '@/utils/shortcuts';
 const { app, Menu } = require('electron');
 // import { autoUpdater } from "electron-updater"
 // const version = app.getVersion();
@@ -6,10 +6,11 @@ const { app, Menu } = require('electron');
 const isMac = process.platform === 'darwin';
 
 export function createMenu(win, store) {
-  let shortcuts = store.get('settings.shortcuts');
-  if (shortcuts === undefined) {
-    shortcuts = defaultShortcuts;
-  }
+  const shortcuts = normalizeShortcuts(store.get('settings.shortcuts'));
+  const accelerator = id => {
+    const binding = shortcuts.find(shortcut => shortcut.id === id)?.local;
+    return binding?.enabled ? binding.accelerator : undefined;
+  };
 
   let menu = null;
   const template = [
@@ -75,56 +76,56 @@ export function createMenu(win, store) {
       submenu: [
         {
           label: 'Play',
-          accelerator: shortcuts.find(s => s.id === 'play').shortcut,
+          accelerator: accelerator('play'),
           click: () => {
             win.webContents.send('play');
           },
         },
         {
           label: 'Next',
-          accelerator: shortcuts.find(s => s.id === 'next').shortcut,
+          accelerator: accelerator('next'),
           click: () => {
             win.webContents.send('next');
           },
         },
         {
           label: 'Previous',
-          accelerator: shortcuts.find(s => s.id === 'previous').shortcut,
+          accelerator: accelerator('previous'),
           click: () => {
             win.webContents.send('previous');
           },
         },
         {
           label: 'Increase Volume',
-          accelerator: shortcuts.find(s => s.id === 'increaseVolume').shortcut,
+          accelerator: accelerator('increaseVolume'),
           click: () => {
             win.webContents.send('increaseVolume');
           },
         },
         {
           label: 'Decrease Volume',
-          accelerator: shortcuts.find(s => s.id === 'decreaseVolume').shortcut,
+          accelerator: accelerator('decreaseVolume'),
           click: () => {
             win.webContents.send('decreaseVolume');
           },
         },
         {
           label: 'Like',
-          accelerator: shortcuts.find(s => s.id === 'like').shortcut,
+          accelerator: accelerator('like'),
           click: () => {
             win.webContents.send('like');
           },
         },
         {
           label: 'Repeat',
-          accelerator: 'Alt+R',
+          accelerator: accelerator('repeat'),
           click: () => {
             win.webContents.send('repeat');
           },
         },
         {
           label: 'Shuffle',
-          accelerator: 'Alt+S',
+          accelerator: accelerator('shuffle'),
           click: () => {
             win.webContents.send('shuffle');
           },
@@ -135,7 +136,7 @@ export function createMenu(win, store) {
       label: 'Window',
       submenu: [
         { role: 'close' },
-        { role: 'minimize' },
+        { role: 'minimize', accelerator: accelerator('minimize') },
         { role: 'zoom' },
         { role: 'reload' },
         { role: 'forcereload' },

@@ -661,44 +661,73 @@
           >
             <div class="col">{{ shortcut.name }}</div>
             <div class="col">
-              <div
-                class="keyboard-input"
-                :class="{
-                  active:
+              <div class="shortcut-binding">
+                <input
+                  :id="`shortcut-${shortcut.id}-local-enabled`"
+                  type="checkbox"
+                  :checked="shortcut.local.enabled"
+                  @change="
+                    updateShortcutEnabled(
+                      shortcut.id,
+                      'local',
+                      $event.target.checked
+                    )
+                  "
+                />
+                <div
+                  class="keyboard-input"
+                  :class="{
+                    active:
+                      shortcutInput.id === shortcut.id &&
+                      shortcutInput.scope === 'local',
+                    disabled: !shortcut.local.enabled,
+                  }"
+                  @click.stop="readyToRecordShortcut(shortcut.id, 'local')"
+                >
+                  {{
                     shortcutInput.id === shortcut.id &&
-                    shortcutInput.type === 'shortcut',
-                }"
-                @click.stop="readyToRecordShortcut(shortcut.id, 'shortcut')"
-              >
-                {{
-                  shortcutInput.id === shortcut.id &&
-                  shortcutInput.type === 'shortcut' &&
-                  recordedShortcutComputed !== ''
-                    ? formatShortcut(recordedShortcutComputed)
-                    : formatShortcut(shortcut.shortcut)
-                }}
+                    shortcutInput.scope === 'local' &&
+                    recordedShortcutComputed !== ''
+                      ? formatShortcut(recordedShortcutComputed)
+                      : formatShortcut(shortcut.local.accelerator)
+                  }}
+                </div>
               </div>
             </div>
             <div class="col">
-              <div
-                class="keyboard-input"
-                :class="{
-                  active:
+              <div class="shortcut-binding">
+                <input
+                  :id="`shortcut-${shortcut.id}-global-enabled`"
+                  type="checkbox"
+                  :checked="shortcut.global.enabled"
+                  :disabled="!enableGlobalShortcut"
+                  @change="
+                    updateShortcutEnabled(
+                      shortcut.id,
+                      'global',
+                      $event.target.checked
+                    )
+                  "
+                />
+                <div
+                  class="keyboard-input"
+                  :class="{
+                    active:
+                      shortcutInput.id === shortcut.id &&
+                      shortcutInput.scope === 'global' &&
+                      enableGlobalShortcut,
+                    disabled: !shortcut.global.enabled || !enableGlobalShortcut,
+                  }"
+                  @click.stop="readyToRecordShortcut(shortcut.id, 'global')"
+                  >{{
                     shortcutInput.id === shortcut.id &&
-                    shortcutInput.type === 'globalShortcut' &&
-                    enableGlobalShortcut,
-                }"
-                @click.stop="
-                  readyToRecordShortcut(shortcut.id, 'globalShortcut')
-                "
-                >{{
-                  shortcutInput.id === shortcut.id &&
-                  shortcutInput.type === 'globalShortcut' &&
-                  recordedShortcutComputed !== ''
-                    ? formatShortcut(recordedShortcutComputed)
-                    : formatShortcut(shortcut.globalShortcut)
-                }}</div
-              >
+                    shortcutInput.scope === 'global' &&
+                    recordedShortcutComputed !== ''
+                      ? formatShortcut(recordedShortcutComputed)
+                      : formatShortcut(shortcut.global.accelerator)
+                  }}</div
+                >
+              </div>
             </div>
           </div>
           <button
@@ -829,7 +858,7 @@ export default {
       ],
       shortcutInput: {
         id: '',
-        type: '',
+        scope: '',
         recording: false,
       },
       recordedShortcut: [],
@@ -1223,6 +1252,7 @@ export default {
       this.exitRecordShortcut();
     },
     formatShortcut(shortcut) {
+      if (typeof shortcut !== 'string' || shortcut === '') return '—';
       shortcut = shortcut
         .replaceAll('+', ' + ')
         .replace('Up', '↑')
@@ -1244,11 +1274,15 @@ export default {
       }
       return shortcut.replace('CommandOrControl', 'Ctrl');
     },
-    readyToRecordShortcut(id, type) {
-      if (type === 'globalShortcut' && this.enableGlobalShortcut === false) {
+    readyToRecordShortcut(id, scope) {
+      const shortcut = this.settings.shortcuts.find(item => item.id === id);
+      if (
+        !shortcut?.[scope]?.enabled ||
+        (scope === 'global' && this.enableGlobalShortcut === false)
+      ) {
         return;
       }
-      this.shortcutInput = { id, type, recording: true };
+      this.shortcutInput = { id, scope, recording: true };
       this.recordedShortcut = [];
       electronSettings?.switchGlobalShortcutStatusTemporary('disable');
     },
@@ -1275,11 +1309,11 @@ export default {
       }
     },
     saveShortcut() {
-      const { id, type } = this.shortcutInput;
+      const { id, scope } = this.shortcutInput;
       const payload = {
+        accelerator: this.recordedShortcutComputed,
         id,
-        type,
-        shortcut: this.recordedShortcutComputed,
+        scope,
       };
       this.$store.commit('updateShortcut', payload);
       electronSettings?.updateShortcut(payload);
@@ -1288,9 +1322,17 @@ export default {
     },
     exitRecordShortcut() {
       if (this.shortcutInput.recording === false) return;
-      this.shortcutInput = { id: '', type: '', recording: false };
+      this.shortcutInput = { id: '', scope: '', recording: false };
       this.recordedShortcut = [];
       electronSettings?.switchGlobalShortcutStatusTemporary('enable');
+    },
+    updateShortcutEnabled(id, scope, enabled) {
+      if (this.shortcutInput.id === id && this.shortcutInput.scope === scope) {
+        this.exitRecordShortcut();
+      }
+      const payload = { enabled, id, scope };
+      this.$store.commit('updateShortcut', payload);
+      electronSettings?.updateShortcut(payload);
     },
     restoreDefaultShortcuts() {
       this.$store.commit('restoreDefaultShortcuts');
@@ -1532,6 +1574,25 @@ input[type='number'] {
     &.active {
       color: var(--color-primary);
       background-color: var(--color-primary-bg);
+    }
+    &.disabled {
+      cursor: default;
+      opacity: 0.48;
+    }
+  }
+  .shortcut-binding {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    input {
+      accent-color: var(--color-primary);
+      cursor: pointer;
+      height: 16px;
+      margin: 0;
+      width: 16px;
+      &:disabled {
+        cursor: default;
+      }
     }
   }
   .restore-default-shortcut {

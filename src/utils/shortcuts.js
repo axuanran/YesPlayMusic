@@ -1,47 +1,107 @@
-// default shortcuts
-// for more info, check https://www.electronjs.org/docs/api/accelerator
+const createBinding = (accelerator, enabled = true) => ({
+  accelerator,
+  enabled,
+});
 
-export default [
+const defaultShortcuts = [
   {
     id: 'play',
     name: '播放/暂停',
-    shortcut: 'CommandOrControl+P',
-    globalShortcut: 'Alt+CommandOrControl+P',
+    local: createBinding('CommandOrControl+P'),
+    global: createBinding('Alt+CommandOrControl+P'),
   },
   {
     id: 'next',
     name: '下一首',
-    shortcut: 'CommandOrControl+Right',
-    globalShortcut: 'Alt+CommandOrControl+Right',
+    local: createBinding('CommandOrControl+Right'),
+    global: createBinding('Alt+CommandOrControl+Right'),
   },
   {
     id: 'previous',
     name: '上一首',
-    shortcut: 'CommandOrControl+Left',
-    globalShortcut: 'Alt+CommandOrControl+Left',
+    local: createBinding('CommandOrControl+Left'),
+    global: createBinding('Alt+CommandOrControl+Left'),
   },
   {
     id: 'increaseVolume',
     name: '增加音量',
-    shortcut: 'CommandOrControl+Up',
-    globalShortcut: 'Alt+CommandOrControl+Up',
+    local: createBinding('CommandOrControl+Up'),
+    global: createBinding('Alt+CommandOrControl+Up'),
   },
   {
     id: 'decreaseVolume',
     name: '减少音量',
-    shortcut: 'CommandOrControl+Down',
-    globalShortcut: 'Alt+CommandOrControl+Down',
+    local: createBinding('CommandOrControl+Down'),
+    global: createBinding('Alt+CommandOrControl+Down'),
   },
   {
     id: 'like',
     name: '喜欢歌曲',
-    shortcut: 'CommandOrControl+L',
-    globalShortcut: 'Alt+CommandOrControl+L',
+    local: createBinding('CommandOrControl+L'),
+    global: createBinding('Alt+CommandOrControl+L'),
+  },
+  {
+    id: 'repeat',
+    name: '切换循环模式',
+    local: createBinding('Alt+R'),
+    global: createBinding('', false),
+  },
+  {
+    id: 'shuffle',
+    name: '切换随机播放',
+    local: createBinding('Alt+S'),
+    global: createBinding('', false),
   },
   {
     id: 'minimize',
     name: '隐藏/显示播放器',
-    shortcut: 'CommandOrControl+M',
-    globalShortcut: 'Alt+CommandOrControl+M',
+    local: createBinding('CommandOrControl+M'),
+    global: createBinding('Alt+CommandOrControl+M'),
   },
 ];
+
+const normalizeBinding = (binding, legacyAccelerator, fallback) => {
+  const source =
+    binding && typeof binding === 'object' && !Array.isArray(binding)
+      ? binding
+      : {};
+  const accelerator =
+    typeof source.accelerator === 'string'
+      ? source.accelerator
+      : typeof legacyAccelerator === 'string'
+        ? legacyAccelerator
+        : fallback.accelerator;
+
+  return {
+    accelerator,
+    enabled:
+      typeof source.enabled === 'boolean' ? source.enabled : fallback.enabled,
+  };
+};
+
+export function normalizeShortcuts(shortcuts) {
+  const savedShortcuts = Array.isArray(shortcuts) ? shortcuts : [];
+
+  return defaultShortcuts.map(fallback => {
+    const saved = savedShortcuts.find(shortcut => shortcut?.id === fallback.id);
+    return {
+      id: fallback.id,
+      name:
+        typeof saved?.name === 'string' && saved.name
+          ? saved.name
+          : fallback.name,
+      local: normalizeBinding(saved?.local, saved?.shortcut, fallback.local),
+      global: normalizeBinding(
+        saved?.global,
+        saved?.globalShortcut,
+        fallback.global
+      ),
+    };
+  });
+}
+
+export function getShortcut(shortcuts, id) {
+  return normalizeShortcuts(shortcuts).find(shortcut => shortcut.id === id);
+}
+
+export default defaultShortcuts;

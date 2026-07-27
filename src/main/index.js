@@ -31,7 +31,7 @@ import { createMenu } from '../electron/menu';
 import { createTray } from '@/electron/tray';
 import { createTouchBar } from '../electron/touchBar';
 import { createDockMenu } from '../electron/dockMenu';
-import { registerGlobalShortcut } from '../electron/globalShortcut';
+import { registerGlobalShortcuts } from '../electron/globalShortcut';
 import { createMpris } from '../electron/mpris';
 import { autoUpdater } from 'electron-updater';
 import * as devtoolsInstaller from 'electron-devtools-installer';
@@ -664,7 +664,7 @@ class Background {
 
       // register global shortcuts
       if (this.store.get('settings.enableGlobalShortcut') !== false) {
-        registerGlobalShortcut(this.window, this.store);
+        registerGlobalShortcuts(this.window, this.store);
       }
 
       // try to start osdlyrics process on start

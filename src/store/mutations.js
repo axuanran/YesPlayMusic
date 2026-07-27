@@ -1,4 +1,4 @@
-import shortcuts from '@/utils/shortcuts';
+import shortcuts, { normalizeShortcuts } from '@/utils/shortcuts';
 import cloneDeep from 'lodash/cloneDeep';
 
 export default {
@@ -58,13 +58,17 @@ export default {
   updateLastfm(state, session) {
     state.lastfm = session;
   },
-  updateShortcut(state, { id, type, shortcut }) {
-    let newShortcut = state.settings.shortcuts.find(s => s.id === id);
-    newShortcut[type] = shortcut;
-    state.settings.shortcuts = state.settings.shortcuts.map(s => {
-      if (s.id !== id) return s;
-      return newShortcut;
-    });
+  updateShortcut(state, { accelerator, enabled, id, scope }) {
+    const normalized = normalizeShortcuts(state.settings.shortcuts);
+    const target = normalized.find(shortcut => shortcut.id === id);
+    if (!target || !['local', 'global'].includes(scope)) return;
+    if (typeof accelerator === 'string') {
+      target[scope].accelerator = accelerator;
+    }
+    if (typeof enabled === 'boolean') {
+      target[scope].enabled = enabled;
+    }
+    state.settings.shortcuts = normalized;
   },
   restoreDefaultShortcuts(state) {
     state.settings.shortcuts = cloneDeep(shortcuts);

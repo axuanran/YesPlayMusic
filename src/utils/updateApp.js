@@ -1,5 +1,6 @@
 import initLocalStorage from '@/store/initLocalStorage.js';
 import { isElectron } from '@/utils/env';
+import { normalizeShortcuts } from '@/utils/shortcuts';
 import pkg from '../../package.json';
 
 const updateSetting = () => {
@@ -20,20 +21,7 @@ const updateSetting = () => {
     settings.audioResolverUrl = initLocalStorage.settings.audioResolverUrl;
   }
 
-  if (
-    settings.shortcuts.length !== initLocalStorage.settings.shortcuts.length
-  ) {
-    // 当新增 shortcuts 时
-    const oldShortcutsId = settings.shortcuts.map(s => s.id);
-    const newShortcutsId = initLocalStorage.settings.shortcuts.filter(
-      s => oldShortcutsId.includes(s.id) === false
-    );
-    newShortcutsId.map(id => {
-      settings.shortcuts.push(
-        initLocalStorage.settings.shortcuts.find(s => s.id === id)
-      );
-    });
-  }
+  settings.shortcuts = normalizeShortcuts(settings.shortcuts);
 
   if (localStorage.getItem('appVersion') === '"0.3.9"') {
     settings.lyricsBackground = true;

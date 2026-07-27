@@ -2,9 +2,16 @@
 import path from 'path';
 import { app, nativeImage, Tray, Menu, nativeTheme } from 'electron';
 import { isLinux } from '@/utils/platform';
+import { normalizeShortcuts } from '@/utils/shortcuts';
 import { showMainWindow } from './showMainWindow.js';
 
-function createMenuTemplate(win) {
+function createMenuTemplate(win, store) {
+  const shortcuts = normalizeShortcuts(store.get('settings.shortcuts'));
+  const accelerator = id => {
+    const binding = shortcuts.find(shortcut => shortcut.id === id)?.local;
+    return binding?.enabled ? binding.accelerator : undefined;
+  };
+
   return [
     {
       label: '打开主界面',
@@ -24,6 +31,7 @@ function createMenuTemplate(win) {
         win.webContents.send('play');
       },
       id: 'play',
+      accelerator: accelerator('play'),
     },
     {
       label: '暂停',
@@ -35,13 +43,14 @@ function createMenuTemplate(win) {
       },
       id: 'pause',
       visible: false,
+      accelerator: accelerator('play'),
     },
     {
       label: '上一首',
       icon: nativeImage.createFromPath(
         path.join(__static, 'img/icons/left.png')
       ),
-      accelerator: 'CmdOrCtrl+Left',
+      accelerator: accelerator('previous'),
       click: () => {
         win.webContents.send('previous');
       },
@@ -51,7 +60,7 @@ function createMenuTemplate(win) {
       icon: nativeImage.createFromPath(
         path.join(__static, 'img/icons/right.png')
       ),
-      accelerator: 'CmdOrCtrl+Right',
+      accelerator: accelerator('next'),
       click: () => {
         win.webContents.send('next');
       },
@@ -61,7 +70,7 @@ function createMenuTemplate(win) {
       icon: nativeImage.createFromPath(
         path.join(__static, 'img/icons/repeat.png')
       ),
-      accelerator: 'Alt+R',
+      accelerator: accelerator('repeat'),
       click: () => {
         win.webContents.send('repeat');
       },
@@ -71,7 +80,7 @@ function createMenuTemplate(win) {
       icon: nativeImage.createFromPath(
         path.join(__static, 'img/icons/like.png')
       ),
-      accelerator: 'CmdOrCtrl+L',
+      accelerator: accelerator('like'),
       click: () => {
         win.webContents.send('like');
       },
@@ -82,7 +91,7 @@ function createMenuTemplate(win) {
       icon: nativeImage.createFromPath(
         path.join(__static, 'img/icons/unlike.png')
       ),
-      accelerator: 'CmdOrCtrl+L',
+      accelerator: accelerator('like'),
       click: () => {
         win.webContents.send('like');
       },
@@ -128,7 +137,7 @@ class YPMTrayLinuxImpl {
   initTemplate() {
     // Linux 下鼠标左右键都可能呼出 contextMenu，
     // 因此菜单与单击事件都提供打开主界面的入口。
-    this.template = createMenuTemplate(this.win);
+    this.template = createMenuTemplate(this.win, this.store);
   }
 
   handleEvents() {
@@ -178,7 +187,7 @@ class YPMTrayWindowsImpl {
     this.win = win;
     this.emitter = emitter;
     this.store = store;
-    this.template = createMenuTemplate(win);
+    this.template = createMenuTemplate(win, store);
     this.contextMenu = Menu.buildFromTemplate(this.template);
 
     this.isPlaying = false;

@@ -7,9 +7,9 @@ import {
   shell,
   session,
 } from 'electron';
-import { registerGlobalShortcut } from '@/electron/globalShortcut';
+import { registerGlobalShortcuts } from '@/electron/globalShortcut';
 import cloneDeep from 'lodash/cloneDeep';
-import shortcuts from '@/utils/shortcuts';
+import shortcuts, { normalizeShortcuts } from '@/utils/shortcuts';
 import { createMenu } from './menu';
 import { isCreateTray, isMac } from '@/utils/platform';
 
@@ -273,12 +273,7 @@ export function initIpcMain(win, store, trayEventEmitter) {
   ipcMain.on('settings', (event, options) => {
     if (!isRecord(options)) return;
     store.set('settings', options);
-    if (options.enableGlobalShortcut) {
-      registerGlobalShortcut(win, store);
-    } else {
-      log('unregister global shortcut');
-      globalShortcut.unregisterAll();
-    }
+    registerGlobalShortcuts(win, store);
   });
 
   ipcMain.on('playDiscordPresence', (event, track) => {
@@ -338,24 +333,38 @@ export function initIpcMain(win, store, trayEventEmitter) {
     if (status === 'disable') {
       globalShortcut.unregisterAll();
     } else {
-      registerGlobalShortcut(win, store);
+      registerGlobalShortcuts(win, store);
     }
   });
 
   ipcMain.on('updateShortcut', (e, payload) => {
     if (!isRecord(payload)) return;
-    const { id, type, shortcut } = payload;
-    if (!isNonEmptyString(id) || !isNonEmptyString(type)) return;
+    const { accelerator, enabled, id, scope } = payload;
+    if (
+      !isNonEmptyString(id) ||
+      !['local', 'global'].includes(scope) ||
+      (typeof accelerator !== 'string' && typeof enabled !== 'boolean')
+    ) {
+      return;
+    }
     log('updateShortcut');
-    let shortcuts = store.get('settings.shortcuts');
-    let newShortcut = shortcuts.find(s => s.id === id);
-    if (!newShortcut) return;
-    newShortcut[type] = shortcut;
-    store.set('settings.shortcuts', shortcuts);
+    const currentShortcuts = normalizeShortcuts(
+      store.get('settings.shortcuts')
+    );
+    const currentShortcut = currentShortcuts.find(
+      shortcut => shortcut.id === id
+    );
+    if (!currentShortcut) return;
+    if (typeof accelerator === 'string') {
+      currentShortcut[scope].accelerator = accelerator;
+    }
+    if (typeof enabled === 'boolean') {
+      currentShortcut[scope].enabled = enabled;
+    }
+    store.set('settings.shortcuts', currentShortcuts);
 
     createMenu(win, store);
-    globalShortcut.unregisterAll();
-    registerGlobalShortcut(win, store);
+    registerGlobalShortcuts(win, store);
   });
 
   ipcMain.on('restoreDefaultShortcuts', () => {
@@ -363,8 +372,7 @@ export function initIpcMain(win, store, trayEventEmitter) {
     store.set('settings.shortcuts', cloneDeep(shortcuts));
 
     createMenu(win, store);
-    globalShortcut.unregisterAll();
-    registerGlobalShortcut(win, store);
+    registerGlobalShortcuts(win, store);
   });
 
   if (isCreateTray) {

@@ -1,58 +1,66 @@
-import defaultShortcuts from '@/utils/shortcuts';
-const { globalShortcut } = require('electron');
+import { globalShortcut } from 'electron';
+import clc from 'cli-color';
+import { normalizeShortcuts } from '@/utils/shortcuts';
+import { showMainWindow } from './showMainWindow.js';
 
-const clc = require('cli-color');
 const log = text => {
   console.log(`${clc.blueBright('[globalShortcut.js]')} ${text}`);
 };
 
-export function registerGlobalShortcut(win, store) {
-  log('registerGlobalShortcut');
-  let shortcuts = store.get('settings.shortcuts');
-  if (shortcuts === undefined) {
-    shortcuts = defaultShortcuts;
+const createHandlers = win => ({
+  play: () => win.webContents.send('play'),
+  next: () => win.webContents.send('next'),
+  previous: () => win.webContents.send('previous'),
+  increaseVolume: () => win.webContents.send('increaseVolume'),
+  decreaseVolume: () => win.webContents.send('decreaseVolume'),
+  like: () => win.webContents.send('like'),
+  repeat: () => win.webContents.send('repeat'),
+  shuffle: () => win.webContents.send('shuffle'),
+  minimize: () => {
+    if (win.isVisible()) {
+      win.hide();
+    } else {
+      showMainWindow(win);
+    }
+  },
+});
+
+export function registerGlobalShortcuts(win, store) {
+  globalShortcut.unregisterAll();
+
+  if (store.get('settings.enableGlobalShortcut') === false) {
+    log('global shortcuts disabled');
+    return [];
   }
 
-  globalShortcut.register(
-    shortcuts.find(s => s.id === 'play').globalShortcut,
-    () => {
-      win.webContents.send('play');
+  const shortcuts = normalizeShortcuts(store.get('settings.shortcuts'));
+  const handlers = createHandlers(win);
+  const results = [];
+
+  for (const shortcut of shortcuts) {
+    const binding = shortcut.global;
+    const handler = handlers[shortcut.id];
+    if (!binding.enabled || !binding.accelerator || !handler) continue;
+
+    let registered = false;
+    try {
+      registered = globalShortcut.register(binding.accelerator, handler);
+    } catch (error) {
+      log(
+        `failed to register ${shortcut.id} (${binding.accelerator}): ${
+          error?.message || error
+        }`
+      );
     }
-  );
-  globalShortcut.register(
-    shortcuts.find(s => s.id === 'next').globalShortcut,
-    () => {
-      win.webContents.send('next');
+    if (!registered) {
+      log(`shortcut unavailable: ${shortcut.id} (${binding.accelerator})`);
     }
-  );
-  globalShortcut.register(
-    shortcuts.find(s => s.id === 'previous').globalShortcut,
-    () => {
-      win.webContents.send('previous');
-    }
-  );
-  globalShortcut.register(
-    shortcuts.find(s => s.id === 'increaseVolume').globalShortcut,
-    () => {
-      win.webContents.send('increaseVolume');
-    }
-  );
-  globalShortcut.register(
-    shortcuts.find(s => s.id === 'decreaseVolume').globalShortcut,
-    () => {
-      win.webContents.send('decreaseVolume');
-    }
-  );
-  globalShortcut.register(
-    shortcuts.find(s => s.id === 'like').globalShortcut,
-    () => {
-      win.webContents.send('like');
-    }
-  );
-  globalShortcut.register(
-    shortcuts.find(s => s.id === 'minimize').globalShortcut,
-    () => {
-      win.isVisible() ? win.hide() : win.show();
-    }
-  );
+    results.push({
+      accelerator: binding.accelerator,
+      id: shortcut.id,
+      registered,
+    });
+  }
+
+  return results;
 }
