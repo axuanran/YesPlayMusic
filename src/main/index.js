@@ -44,6 +44,7 @@ import adminRoutes, { setRestartHandler } from '../../server/routes/admin.js';
 import StoreModule from 'electron-store';
 import { spawn } from 'child_process';
 import clc from 'cli-color';
+import { listenOnAvailablePort } from './localServer.js';
 const Store = StoreModule.default || StoreModule;
 const installExtension =
   devtoolsInstaller.installExtension || devtoolsInstaller.default;
@@ -238,6 +239,7 @@ class Background {
     });
     this.neteaseMusicAPI = null;
     this.expressApp = null;
+    this.expressPort = null;
     this.mpris = null;
     this.willQuitApp = !isMac;
 
@@ -265,7 +267,7 @@ class Background {
     setRestartHandler(() => this.restartExpressApp());
 
     // create Express app
-    this.createExpressApp();
+    this.expressReady = this.createExpressApp();
 
     // Scheme must be registered before the app is ready
     protocol.registerSchemesAsPrivileged([
@@ -298,7 +300,7 @@ class Background {
     }
   }
 
-  createExpressApp() {
+  async createExpressApp() {
     log('creating express app');
 
     const expressApp = express();
@@ -365,7 +367,11 @@ class Background {
         });
     });
 
-    this.expressApp = expressApp.listen(27232, '127.0.0.1');
+    const server = await listenOnAvailablePort(expressApp, 27232);
+    this.expressApp = server;
+    this.expressPort = server.address().port;
+    log(`express app listening on 127.0.0.1:${this.expressPort}`);
+    return server;
   }
 
   restartExpressApp() {
@@ -376,14 +382,14 @@ class Background {
 
     setTimeout(() => {
       if (!server) {
-        this.createExpressApp();
+        this.expressReady = this.createExpressApp();
         return;
       }
       let restarted = false;
       const restart = () => {
         if (restarted) return;
         restarted = true;
-        this.createExpressApp();
+        this.expressReady = this.createExpressApp();
       };
       server.close(error => {
         if (error) {
@@ -483,7 +489,7 @@ class Background {
       );
       if (!process.env.IS_TEST) this.window.webContents.openDevTools();
     } else {
-      const rendererUrl = 'http://127.0.0.1:27232/src/renderer/';
+      const rendererUrl = `http://127.0.0.1:${this.expressPort}/src/renderer/`;
       this.window.loadURL(
         showLibraryDefault ? `${rendererUrl}#/library` : rendererUrl
       );
@@ -606,6 +612,8 @@ class Background {
       if (!apiReady) {
         log(`NetEase API not ready on 127.0.0.1:${NETEASE_API_PORT}`);
       }
+
+      await this.expressReady;
 
       // create window
       this.createWindow();
