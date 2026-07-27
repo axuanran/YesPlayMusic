@@ -28,6 +28,7 @@ let localStorage = {
     lyricsBackground: true,
     lyricsAutoResumeDelay: 5000,
     lyricsAutoResumeWhenVisible: true,
+    enableDesktopLyrics: false,
     enableOsdlyricsSupport: false,
     closeAppOption: 'ask',
     enableDiscordRichPresence: false,

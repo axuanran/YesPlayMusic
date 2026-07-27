@@ -156,7 +156,7 @@ const getNeteaseCookieString = async loginSession => {
   return cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
 };
 
-export function initIpcMain(win, store, trayEventEmitter) {
+export function initIpcMain(win, store, trayEventEmitter, desktopLyrics) {
   discordStatusWindow = win;
   discordPresenceEnabled =
     store.get('settings.enableDiscordRichPresence') === true;
@@ -322,10 +322,20 @@ export function initIpcMain(win, store, trayEventEmitter) {
   ipcMain.on('settings', (event, options) => {
     if (!isRecord(options)) return;
     store.set('settings', options);
+    desktopLyrics?.setEnabled(options.enableDesktopLyrics === true);
     discordPresenceEnabled = options.enableDiscordRichPresence === true;
     publishDiscordStatus();
     updateWindowShadow(win, options);
     registerGlobalShortcuts(win, store);
+  });
+
+  ipcMain.on('desktop-lyrics:update', (_event, payload) => {
+    if (!isRecord(payload)) return;
+    desktopLyrics?.update({
+      line: typeof payload.line === 'string' ? payload.line : '',
+      translation:
+        typeof payload.translation === 'string' ? payload.translation : '',
+    });
   });
 
   ipcMain.on('playDiscordPresence', (event, payload) => {

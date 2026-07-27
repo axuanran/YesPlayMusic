@@ -225,6 +225,11 @@ export default {
       exit: 'Exit',
       minimizeToTray: 'Küçült',
     },
+    desktopLyrics: {
+      title: 'Masaüstü şarkı sözleri',
+      description:
+        'Odağı almadan eşzamanlı şarkı sözlerini diğer pencerelerin üzerinde göster.',
+    },
     unm: {
       enable: 'Enable',
       audioSource: {

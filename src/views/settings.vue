@@ -353,29 +353,24 @@
           </div>
         </div>
       </div>
-      <div v-if="isElectron && isLinux" class="item">
+      <div v-if="isElectron" class="item">
         <div class="left">
           <div class="title">
-            {{ $t('settings.enableOsdlyricsSupport.title') }}
-            <a target="_blank" href="https://github.com/osdlyrics/osdlyrics"
-              >OSDLyrics</a
-            >
+            {{ $t('settings.desktopLyrics.title') }}
           </div>
           <div class="description">
-            {{ $t('settings.enableOsdlyricsSupport.desc1') }}
-            <br />
-            {{ $t('settings.enableOsdlyricsSupport.desc2') }}
+            {{ $t('settings.desktopLyrics.description') }}
           </div>
         </div>
         <div class="right">
           <div class="toggle">
             <input
-              id="enable-osdlyrics-support"
-              v-model="enableOsdlyricsSupport"
+              id="enable-desktop-lyrics"
+              v-model="enableDesktopLyrics"
               type="checkbox"
-              name="enable-osdlyrics-support"
+              name="enable-desktop-lyrics"
             />
-            <label for="enable-osdlyrics-support"></label>
+            <label for="enable-desktop-lyrics"></label>
           </div>
         </div>
       </div>
@@ -1065,7 +1060,7 @@ export default {
     lyricsAutoResumeDelay: setting('lyricsAutoResumeDelay', 5000),
     lyricsAutoResumeWhenVisible: setting('lyricsAutoResumeWhenVisible', true),
     showLyricsTime: setting('showLyricsTime'),
-    enableOsdlyricsSupport: setting('enableOsdlyricsSupport'),
+    enableDesktopLyrics: setting('enableDesktopLyrics', false),
     closeAppOption: setting('closeAppOption'),
     enableDiscordRichPresence: setting('enableDiscordRichPresence'),
     subTitleDefault: setting('subTitleDefault'),

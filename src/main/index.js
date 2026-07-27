@@ -27,6 +27,7 @@ import * as lxProvider from '../../server/providers/lx.js';
 import * as unblockProvider from '../../server/providers/unblock.js';
 import * as fallbackProvider from '../../server/providers/fallback.js';
 import { initIpcMain } from '../electron/ipcMain.js';
+import { DesktopLyricsWindow } from '../electron/desktopLyricsWindow.js';
 import { createMenu } from '../electron/menu';
 import { createTray } from '@/electron/tray';
 import { createTouchBar } from '../electron/touchBar';
@@ -245,6 +246,7 @@ class Background {
     this.expressApp = null;
     this.expressPort = null;
     this.mpris = null;
+    this.desktopLyrics = null;
     this.willQuitApp = !isMac;
 
     this.init();
@@ -629,6 +631,14 @@ class Background {
 
       // create window
       this.createWindow();
+      this.desktopLyrics = new DesktopLyricsWindow({
+        preloadPath: path.join(__dirname, '../preload/index.js'),
+      });
+      const desktopLyricsEnabled =
+        this.store.get('settings.enableDesktopLyrics') ??
+        this.store.get('settings.enableOsdlyricsSupport') ??
+        false;
+      this.desktopLyrics.setEnabled(desktopLyricsEnabled);
       this.window.once('ready-to-show', () => {
         this.window.show();
       });
@@ -645,7 +655,12 @@ class Background {
       }
 
       // init ipcMain
-      initIpcMain(this.window, this.store, this.trayEventEmitter);
+      initIpcMain(
+        this.window,
+        this.store,
+        this.trayEventEmitter,
+        this.desktopLyrics
+      );
 
       // expose the player to Linux desktop environments through MPRIS
       if (isLinux) {
@@ -678,20 +693,6 @@ class Background {
       if (this.store.get('settings.enableGlobalShortcut') !== false) {
         registerGlobalShortcuts(this.window, this.store);
       }
-
-      // try to start osdlyrics process on start
-      if (this.store.get('settings.enableOsdlyricsSupport')) {
-        log('try to start osdlyrics process');
-        const osdlyricsProcess = spawn('osdlyrics');
-
-        osdlyricsProcess.on('error', err => {
-          log(`failed to start osdlyrics: ${err.message}`);
-        });
-
-        osdlyricsProcess.on('exit', (code, signal) => {
-          log(`osdlyrics process exited with code ${code}, signal ${signal}`);
-        });
-      }
     });
 
     app.on('activate', () => {
@@ -715,6 +716,7 @@ class Background {
 
     app.on('quit', () => {
       this.mpris?.dispose();
+      this.desktopLyrics?.dispose();
       if (this.expressApp) {
         this.expressApp.close();
       }

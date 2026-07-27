@@ -10,6 +10,13 @@ const updateSetting = () => {
     ...parsedSettings,
   };
 
+  if (
+    parsedSettings?.enableDesktopLyrics === undefined &&
+    parsedSettings?.enableOsdlyricsSupport === true
+  ) {
+    settings.enableDesktopLyrics = true;
+  }
+
   // Older desktop builds pointed directly at the resolver port. The desktop
   // renderer and resolver now share an origin and the same prefix as Docker.
   if (

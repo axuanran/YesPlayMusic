@@ -133,6 +133,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     pauseDiscordPresence: track => sendObject('pauseDiscordPresence', track),
     player: payload => sendObject('player', payload),
   },
+  desktopLyrics: {
+    update: payload => sendObject('desktop-lyrics:update', payload),
+    onUpdate: callback => on('desktop-lyrics:render', callback),
+  },
   appEvents: {
     getDiscordStatus: () => ipcRenderer.invoke('discord:get-status'),
     onDiscordStatus: callback => on('discord:status', callback),

@@ -400,6 +400,12 @@ export default {
     isShowLyricTypeSwitch() {
       return this.romalyric.length > 0 && this.tlyric.length > 0;
     },
+    desktopLyricsEnabled() {
+      return this.settings.enableDesktopLyrics === true;
+    },
+    desktopLyricsTranslationEnabled() {
+      return this.settings.showLyricsTranslation === true;
+    },
     lyricToShow() {
       return this.lyricType === 'translation'
         ? this.lyricWithTranslation
@@ -491,6 +497,7 @@ export default {
     currentTrack() {
       this.shouldAutoScrollLyrics = true;
       this.highlightLyricIndex = -1;
+      this.clearDesktopLyrics();
       clearTimeout(this.lyricsAutoResumeTimer);
       Promise.resolve(this.getLyric()).then(() => {
         this.$nextTick(() => this.syncCurrentLyricPosition(true));
@@ -504,15 +511,28 @@ export default {
         this.setLyricsInterval();
         this.$store.commit('enableScrolling', false);
       } else {
-        clearInterval(this.lyricsInterval);
+        if (!this.desktopLyricsEnabled) clearInterval(this.lyricsInterval);
         clearTimeout(this.lyricsAutoScrollTimer);
         clearTimeout(this.lyricsAutoResumeTimer);
         this.$store.commit('enableScrolling', true);
       }
     },
+    desktopLyricsEnabled(enabled) {
+      if (enabled) {
+        this.setLyricsInterval();
+        this.syncCurrentLyricPosition(true);
+      } else {
+        this.clearDesktopLyrics();
+        if (!this.showLyrics) clearInterval(this.lyricsInterval);
+      }
+    },
+    desktopLyricsTranslationEnabled() {
+      this.publishDesktopLyrics();
+    },
   },
   created() {
     this.getLyric();
+    if (this.desktopLyricsEnabled) this.setLyricsInterval();
     this.getCoverColor();
     this.initDate();
     document.addEventListener('keydown', e => {
@@ -533,6 +553,7 @@ export default {
     }
   },
   unmounted() {
+    this.clearDesktopLyrics();
     clearInterval(this.lyricsInterval);
     clearTimeout(this.lyricsAutoScrollTimer);
     clearTimeout(this.lyricsAutoResumeTimer);
@@ -703,6 +724,7 @@ export default {
       }
     },
     setLyricsInterval() {
+      clearInterval(this.lyricsInterval);
       this.lyricsInterval = setInterval(() => {
         if (this.syncCurrentLyricPosition()) {
           this.scrollCurrentLyricIntoCenter();
@@ -718,11 +740,32 @@ export default {
           progress >= l.time && (nextLyric ? progress < nextLyric.time : true)
         );
       });
+      const lyricChanged =
+        force || oldHighlightLyricIndex !== this.highlightLyricIndex;
+      if (lyricChanged) this.publishDesktopLyrics();
       return (
         this.shouldAutoScrollLyrics &&
         this.highlightLyricIndex >= 0 &&
-        (force || oldHighlightLyricIndex !== this.highlightLyricIndex)
+        lyricChanged
       );
+    },
+    publishDesktopLyrics() {
+      if (!this.desktopLyricsEnabled) return;
+      const lyric = this.lyric[this.highlightLyricIndex];
+      const translation = lyric
+        ? this.tlyric.find(item => item.rawTime === lyric.rawTime)?.content ||
+          ''
+        : '';
+      window.electronAPI?.desktopLyrics?.update({
+        line: lyric?.content || '',
+        translation: this.desktopLyricsTranslationEnabled ? translation : '',
+      });
+    },
+    clearDesktopLyrics() {
+      window.electronAPI?.desktopLyrics?.update({
+        line: '',
+        translation: '',
+      });
     },
     handleLyricsScroll() {
       if (this.isAutoScrollingLyrics) {
