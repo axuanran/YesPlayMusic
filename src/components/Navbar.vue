@@ -32,6 +32,12 @@
           >{{ $t('nav.localMusic') }}</router-link
         >
         <router-link
+          v-if="isElectron"
+          to="/streaming"
+          :class="{ active: $route.name === 'streaming' }"
+          >{{ $t('nav.streaming') }}</router-link
+        >
+        <router-link
           to="/podcast"
           :class="{ active: $route.name === 'podcast' }"
           >{{ $t('nav.podcast') }}</router-link

@@ -70,6 +70,7 @@ export default {
         'Explore',
         'Library',
         'LocalMusic',
+        'Streaming',
       ],
     };
   },

@@ -54,6 +54,10 @@ import {
   createLocalMusicService,
   registerLocalMusicRoutes,
 } from '../electron/localMusic.js';
+import {
+  createStreamingService,
+  registerStreamingRoutes,
+} from '../electron/streaming/service.js';
 const Store = StoreModule.default || StoreModule;
 const installExtension =
   devtoolsInstaller.installExtension || devtoolsInstaller.default;
@@ -255,6 +259,10 @@ class Background {
       store: this.store,
       baseUrl: () => `http://127.0.0.1:${this.expressPort}`,
     });
+    this.streamingService = createStreamingService({
+      store: this.store,
+      baseUrl: () => `http://127.0.0.1:${this.expressPort}`,
+    });
     this.willQuitApp = !isMac;
 
     this.init();
@@ -334,6 +342,7 @@ class Background {
     expressApp.use('/resolver-api/api/admin', adminRoutes);
 
     registerLocalMusicRoutes(expressApp, this.localMusicService);
+    registerStreamingRoutes(expressApp, this.streamingService);
 
     // Serve the resolver admin panel from the same prefix as its API.
     const adminDir = path.join(__dirname, '../../admin');
@@ -670,7 +679,8 @@ class Background {
         this.store,
         this.trayEventEmitter,
         this.desktopLyrics,
-        this.localMusicService
+        this.localMusicService,
+        this.streamingService
       );
 
       // expose the player to Linux desktop environments through MPRIS

@@ -139,6 +139,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     selectFiles: () => ipcRenderer.invoke('local-music:select'),
     remove: ids => ipcRenderer.invoke('local-music:remove', ids),
   },
+  streaming: {
+    listConnections: () => ipcRenderer.invoke('streaming:list-connections'),
+    connect: input => ipcRenderer.invoke('streaming:connect', input),
+    disconnect: connectionId =>
+      ipcRenderer.invoke('streaming:disconnect', connectionId),
+    getLibraries: connectionId =>
+      ipcRenderer.invoke('streaming:libraries', connectionId),
+    getTracks: query => ipcRenderer.invoke('streaming:tracks', query),
+    getTrack: trackId => ipcRenderer.invoke('streaming:get-track', trackId),
+  },
   desktopLyrics: {
     update: payload => sendObject('desktop-lyrics:update', payload),
     onUpdate: callback => on('desktop-lyrics:render', callback),

@@ -60,7 +60,10 @@
               </span>
             </div>
           </div>
-          <div v-if="!currentTrack.local" class="track-action-buttons">
+          <div
+            v-if="!currentTrack.local && !currentTrack.streaming"
+            class="track-action-buttons"
+          >
             <button-icon
               :title="
                 player.isCurrentTrackLiked
@@ -298,6 +301,7 @@ export default {
       return (
         !this.player.isTrackPending &&
         !this.currentTrack?.local &&
+        !this.currentTrack?.streaming &&
         Boolean(this.currentTrack?.id)
       );
     },
@@ -375,7 +379,13 @@ export default {
       }
     },
     likeCurrentTrack() {
-      if (this.player.isTrackPending || this.currentTrack?.local) return;
+      if (
+        this.player.isTrackPending ||
+        this.currentTrack?.local ||
+        this.currentTrack?.streaming
+      ) {
+        return;
+      }
       this.likeATrack(this.player.currentTrack.id);
     },
     addCurrentTrackToPlaylist() {

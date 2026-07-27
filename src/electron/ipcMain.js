@@ -161,7 +161,8 @@ export function initIpcMain(
   store,
   trayEventEmitter,
   desktopLyrics,
-  localMusicService
+  localMusicService,
+  streamingService
 ) {
   discordStatusWindow = win;
   discordPresenceEnabled =
@@ -220,6 +221,57 @@ export function initIpcMain(
       return localMusicService?.list() || [];
     }
     return localMusicService?.remove(ids) || [];
+  });
+
+  ipcMain.handle('streaming:list-connections', () =>
+    streamingService?.listConnections()
+  );
+  ipcMain.handle('streaming:connect', (_, input) =>
+    streamingService?.connect(input)
+  );
+  ipcMain.handle('streaming:disconnect', (_, connectionId) => {
+    if (typeof connectionId !== 'string' || connectionId.length > 128) {
+      return streamingService?.listConnections() || [];
+    }
+    return streamingService?.disconnect(connectionId) || [];
+  });
+  ipcMain.handle('streaming:libraries', (_, connectionId) => {
+    if (typeof connectionId !== 'string' || connectionId.length > 128) {
+      return [];
+    }
+    return streamingService?.getLibraries(connectionId) || [];
+  });
+  ipcMain.handle('streaming:tracks', (_, query) => {
+    if (
+      !isRecord(query) ||
+      typeof query.connectionId !== 'string' ||
+      query.connectionId.length > 128
+    ) {
+      return { tracks: [], total: 0 };
+    }
+    return (
+      streamingService?.getTracks({
+        connectionId: query.connectionId,
+        parentId:
+          typeof query.parentId === 'string'
+            ? query.parentId.slice(0, 512)
+            : '',
+        search:
+          typeof query.search === 'string' ? query.search.slice(0, 256) : '',
+        startIndex: query.startIndex,
+        limit: query.limit,
+      }) || { tracks: [], total: 0 }
+    );
+  });
+  ipcMain.handle('streaming:get-track', (_, trackId) => {
+    if (
+      typeof trackId !== 'string' ||
+      trackId.length > 1024 ||
+      !trackId.startsWith('stream:')
+    ) {
+      return null;
+    }
+    return streamingService?.getTrack(trackId) || null;
   });
 
   ipcMain.handle('open-netease-web-login', async () => {

@@ -128,6 +128,15 @@ const routes = [
     },
   },
   {
+    path: '/streaming',
+    name: 'streaming',
+    component: () => import('@/views/streaming.vue'),
+    meta: {
+      keepAlive: true,
+      savePosition: true,
+    },
+  },
+  {
     path: '/library/liked-songs',
     name: 'likedSongs',
     component: () => import('@/views/playlist.vue'),

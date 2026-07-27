@@ -53,7 +53,9 @@ export default {
       return this.player.shuffle;
     },
     queueTrackType() {
-      return this.currentTrack?.local ? 'localMusic' : 'playlist';
+      if (this.currentTrack?.local) return 'localMusic';
+      if (this.currentTrack?.streaming) return 'streaming';
+      return 'playlist';
     },
     filteredTracks() {
       let trackIDs = this.player.list.slice(
@@ -109,19 +111,31 @@ export default {
       const localTrackIDs = missingTrackIDs.filter(
         id => typeof id === 'string' && id.startsWith('local:')
       );
+      const streamingTrackIDs = missingTrackIDs.filter(
+        id => typeof id === 'string' && id.startsWith('stream:')
+      );
       const remoteTrackIDs = missingTrackIDs.filter(
-        id => !localTrackIDs.includes(id)
+        id => !localTrackIDs.includes(id) && !streamingTrackIDs.includes(id)
       );
 
-      const [localTracks, remoteTracks] = await Promise.all([
+      const [localTracks, streamingTracks, remoteTracks] = await Promise.all([
         Promise.all(
           localTrackIDs.map(id => window.electronAPI?.localMusic?.get(id))
+        ),
+        Promise.all(
+          streamingTrackIDs.map(id =>
+            window.electronAPI?.streaming?.getTrack(id)
+          )
         ),
         remoteTrackIDs.length
           ? getTrackDetail(remoteTrackIDs.join(',')).then(data => data.songs)
           : Promise.resolve([]),
       ]);
-      this.tracks.push(...localTracks.filter(Boolean), ...remoteTracks);
+      this.tracks.push(
+        ...localTracks.filter(Boolean),
+        ...streamingTracks.filter(Boolean),
+        ...remoteTracks
+      );
     },
   },
 };

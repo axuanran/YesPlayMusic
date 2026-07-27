@@ -25,9 +25,7 @@
       <hr v-show="type !== 'cloudDisk'" />
       <div
         v-show="
-          !isRightClickedTrackLiked &&
-          type !== 'cloudDisk' &&
-          type !== 'localMusic'
+          !isRightClickedTrackLiked && type !== 'cloudDisk' && !isExternalMusic
         "
         class="item"
         @click="like"
@@ -36,9 +34,7 @@
       </div>
       <div
         v-show="
-          isRightClickedTrackLiked &&
-          type !== 'cloudDisk' &&
-          type !== 'localMusic'
+          isRightClickedTrackLiked && type !== 'cloudDisk' && !isExternalMusic
         "
         class="item"
         @click="like"
@@ -52,13 +48,13 @@
         >从歌单中删除</div
       >
       <div
-        v-show="type !== 'cloudDisk' && type !== 'localMusic'"
+        v-show="type !== 'cloudDisk' && !isExternalMusic"
         class="item"
         @click="addTrackToPlaylist"
         >{{ $t('contextMenu.addToPlaylist') }}</div
       >
       <div
-        v-show="type !== 'cloudDisk' && type !== 'localMusic'"
+        v-show="type !== 'cloudDisk' && !isExternalMusic"
         class="item"
         @click="copyLink"
         >{{ $t('contextMenu.copyUrl') }}</div
@@ -183,6 +179,9 @@ export default {
     isRightClickedTrackLiked() {
       return this.liked.songs.includes(this.rightClickedTrack?.id);
     },
+    isExternalMusic() {
+      return ['localMusic', 'streaming'].includes(this.type);
+    },
     rightClickedTrackComputed() {
       return this.type === 'cloudDisk'
         ? {
@@ -262,6 +261,11 @@ export default {
         let trackIDs = this.tracks.map(t => t.id);
         this.player.replacePlaylist(trackIDs, 'local-music', 'local', trackID, {
           name: this.$t('localMusic.title'),
+        });
+      } else if (this.dbclickTrackFunc === 'playStreaming') {
+        let trackIDs = this.tracks.map(t => t.id);
+        this.player.replacePlaylist(trackIDs, this.id, 'streaming', trackID, {
+          name: this.$t('streaming.title'),
         });
       }
     },

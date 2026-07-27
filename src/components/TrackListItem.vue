@@ -215,7 +215,9 @@ export default {
       return isElectron ? !this.$store.state.settings.useAudioResolver : true;
     },
     showLikeButton() {
-      return !['tracklist', 'cloudDisk', 'localMusic'].includes(this.type);
+      return !['tracklist', 'cloudDisk', 'localMusic', 'streaming'].includes(
+        this.type
+      );
     },
     showOrderNumber() {
       return this.type === 'album';

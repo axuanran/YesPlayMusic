@@ -65,7 +65,9 @@ export const filters = {
 
   resizeImage(imgUrl, size = 512) {
     if (!imgUrl) return '';
-    if (/^https?:\/\/127\.0\.0\.1:\d+\/local-music\//.test(imgUrl)) {
+    if (
+      /^https?:\/\/127\.0\.0\.1:\d+\/(?:local-music|streaming)\//.test(imgUrl)
+    ) {
       const separator = imgUrl.includes('?') ? '&' : '?';
       return `${imgUrl}${separator}param=${size}y${size}`;
     }

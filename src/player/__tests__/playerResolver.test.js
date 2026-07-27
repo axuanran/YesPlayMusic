@@ -82,6 +82,25 @@ describe('PlayerResolver', () => {
     expect(mocks.resolveTrackSource).not.toHaveBeenCalled();
   });
 
+  it('loads streaming tracks without exposing provider requests', async () => {
+    const track = {
+      id: 'stream:connection:item',
+      streaming: true,
+      sourceUrl: 'http://127.0.0.1:3210/streaming/connection/items/item/audio',
+    };
+    window.electronAPI = {
+      streaming: {
+        getTrack: vi.fn().mockResolvedValue(track),
+      },
+    };
+    const resolver = new PlayerResolver();
+
+    await expect(resolver.loadTrack(track.id)).resolves.toBe(track);
+    await expect(resolver.resolveSource(track)).resolves.toBe(track.sourceUrl);
+    expect(mocks.getTrackDetail).not.toHaveBeenCalled();
+    expect(mocks.resolveTrackSource).not.toHaveBeenCalled();
+  });
+
   it('falls back to legacy source when provider fails', async () => {
     mocks.resolveTrackSource.mockRejectedValue(new Error('provider failed'));
     mocks.getTrackSource.mockResolvedValue(null);

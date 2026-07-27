@@ -14,8 +14,16 @@ function getLocalMusicApi() {
   return globalThis?.window?.electronAPI?.localMusic || null;
 }
 
+function getStreamingApi() {
+  return globalThis?.window?.electronAPI?.streaming || null;
+}
+
 export function isLocalMusicTrackId(trackId) {
   return typeof trackId === 'string' && trackId.startsWith('local:');
+}
+
+export function isStreamingTrackId(trackId) {
+  return typeof trackId === 'string' && trackId.startsWith('stream:');
 }
 
 export function isCanceledRequest(error) {
@@ -38,6 +46,16 @@ export default class PlayerResolver {
         return track;
       });
     }
+    if (isStreamingTrackId(trackId)) {
+      const streamingApi = getStreamingApi();
+      if (!streamingApi?.getTrack) {
+        return Promise.reject(new Error('Streaming is unavailable'));
+      }
+      return streamingApi.getTrack(trackId).then(track => {
+        if (!track) throw new Error('Streaming track is unavailable');
+        return track;
+      });
+    }
     return getTrackDetail(trackId, options).then(data => data.songs[0]);
   }
 
@@ -47,6 +65,15 @@ export default class PlayerResolver {
       if (!localMusicApi?.get) return Promise.resolve(track.sourceUrl || null);
       return localMusicApi
         .get(track.id)
+        .then(currentTrack => currentTrack?.sourceUrl || null);
+    }
+    if (track?.streaming === true) {
+      const streamingApi = getStreamingApi();
+      if (!streamingApi?.getTrack) {
+        return Promise.resolve(track.sourceUrl || null);
+      }
+      return streamingApi
+        .getTrack(track.id)
         .then(currentTrack => currentTrack?.sourceUrl || null);
     }
     return resolveTrackSource(track, options).catch(error => {

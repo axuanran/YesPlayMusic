@@ -766,7 +766,7 @@ export default class {
     );
     const trackDuration = ~~(track.dt / 1000);
     time = completed ? trackDuration : ~~time;
-    if (!track.local) {
+    if (!track.local && !track.streaming) {
       scrobble({
         id: track.id,
         sourceid: this.playlistSource.id,
@@ -1064,9 +1064,10 @@ export default class {
         artwork: metadata.artwork.at(-1)?.src || '',
         length,
         trackId: track.id,
-        url: track.local
-          ? track.sourceUrl
-          : `https://music.163.com/song?id=${track.id}`,
+        url:
+          track.local || track.streaming
+            ? track.sourceUrl
+            : `https://music.163.com/song?id=${track.id}`,
       },
     });
   }
