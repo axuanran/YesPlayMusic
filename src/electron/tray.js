@@ -4,6 +4,24 @@ import { app, nativeImage, Tray, Menu, nativeTheme } from 'electron';
 import { isLinux } from '@/utils/platform';
 import { normalizeShortcuts } from '@/utils/shortcuts';
 import { showMainWindow } from './showMainWindow.js';
+import { getMenuIconFileName, resolveTrayIconTheme } from './trayIconTheme.js';
+
+function createMenuIcon(name) {
+  return nativeImage.createFromPath(
+    path.join(
+      __static,
+      'img/icons',
+      getMenuIconFileName(name, nativeTheme.shouldUseDarkColors)
+    )
+  );
+}
+
+function applyMenuState(contextMenu, isPlaying, isLiked) {
+  contextMenu.getMenuItemById('play').visible = !isPlaying;
+  contextMenu.getMenuItemById('pause').visible = isPlaying;
+  contextMenu.getMenuItemById('like').visible = !isLiked;
+  contextMenu.getMenuItemById('unlike').visible = isLiked;
+}
 
 function createMenuTemplate(win, store) {
   const shortcuts = normalizeShortcuts(store.get('settings.shortcuts'));
@@ -24,9 +42,7 @@ function createMenuTemplate(win, store) {
     },
     {
       label: '播放',
-      icon: nativeImage.createFromPath(
-        path.join(__static, 'img/icons/play.png')
-      ),
+      icon: createMenuIcon('play'),
       click: () => {
         win.webContents.send('play');
       },
@@ -35,9 +51,7 @@ function createMenuTemplate(win, store) {
     },
     {
       label: '暂停',
-      icon: nativeImage.createFromPath(
-        path.join(__static, 'img/icons/pause.png')
-      ),
+      icon: createMenuIcon('pause'),
       click: () => {
         win.webContents.send('play');
       },
@@ -47,9 +61,7 @@ function createMenuTemplate(win, store) {
     },
     {
       label: '上一首',
-      icon: nativeImage.createFromPath(
-        path.join(__static, 'img/icons/left.png')
-      ),
+      icon: createMenuIcon('left'),
       accelerator: accelerator('previous'),
       click: () => {
         win.webContents.send('previous');
@@ -57,9 +69,7 @@ function createMenuTemplate(win, store) {
     },
     {
       label: '下一首',
-      icon: nativeImage.createFromPath(
-        path.join(__static, 'img/icons/right.png')
-      ),
+      icon: createMenuIcon('right'),
       accelerator: accelerator('next'),
       click: () => {
         win.webContents.send('next');
@@ -67,9 +77,7 @@ function createMenuTemplate(win, store) {
     },
     {
       label: '循环播放',
-      icon: nativeImage.createFromPath(
-        path.join(__static, 'img/icons/repeat.png')
-      ),
+      icon: createMenuIcon('repeat'),
       accelerator: accelerator('repeat'),
       click: () => {
         win.webContents.send('repeat');
@@ -77,9 +85,7 @@ function createMenuTemplate(win, store) {
     },
     {
       label: '加入喜欢',
-      icon: nativeImage.createFromPath(
-        path.join(__static, 'img/icons/like.png')
-      ),
+      icon: createMenuIcon('like'),
       accelerator: accelerator('like'),
       click: () => {
         win.webContents.send('like');
@@ -88,9 +94,7 @@ function createMenuTemplate(win, store) {
     },
     {
       label: '取消喜欢',
-      icon: nativeImage.createFromPath(
-        path.join(__static, 'img/icons/unlike.png')
-      ),
+      icon: createMenuIcon('unlike'),
       accelerator: accelerator('like'),
       click: () => {
         win.webContents.send('like');
@@ -100,9 +104,7 @@ function createMenuTemplate(win, store) {
     },
     {
       label: '退出',
-      icon: nativeImage.createFromPath(
-        path.join(__static, 'img/icons/exit.png')
-      ),
+      icon: createMenuIcon('exit'),
       accelerator: 'CmdOrCtrl+W',
       click: () => {
         app.exit();
@@ -127,17 +129,19 @@ class YPMTrayLinuxImpl {
     this.emitter = emitter;
     this.store = store;
     this.template = undefined;
-    this.initTemplate();
-    this.contextMenu = Menu.buildFromTemplate(this.template);
-
-    this.tray.setContextMenu(this.contextMenu);
+    this.isPlaying = false;
+    this.isLiked = false;
+    this.rebuildContextMenu();
     this.handleEvents();
   }
 
-  initTemplate() {
+  rebuildContextMenu() {
     // Linux 下鼠标左右键都可能呼出 contextMenu，
     // 因此菜单与单击事件都提供打开主界面的入口。
     this.template = createMenuTemplate(this.win, this.store);
+    this.contextMenu = Menu.buildFromTemplate(this.template);
+    applyMenuState(this.contextMenu, this.isPlaying, this.isLiked);
+    this.tray.setContextMenu(this.contextMenu);
   }
 
   handleEvents() {
@@ -147,28 +151,34 @@ class YPMTrayLinuxImpl {
 
     this.emitter.on('updateTooltip', title => this.tray.setToolTip(title));
     this.emitter.on('updatePlayState', isPlaying => {
-      this.contextMenu.getMenuItemById('play').visible = !isPlaying;
-      this.contextMenu.getMenuItemById('pause').visible = isPlaying;
+      this.isPlaying = isPlaying;
+      applyMenuState(this.contextMenu, this.isPlaying, this.isLiked);
       this.tray.setContextMenu(this.contextMenu);
     });
     this.emitter.on('updateLikeState', isLiked => {
-      this.contextMenu.getMenuItemById('like').visible = !isLiked;
-      this.contextMenu.getMenuItemById('unlike').visible = isLiked;
+      this.isLiked = isLiked;
+      applyMenuState(this.contextMenu, this.isPlaying, this.isLiked);
       this.tray.setContextMenu(this.contextMenu);
     });
     this.emitter.on('updateIcon', () => {
       this.updateIcon();
     });
+    this.onNativeThemeUpdated = () => {
+      this.rebuildContextMenu();
+      this.updateIcon();
+    };
+    nativeTheme.on('updated', this.onNativeThemeUpdated);
+    app.once('before-quit', () => {
+      nativeTheme.removeListener('updated', this.onNativeThemeUpdated);
+    });
   }
 
   updateIcon() {
     let trayIconSetting = this.store.get('settings.trayIconTheme') || 'auto';
-    let iconTheme;
-    if (trayIconSetting === 'auto') {
-      iconTheme = nativeTheme.shouldUseDarkColors ? 'light' : 'dark';
-    } else {
-      iconTheme = trayIconSetting;
-    }
+    const iconTheme = resolveTrayIconTheme(
+      trayIconSetting,
+      nativeTheme.shouldUseDarkColors
+    );
 
     let icon = nativeImage
       .createFromPath(path.join(__static, `img/icons/menu-${iconTheme}@88.png`))
@@ -188,7 +198,6 @@ class YPMTrayWindowsImpl {
     this.emitter = emitter;
     this.store = store;
     this.template = createMenuTemplate(win, store);
-    this.contextMenu = Menu.buildFromTemplate(this.template);
 
     this.isPlaying = false;
     this.curDisplayPlaying = false;
@@ -196,7 +205,16 @@ class YPMTrayWindowsImpl {
     this.isLiked = false;
     this.curDisplayLiked = false;
 
+    this.rebuildContextMenu();
     this.handleEvents();
+  }
+
+  rebuildContextMenu() {
+    this.template = createMenuTemplate(this.win, this.store);
+    this.contextMenu = Menu.buildFromTemplate(this.template);
+    applyMenuState(this.contextMenu, this.isPlaying, this.isLiked);
+    this.curDisplayPlaying = this.isPlaying;
+    this.curDisplayLiked = this.isLiked;
   }
 
   handleEvents() {
@@ -229,16 +247,22 @@ class YPMTrayWindowsImpl {
     this.emitter.on('updateIcon', () => {
       this.updateIcon();
     });
+    this.onNativeThemeUpdated = () => {
+      this.rebuildContextMenu();
+      this.updateIcon();
+    };
+    nativeTheme.on('updated', this.onNativeThemeUpdated);
+    app.once('before-quit', () => {
+      nativeTheme.removeListener('updated', this.onNativeThemeUpdated);
+    });
   }
 
   updateIcon() {
     let trayIconSetting = this.store.get('settings.trayIconTheme') || 'auto';
-    let iconTheme;
-    if (trayIconSetting === 'auto') {
-      iconTheme = nativeTheme.shouldUseDarkColors ? 'light' : 'dark';
-    } else {
-      iconTheme = trayIconSetting;
-    }
+    const iconTheme = resolveTrayIconTheme(
+      trayIconSetting,
+      nativeTheme.shouldUseDarkColors
+    );
 
     let icon = nativeImage
       .createFromPath(path.join(__static, `img/icons/menu-${iconTheme}@88.png`))
@@ -253,12 +277,10 @@ class YPMTrayWindowsImpl {
 
 export function createTray(win, eventEmitter, store) {
   let trayIconSetting = store.get('settings.trayIconTheme') || 'auto';
-  let iconTheme;
-  if (trayIconSetting === 'auto') {
-    iconTheme = nativeTheme.shouldUseDarkColors ? 'light' : 'dark';
-  } else {
-    iconTheme = trayIconSetting;
-  }
+  const iconTheme = resolveTrayIconTheme(
+    trayIconSetting,
+    nativeTheme.shouldUseDarkColors
+  );
 
   let icon = nativeImage
     .createFromPath(path.join(__static, `img/icons/menu-${iconTheme}@88.png`))
