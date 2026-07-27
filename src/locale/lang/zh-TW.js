@@ -7,6 +7,7 @@ export default {
     home: '首頁',
     explore: '發現',
     library: '音樂庫',
+    podcast: '播客',
     search: '搜尋',
     github: 'GitHub Repo',
   },
@@ -41,6 +42,16 @@ export default {
   explore: {
     explore: '探索',
     loadMore: '載入更多',
+  },
+  podcast: {
+    title: '播客',
+    description: '探索節目並使用現有播放器收聽單集。',
+    episodes: '單集',
+    episodeCount: '{count} 個單集',
+    playAll: '播放全部',
+    loadMore: '載入更多',
+    loadFailed: '播客內容載入失敗',
+    retry: '重試',
   },
   artist: {
     latestRelease: '最新發佈',

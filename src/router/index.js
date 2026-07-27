@@ -101,6 +101,15 @@ const routes = [
     },
   },
   {
+    path: '/podcast/:id?',
+    name: 'podcast',
+    component: () => import('@/views/podcast.vue'),
+    meta: {
+      keepAlive: true,
+      savePosition: true,
+    },
+  },
+  {
     path: '/library',
     name: 'library',
     component: () => import('@/views/library.vue'),

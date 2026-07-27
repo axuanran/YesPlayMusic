@@ -11,6 +11,7 @@
         :image-url="getImageUrl(item)"
         :type="type"
         :play-button-size="type === 'artist' ? 26 : playButtonSize"
+        :always-show-play-button="showPlayButton"
         :image-loading="getImageLoading(index)"
         :image-fetch-priority="getImageFetchPriority(index)"
       />
@@ -58,6 +59,7 @@ export default {
     columnNumber: { type: Number, default: 5 },
     gap: { type: String, default: '44px 24px' },
     playButtonSize: { type: Number, default: 22 },
+    showPlayButton: { type: Boolean, default: true },
     imageSize: { type: Number, default: ROW_COVER_IMAGE_SIZE },
     eager: { type: Boolean, default: false },
   },

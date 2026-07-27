@@ -234,6 +234,9 @@ export default {
       } else if (this.dbclickTrackFunc === 'playCloudDisk') {
         let trackIDs = this.tracks.map(t => t.id || t.songId);
         this.player.replacePlaylist(trackIDs, this.id, 'cloudDisk', trackID);
+      } else if (this.dbclickTrackFunc === 'playPodcast') {
+        let trackIDs = this.tracks.map(t => t.id || t.songId);
+        this.player.replacePlaylist(trackIDs, this.id, 'podcast', trackID);
       }
     },
     playThisListDefault(trackID) {

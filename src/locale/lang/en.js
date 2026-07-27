@@ -7,6 +7,7 @@ export default {
     home: 'Home',
     explore: 'Explore',
     library: 'Library',
+    podcast: 'Podcasts',
     search: 'Search',
     github: 'GitHub Repo',
   },
@@ -44,6 +45,16 @@ export default {
   explore: {
     explore: 'Explore',
     loadMore: 'Load More',
+  },
+  podcast: {
+    title: 'Podcasts',
+    description: 'Discover shows and play episodes with the built-in player.',
+    episodes: 'Episodes',
+    episodeCount: '{count} episodes',
+    playAll: 'Play all',
+    loadMore: 'Load more',
+    loadFailed: 'Failed to load podcasts',
+    retry: 'Retry',
   },
   artist: {
     latestRelease: 'Latest Releases',

@@ -7,6 +7,7 @@ export default {
     home: 'Anasayfa',
     explore: 'Keşfet',
     library: 'Kitaplık',
+    podcast: 'Podcastler',
     search: 'Ara',
     github: 'GitHub Repo',
   },
@@ -44,6 +45,17 @@ export default {
   explore: {
     explore: 'Keşfet',
     loadMore: 'Daha Fazlası',
+  },
+  podcast: {
+    title: 'Podcastler',
+    description:
+      'Programları keşfedin ve bölümleri yerleşik oynatıcıyla dinleyin.',
+    episodes: 'Bölümler',
+    episodeCount: '{count} bölüm',
+    playAll: 'Tümünü oynat',
+    loadMore: 'Daha fazla yükle',
+    loadFailed: 'Podcastler yüklenemedi',
+    retry: 'Tekrar dene',
   },
   artist: {
     latestRelease: 'Son Çıkanlar',
