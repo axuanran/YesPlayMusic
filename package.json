@@ -1,6 +1,6 @@
 {
   "name": "yesplaymusic",
-  "version": "0.1.1-alpha.5",
+  "version": "0.1.1-alpha.6",
   "private": true,
   "description": "A third party music player for Netease Music",
   "author": "qier222<qier222@outlook.com>",
@@ -288,5 +288,5 @@
     "esbuild@0.25.12": true,
     "core-js@3.49.0": true
   },
-  "releaseVersion": "0.1.1-alpha.5"
+  "releaseVersion": "0.1.1-alpha.6"
 }
