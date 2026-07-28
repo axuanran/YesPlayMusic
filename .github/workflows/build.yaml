@@ -30,7 +30,7 @@ on:
           - prerelease
           - release
       release_tag:
-        description: Optional v-prefixed tag to create or update
+        description: Optional compact tag, for example v0.1.1a1
         required: false
         type: string
 
@@ -85,18 +85,22 @@ jobs:
           fi
 
           if [[ -n "$release_tag" ]]; then
-            node scripts/prepare-release-version.mjs \
-              "$release_tag" \
-              --write-package \
-              --github-output
+            if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+((a|b|rc)[0-9]+)?$ ]]; then
+              echo "Release tags must use compact versions such as v0.1.1a1: $release_tag" >&2
+              exit 1
+            fi
+            version_input="$release_tag"
           else
-            current_version="$(node -p "require('./package.json').version")"
-            node scripts/prepare-release-version.mjs \
-              "$current_version" \
-              --github-output
+            version_input="$(node -p "require('./package.json').releaseVersion || require('./package.json').version")"
           fi
 
-          echo "package.json version: $(node -p "require('./package.json').version")"
+          node scripts/prepare-release-version.mjs \
+            "$version_input" \
+            --write-package \
+            --github-output
+
+          echo "Release version: $(node -p "require('./package.json').releaseVersion")"
+          echo "Internal application version: $(node -p "require('./package.json').version")"
 
       - name: Build Electron app
         run: yarn electron-vite build && yarn tui:build
@@ -124,6 +128,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EP_PRELEASE: ${{ steps.version.outputs.is_prerelease }}
+
+      - name: Normalize release artifact names
+        shell: bash
+        env:
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
+        run: |
+          set -euo pipefail
+          node scripts/normalize-release-artifacts.mjs \
+            dist_electron \
+            "$APP_VERSION" \
+            "$RELEASE_VERSION"
 
       - name: List dist_electron
         shell: bash
@@ -240,24 +256,34 @@ jobs:
           fi
 
           if [[ -n "$release_tag" ]]; then
-            node scripts/prepare-release-version.mjs \
-              "$release_tag" \
-              --github-output
+            if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+((a|b|rc)[0-9]+)?$ ]]; then
+              echo "Release tags must use compact versions such as v0.1.1a1: $release_tag" >&2
+              exit 1
+            fi
+            version_input="$release_tag"
           else
-            current_version="$(node -p "require('./package.json').version")"
-            node scripts/prepare-release-version.mjs \
-              "$current_version" \
-              --github-output
+            version_input="$(node -p "require('./package.json').releaseVersion || require('./package.json').version")"
           fi
+
+          node scripts/prepare-release-version.mjs \
+            "$version_input" \
+            --github-output
 
       - name: Normalize and verify release artifacts
         shell: bash
         env:
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
           EXPECTED_PACMAN_ASSET: ${{ steps.version.outputs.pacman_asset }}
         run: |
           set -euo pipefail
 
-          echo "release artifacts before normalization:"
+          node scripts/normalize-release-artifacts.mjs \
+            artifacts \
+            "$APP_VERSION" \
+            "$RELEASE_VERSION"
+
+          echo "release artifacts:"
           find artifacts -type f -print | sort
           test "$(find artifacts -type f | wc -l)" -gt 0
 
@@ -273,12 +299,10 @@ jobs:
 
           expected_path="artifacts/${EXPECTED_PACMAN_ASSET}"
           if [[ "${pacman_files[0]}" != "$expected_path" ]]; then
-            mv -v "${pacman_files[0]}" "$expected_path"
+            echo "Unexpected Pacman asset: ${pacman_files[0]}" >&2
+            echo "Expected: $expected_path" >&2
+            exit 1
           fi
-
-          test -f "$expected_path"
-          echo "release artifacts after normalization:"
-          find artifacts -type f -print | sort
 
       - name: Decide publish mode
         id: mode
@@ -331,19 +355,18 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: ${{ steps.mode.outputs.mode }} / ${{ steps.tag.outputs.tag }} / ${{ github.run_number }}
+          name: YesPlayMusic ${{ steps.version.outputs.release_version }}
           body: |
+            Version: ${{ steps.version.outputs.release_version }}
             Source ref: ${{ github.ref_name }}
             Run: ${{ github.run_id }}
             Commit: ${{ github.sha }}
             Mode: ${{ steps.mode.outputs.mode }}
-            Release version: ${{ steps.version.outputs.release_version }}
-            Application version: ${{ steps.version.outputs.app_version }}
-            AUR pkgver: ${{ steps.version.outputs.aur_pkgver }}
           prerelease: ${{ steps.mode.outputs.mode == 'prerelease' }}
           draft: ${{ steps.mode.outputs.mode == 'draft' }}
           make_latest: ${{ steps.mode.outputs.mode == 'release' }}
           overwrite_files: true
+          fail_on_unmatched_files: true
           files: artifacts/*
 
   aur:
@@ -356,7 +379,6 @@ jobs:
       AUR_PACKAGE: yesplaymusic-axuanran-bin
       RELEASE_TAG: ${{ needs.publish.outputs.tag }}
       RELEASE_VERSION: ${{ needs.publish.outputs.release_version }}
-      APP_VERSION: ${{ needs.publish.outputs.app_version }}
       AUR_PKGVER: ${{ needs.publish.outputs.aur_pkgver }}
       PACMAN_ASSET: ${{ needs.publish.outputs.pacman_asset }}
 
@@ -395,8 +417,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ ! "$RELEASE_TAG" == v* ]]; then
-            echo "AUR releases require a v-prefixed tag: $RELEASE_TAG" >&2
+          if [[ ! "$RELEASE_TAG" == "v${RELEASE_VERSION}" ]]; then
+            echo "Release tag and compact version do not match: $RELEASE_TAG / $RELEASE_VERSION" >&2
             exit 1
           fi
 
@@ -409,7 +431,6 @@ jobs:
           sed -Ei "s/^pkgver=.*/pkgver=${AUR_PKGVER}/" PKGBUILD
           sed -Ei "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
           sed -Ei "s/^_releasever=.*/_releasever=${RELEASE_VERSION}/" PKGBUILD
-          sed -Ei "s/^_appver=.*/_appver=${APP_VERSION}/" PKGBUILD
           sed -Ei \
             "s#https://github.com/[^/]+/YesPlayMusic#https://github.com/${GITHUB_REPOSITORY}#g" \
             PKGBUILD
