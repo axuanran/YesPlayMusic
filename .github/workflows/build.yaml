@@ -12,7 +12,6 @@ on:
   push:
     branches:
       - dev
-      - master
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -30,6 +29,10 @@ on:
           - draft
           - prerelease
           - release
+      release_tag:
+        description: Optional v-prefixed tag to create or update
+        required: false
+        type: string
 
 jobs:
   build:
@@ -66,6 +69,35 @@ jobs:
           install-native-deps: 'true'
           verify-rollup: 'true'
 
+      - name: Prepare application version
+        id: version
+        shell: bash
+        env:
+          MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          release_tag=""
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            release_tag="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${MANUAL_RELEASE_TAG:-}" ]]; then
+            release_tag="${MANUAL_RELEASE_TAG}"
+          fi
+
+          if [[ -n "$release_tag" ]]; then
+            node scripts/prepare-release-version.mjs \
+              "$release_tag" \
+              --write-package \
+              --github-output
+          else
+            current_version="$(node -p "require('./package.json').version")"
+            node scripts/prepare-release-version.mjs \
+              "$current_version" \
+              --github-output
+          fi
+
+          echo "package.json version: $(node -p "require('./package.json').version")"
+
       - name: Build Electron app
         run: yarn electron-vite build && yarn tui:build
         env:
@@ -84,14 +116,14 @@ jobs:
         run: npx electron-builder --publish never
         env:
           GH_TOKEN: ${{ github.token }}
-          EP_PRELEASE: true
+          EP_PRELEASE: ${{ steps.version.outputs.is_prerelease }}
 
       - name: Package Windows app
         if: runner.os == 'Windows'
         run: npx electron-builder -w --publish never
         env:
           GH_TOKEN: ${{ github.token }}
-          EP_PRELEASE: true
+          EP_PRELEASE: ${{ steps.version.outputs.is_prerelease }}
 
       - name: List dist_electron
         shell: bash
@@ -176,8 +208,15 @@ jobs:
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
       tag: ${{ steps.tag.outputs.tag }}
+      release_version: ${{ steps.version.outputs.release_version }}
+      app_version: ${{ steps.version.outputs.app_version }}
+      aur_pkgver: ${{ steps.version.outputs.aur_pkgver }}
+      pacman_asset: ${{ steps.version.outputs.pacman_asset }}
 
     steps:
+      - name: Check out release scripts
+        uses: actions/checkout@v4
+
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -185,22 +224,77 @@ jobs:
           merge-multiple: true
           path: artifacts
 
-      - name: List release artifacts
+      - name: Resolve release version
+        id: version
         shell: bash
+        env:
+          MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          echo "release artifacts:"
-          find artifacts -type f -print
+          set -euo pipefail
+
+          release_tag=""
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            release_tag="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${MANUAL_RELEASE_TAG:-}" ]]; then
+            release_tag="${MANUAL_RELEASE_TAG}"
+          fi
+
+          if [[ -n "$release_tag" ]]; then
+            node scripts/prepare-release-version.mjs \
+              "$release_tag" \
+              --github-output
+          else
+            current_version="$(node -p "require('./package.json').version")"
+            node scripts/prepare-release-version.mjs \
+              "$current_version" \
+              --github-output
+          fi
+
+      - name: Normalize and verify release artifacts
+        shell: bash
+        env:
+          EXPECTED_PACMAN_ASSET: ${{ steps.version.outputs.pacman_asset }}
+        run: |
+          set -euo pipefail
+
+          echo "release artifacts before normalization:"
+          find artifacts -type f -print | sort
           test "$(find artifacts -type f | wc -l)" -gt 0
+
+          mapfile -t pacman_files < <(
+            find artifacts -maxdepth 1 -type f -name '*.pacman' -print
+          )
+
+          if [[ "${#pacman_files[@]}" -ne 1 ]]; then
+            echo "Expected exactly one pacman artifact, found ${#pacman_files[@]}" >&2
+            printf '%s\n' "${pacman_files[@]}"
+            exit 1
+          fi
+
+          expected_path="artifacts/${EXPECTED_PACMAN_ASSET}"
+          if [[ "${pacman_files[0]}" != "$expected_path" ]]; then
+            mv -v "${pacman_files[0]}" "$expected_path"
+          fi
+
+          test -f "$expected_path"
+          echo "release artifacts after normalization:"
+          find artifacts -type f -print | sort
 
       - name: Decide publish mode
         id: mode
         shell: bash
+        env:
+          VERSION_IS_PRERELEASE: ${{ steps.version.outputs.is_prerelease }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             mode="${{ inputs.release_mode }}"
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            mode="release"
-          elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            if [[ "$VERSION_IS_PRERELEASE" == "true" ]]; then
+              mode="prerelease"
+            else
+              mode="release"
+            fi
+          elif [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
             mode="prerelease"
           else
             mode="artifact"
@@ -211,13 +305,23 @@ jobs:
       - name: Build release tag
         id: tag
         shell: bash
+        env:
+          MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
+          set -euo pipefail
           branch="${GITHUB_REF_NAME//\//-}"
 
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             tag="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${MANUAL_RELEASE_TAG:-}" ]]; then
+            tag="${MANUAL_RELEASE_TAG}"
           else
             tag="${{ steps.mode.outputs.mode }}-${branch}-run${GITHUB_RUN_NUMBER}"
+          fi
+
+          if [[ ! "$tag" =~ ^[0-9A-Za-z._/-]+$ ]]; then
+            echo "Invalid release tag: $tag" >&2
+            exit 1
           fi
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -227,29 +331,46 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: ${{ steps.mode.outputs.mode }} / ${{ github.ref_name }} / ${{ github.run_number }}
+          name: ${{ steps.mode.outputs.mode }} / ${{ steps.tag.outputs.tag }} / ${{ github.run_number }}
           body: |
-            Branch: ${{ github.ref_name }}
+            Source ref: ${{ github.ref_name }}
             Run: ${{ github.run_id }}
             Commit: ${{ github.sha }}
             Mode: ${{ steps.mode.outputs.mode }}
+            Release version: ${{ steps.version.outputs.release_version }}
+            Application version: ${{ steps.version.outputs.app_version }}
+            AUR pkgver: ${{ steps.version.outputs.aur_pkgver }}
           prerelease: ${{ steps.mode.outputs.mode == 'prerelease' }}
           draft: ${{ steps.mode.outputs.mode == 'draft' }}
           make_latest: ${{ steps.mode.outputs.mode == 'release' }}
+          overwrite_files: true
           files: artifacts/*
 
   aur:
     name: publish AUR
     needs: publish
-    if: needs.publish.outputs.mode == 'release' && startsWith(needs.publish.outputs.tag, 'v')
+    if: startsWith(needs.publish.outputs.tag, 'v') && needs.publish.outputs.mode != 'draft'
     runs-on: ubuntu-latest
     environment: aur
     env:
       AUR_PACKAGE: yesplaymusic-axuanran-bin
+      RELEASE_TAG: ${{ needs.publish.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.publish.outputs.release_version }}
+      APP_VERSION: ${{ needs.publish.outputs.app_version }}
+      AUR_PKGVER: ${{ needs.publish.outputs.aur_pkgver }}
+      PACMAN_ASSET: ${{ needs.publish.outputs.pacman_asset }}
 
     steps:
       - name: Check out AUR package template
         uses: actions/checkout@v4
+
+      - name: Verify release asset exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${PACMAN_ASSET}"
+          echo "Checking $asset_url"
+          curl --fail --silent --show-error --location --head "$asset_url" >/dev/null
 
       - name: Configure AUR SSH
         env:
@@ -270,14 +391,12 @@ jobs:
           ssh-keygen -y -f ~/.ssh/aur >/dev/null
 
       - name: Update AUR package
-        env:
-          RELEASE_TAG: ${{ needs.publish.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
-          version="${RELEASE_TAG#v}"
-          if [[ ! "$version" =~ ^[0-9]+([.][0-9A-Za-z_+]+)*$ ]]; then
-            echo "Invalid AUR pkgver derived from release tag: $version" >&2
+
+          if [[ ! "$RELEASE_TAG" == v* ]]; then
+            echo "AUR releases require a v-prefixed tag: $RELEASE_TAG" >&2
             exit 1
           fi
 
@@ -285,12 +404,12 @@ jobs:
           git clone "ssh://aur@aur.archlinux.org/${AUR_PACKAGE}.git" "$aur_dir"
           cd "$aur_dir"
 
-          if [[ ! -f PKGBUILD ]]; then
-            install -m 644 "${GITHUB_WORKSPACE}/.github/aur/PKGBUILD" PKGBUILD
-          fi
+          install -m 644 "${GITHUB_WORKSPACE}/.github/aur/PKGBUILD" PKGBUILD
 
-          sed -Ei "s/^pkgver=.*/pkgver=${version}/" PKGBUILD
+          sed -Ei "s/^pkgver=.*/pkgver=${AUR_PKGVER}/" PKGBUILD
           sed -Ei "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          sed -Ei "s/^_releasever=.*/_releasever=${RELEASE_VERSION}/" PKGBUILD
+          sed -Ei "s/^_appver=.*/_appver=${APP_VERSION}/" PKGBUILD
           sed -Ei \
             "s#https://github.com/[^/]+/YesPlayMusic#https://github.com/${GITHUB_REPOSITORY}#g" \
             PKGBUILD
@@ -309,7 +428,7 @@ jobs:
               pacman -Sy --noconfirm --needed pacman-contrib
               groupadd -o -g "$HOST_GID" builder
               useradd -o -m -u "$HOST_UID" -g "$HOST_GID" builder
-              chown builder:builder /pkg/PKGBUILD
+              chown -R builder:builder /pkg
               su builder -c "cd /pkg && updpkgsums && makepkg --printsrcinfo > .SRCINFO"
             '
 
@@ -322,5 +441,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Update to ${version}"
+          git commit -m "Update to ${RELEASE_VERSION}"
           git push origin master
