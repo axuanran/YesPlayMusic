@@ -62,6 +62,10 @@ for (const filePath of files.sort((a, b) => b.length - a.length)) {
     fileName.split(appVersion).join(releaseVersion)
   );
 
+  if (targetPath === filePath) {
+    continue;
+  }
+
   if (fs.existsSync(targetPath)) {
     console.error(
       `Cannot rename artifact because target exists: ${targetPath}`
@@ -105,9 +109,12 @@ if (pacmanFiles.length > 0) {
   }
 }
 
-const staleFiles = walkFiles(directory).filter(filePath =>
-  path.basename(filePath).includes(appVersion)
-);
+const staleFiles =
+  appVersion === releaseVersion
+    ? []
+    : walkFiles(directory).filter(filePath =>
+        path.basename(filePath).includes(appVersion)
+      );
 
 if (staleFiles.length > 0) {
   console.error('Artifacts still contain the internal application version:');
