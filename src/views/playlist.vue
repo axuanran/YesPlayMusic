@@ -167,16 +167,16 @@
 
     <transition name="locate-button">
       <ButtonTwoTone
-        v-if="currentTrackIndex >= 0"
+        v-if="showLocateCurrentTrackButton"
         class="locate-current-track-button"
-        icon-class="volume"
+        icon-class="locate"
+        :icon-button="true"
+        shape="round"
         color="grey"
-        :loading="locatingCurrentTrack"
         :title="$t('playlist.locateCurrentTrack')"
+        :aria-label="$t('playlist.locateCurrentTrack')"
         @click="scrollToCurrentTrack"
-      >
-        {{ $t('playlist.locateCurrentTrack') }}
-      </ButtonTwoTone>
+      />
     </transition>
 
     <TrackList
@@ -392,6 +392,8 @@ export default {
       searchInputWidth: '0px', // 搜索框宽度
       loadMorePromise: null,
       locatingCurrentTrack: false,
+      currentTrackVisible: false,
+      currentTrackVisibilityObserver: null,
       isElectron,
     };
   },
@@ -423,8 +425,11 @@ export default {
     currentTrackIndex() {
       if (!this.isCurrentPlaylist) return -1;
       return this.playlist.trackIds.findIndex(
-        track => track.id === this.currentTrackID
+        track => String(track.id) === String(this.currentTrackID)
       );
+    },
+    showLocateCurrentTrackButton() {
+      return this.currentTrackIndex >= 0 && !this.currentTrackVisible;
     },
     filteredTracks() {
       return this.tracks.filter(
@@ -447,6 +452,17 @@ export default {
       );
     },
   },
+  watch: {
+    currentTrackID() {
+      this.refreshCurrentTrackVisibility();
+    },
+    filteredTracks() {
+      this.refreshCurrentTrackVisibility();
+    },
+    isCurrentPlaylist() {
+      this.refreshCurrentTrackVisibility();
+    },
+  },
   created() {
     if (this.$route.name === 'likedSongs') {
       this.loadData(this.data.likedSongPlaylistID);
@@ -456,6 +472,12 @@ export default {
     setTimeout(() => {
       if (!this.show) NProgress.start();
     }, 1000);
+  },
+  mounted() {
+    this.refreshCurrentTrackVisibility();
+  },
+  beforeUnmount() {
+    this.currentTrackVisibilityObserver?.disconnect();
   },
   methods: {
     ...mapMutations(['appendTrackToPlayerList', 'updateModal']),
@@ -560,6 +582,40 @@ export default {
       } finally {
         this.locatingCurrentTrack = false;
       }
+    },
+    refreshCurrentTrackVisibility() {
+      this.currentTrackVisibilityObserver?.disconnect();
+      this.currentTrackVisibilityObserver = null;
+      this.currentTrackVisible = false;
+      if (this.currentTrackIndex < 0) return;
+
+      this.$nextTick(() => {
+        const observedTrackID = String(this.currentTrackID);
+        const trackElement =
+          this.$refs.trackList?.getTrackElement(observedTrackID);
+        if (!trackElement || typeof IntersectionObserver === 'undefined') {
+          return;
+        }
+
+        const scrollContainer = document.querySelector('main');
+        this.currentTrackVisibilityObserver = new IntersectionObserver(
+          entries => {
+            if (
+              !this.isCurrentPlaylist ||
+              String(this.currentTrackID) !== observedTrackID
+            ) {
+              return;
+            }
+            this.currentTrackVisible = entries[0]?.isIntersecting === true;
+          },
+          {
+            root: scrollContainer,
+            rootMargin: '-64px 0px -64px 0px',
+            threshold: 0.25,
+          }
+        );
+        this.currentTrackVisibilityObserver.observe(trackElement);
+      });
     },
     openMenu(e) {
       this.$refs.playlistMenu.openMenu(e);

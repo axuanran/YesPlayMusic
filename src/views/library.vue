@@ -369,6 +369,7 @@ export default {
         coverImgUrl: folder.coverUrl
           ? `${folder.coverUrl}?v=${folder.coverUpdatedAt}`
           : localMusicCover,
+        fallbackCoverImgUrl: localMusicCover,
         creator: { nickname: this.$t('localMusic.folderPlaylist') },
         localFolder: true,
       }));
@@ -535,7 +536,12 @@ export default {
         folder.id,
         'local',
         'first',
-        { name: folder.name }
+        {
+          coverImgUrl: folder.coverUrl
+            ? `${folder.coverUrl}?v=${folder.coverUpdatedAt}`
+            : localMusicCover,
+          name: folder.name,
+        }
       );
     },
     openPlaylistTabMenu(e) {

@@ -6,6 +6,13 @@ import {
 } from '../desktopLyricsSettings.js';
 
 describe('desktop lyrics settings', () => {
+  it('starts unlocked with a slightly opaque background', () => {
+    expect(normalizeDesktopLyricsSettings()).toMatchObject({
+      backgroundOpacity: 0.1,
+      locked: false,
+    });
+  });
+
   it('migrates the legacy enabled switch', () => {
     expect(normalizeDesktopLyricsSettings(undefined, true)).toMatchObject({
       enabled: true,

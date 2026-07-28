@@ -185,6 +185,7 @@
     "node": ">=22 <26"
   },
   "dependencies": {
+    "@akabeko/music-metadata-editor": "^1.0.1",
     "@jellybrick/mpris-service": "^2.2.0",
     "@neteasecloudmusicapienhanced/api": "^4.36.1",
     "@unblockneteasemusic/rust-napi": "^0.4.0",

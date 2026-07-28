@@ -4,6 +4,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { embedAudioMetadata, normalizeAudioMetadata } from './audioMetadata.js';
 
 const MAX_FILENAME_LENGTH = 240;
 const MAX_BATCH_AGE = 60 * 60 * 1000;
@@ -31,9 +32,11 @@ export function normalizeTrackDownloadRequest(payload, baseUrl) {
   }
   if (!['http:', 'https:'].includes(url.protocol)) return null;
 
+  const metadata = normalizeAudioMetadata(payload.metadata, baseUrl);
   return {
     url: url.toString(),
     suggestedName: sanitizeSuggestedName(payload.suggestedName),
+    ...(metadata ? { metadata } : {}),
   };
 }
 
@@ -62,16 +65,19 @@ async function createUniqueFilePath(directory, suggestedName) {
   throw new Error('Unable to create a unique download filename');
 }
 
-async function downloadUrlToFile({ net, url, filePath, onProgress }) {
+async function downloadUrlToFile({
+  net,
+  url,
+  filePath,
+  onProgress,
+  acceptedContentType = /^audio\/|^(application|binary)\/octet-stream/i,
+}) {
   const response = await net.fetch(url, { redirect: 'follow' });
   if (!response.ok || !response.body) {
     throw new Error(`Download failed with HTTP ${response.status}`);
   }
   const contentType = response.headers.get('content-type') || '';
-  if (
-    contentType &&
-    !/^audio\/|^(application|binary)\/octet-stream/i.test(contentType)
-  ) {
+  if (contentType && !acceptedContentType.test(contentType)) {
     throw new Error(`Unexpected download content type: ${contentType}`);
   }
 
@@ -104,6 +110,41 @@ async function downloadUrlToFile({ net, url, filePath, onProgress }) {
   }
 
   return { bytes: received };
+}
+
+export async function saveArtworkDownload({ win, dialog, net, payload }) {
+  const request = normalizeTrackDownloadRequest(
+    payload,
+    win?.webContents?.getURL?.()
+  );
+  if (!request) throw new Error('Invalid artwork download request');
+
+  const selection = await dialog.showSaveDialog(win, {
+    title: '保存歌曲封面',
+    defaultPath: request.suggestedName,
+    filters: [
+      {
+        name: 'Image',
+        extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'],
+      },
+    ],
+  });
+  if (selection.canceled || !selection.filePath) {
+    return { status: 'canceled' };
+  }
+
+  const result = await downloadUrlToFile({
+    net,
+    url: request.url,
+    filePath: selection.filePath,
+    acceptedContentType: /^image\/|^(application|binary)\/octet-stream/i,
+  });
+
+  return {
+    status: 'completed',
+    filePath: selection.filePath,
+    bytes: result.bytes,
+  };
 }
 
 export async function saveTrackDownload({
@@ -139,6 +180,18 @@ export async function saveTrackDownload({
     filePath: selection.filePath,
     onProgress,
   });
+  try {
+    await embedAudioMetadata({
+      filePath: selection.filePath,
+      metadata: request.metadata,
+      net,
+    });
+  } catch (error) {
+    await rm(selection.filePath, { force: true }).catch(() => undefined);
+    throw new Error(`Failed to write audio metadata: ${error.message}`, {
+      cause: error,
+    });
+  }
 
   return {
     status: 'completed',
@@ -201,6 +254,18 @@ export async function saveTrackDownloadToBatch({
     filePath,
     onProgress,
   });
+  try {
+    await embedAudioMetadata({
+      filePath,
+      metadata: request.metadata,
+      net,
+    });
+  } catch (error) {
+    await rm(filePath, { force: true }).catch(() => undefined);
+    throw new Error(`Failed to write audio metadata: ${error.message}`, {
+      cause: error,
+    });
+  }
   return {
     status: 'completed',
     filename: path.basename(filePath),

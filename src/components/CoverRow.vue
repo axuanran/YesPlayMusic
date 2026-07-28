@@ -9,6 +9,7 @@
       <Cover
         :id="item.id"
         :image-url="getImageUrl(item)"
+        :fallback-image-url="item.fallbackCoverImgUrl || ''"
         :type="type"
         :play-button-size="type === 'artist' ? 26 : playButtonSize"
         :always-show-play-button="showPlayButton"

@@ -90,7 +90,7 @@
       />
     </div>
 
-    <div v-show="!haveResult" class="no-results">
+    <div v-show="!loading && !haveResult" class="no-results">
       <div
         ><svg-icon icon-class="search" />
         {{
@@ -111,6 +111,16 @@ import TrackList from '@/components/TrackList.vue';
 import MvRow from '@/components/MvRow.vue';
 import CoverRow from '@/components/CoverRow.vue';
 
+const SEARCH_TIMEOUT_MS = 8000;
+const SEARCH_TYPES = [
+  'artists',
+  'albums',
+  'tracks',
+  'musicVideos',
+  'playlists',
+  'podcasts',
+];
+
 export default {
   name: 'Search',
   components: {
@@ -127,6 +137,10 @@ export default {
       playlists: [],
       podcasts: [],
       musicVideos: [],
+      loading: false,
+      progressTimer: null,
+      searchAbortController: null,
+      searchRequestId: 0,
     };
   },
   computed: {
@@ -146,13 +160,17 @@ export default {
     },
   },
   watch: {
-    keywords: function (newKeywords) {
-      if (newKeywords.length === 0) return;
+    keywords() {
       this.getData();
     },
   },
   created() {
     this.getData();
+  },
+  beforeUnmount() {
+    clearTimeout(this.progressTimer);
+    this.searchAbortController?.abort();
+    NProgress.done();
   },
   methods: {
     ...mapActions(['showToast']),
@@ -160,10 +178,8 @@ export default {
       let track = this.tracks.find(t => t.id === id);
       this.$store.state.player.appendTrackToPlayerList(track, true);
     },
-    search(type = 'all') {
-      let showToast = this.showToast;
+    search(type, keywords, signal) {
       const typeTable = {
-        all: 1018,
         musicVideos: 1004,
         tracks: 1,
         albums: 10,
@@ -171,84 +187,135 @@ export default {
         playlists: 1000,
         podcasts: 1009,
       };
-      return search({
-        keywords: this.keywords,
-        type: typeTable[type],
-        limit: 16,
-      })
+      return search(
+        {
+          keywords,
+          type: typeTable[type],
+          limit: 16,
+        },
+        {
+          signal,
+          timeout: SEARCH_TIMEOUT_MS,
+        }
+      )
         .then(result => {
           return { result: result.result, type };
         })
         .catch(err => {
-          showToast(
-            err.response?.data?.msg ||
-              err.response?.data?.message ||
-              err.message
-          );
-          return { result: undefined, type };
+          return {
+            canceled:
+              signal.aborted ||
+              err.code === 'ERR_CANCELED' ||
+              err.name === 'CanceledError',
+            error: err,
+            result: undefined,
+            type,
+          };
         });
+    },
+    clearResults() {
+      this.tracks = [];
+      this.artists = [];
+      this.albums = [];
+      this.playlists = [];
+      this.podcasts = [];
+      this.musicVideos = [];
+    },
+    applySearchResult(type, result, requestId, signal) {
+      switch (type) {
+        case 'musicVideos':
+          this.musicVideos = result.mvs ?? [];
+          break;
+        case 'artists':
+          this.artists = result.artists ?? [];
+          break;
+        case 'albums':
+          this.albums = result.albums ?? [];
+          break;
+        case 'tracks':
+          this.tracks = result.songs ?? [];
+          void this.getTracksDetail(requestId, signal, this.tracks);
+          break;
+        case 'playlists':
+          this.playlists = result.playlists ?? [];
+          break;
+        case 'podcasts':
+          this.podcasts = result.djRadios ?? [];
+          break;
+      }
     },
     getData() {
-      setTimeout(() => {
-        if (!this.show) NProgress.start();
+      this.searchAbortController?.abort();
+      clearTimeout(this.progressTimer);
+      NProgress.done();
+      const requestId = ++this.searchRequestId;
+      const keywords = this.keywords.trim();
+      this.clearResults();
+      this.show = true;
+
+      if (!keywords) {
+        this.loading = false;
+        this.searchAbortController = null;
+        return;
+      }
+
+      const controller = new AbortController();
+      const errors = [];
+      this.searchAbortController = controller;
+      this.loading = true;
+      this.progressTimer = setTimeout(() => {
+        if (requestId === this.searchRequestId && this.loading) {
+          NProgress.start();
+        }
       }, 1000);
-      this.show = false;
 
-      const requestAll = requests => {
-        const keywords = this.keywords;
-        Promise.all(requests).then(results => {
-          if (keywords != this.keywords) return;
-          results.map(result => {
-            const searchType = result.type;
-            if (result.result === undefined) return;
-            result = result.result;
-            switch (searchType) {
-              case 'all':
-                this.result = result;
-                break;
-              case 'musicVideos':
-                this.musicVideos = result.mvs ?? [];
-                break;
-              case 'artists':
-                this.artists = result.artists ?? [];
-                break;
-              case 'albums':
-                this.albums = result.albums ?? [];
-                break;
-              case 'tracks':
-                this.tracks = result.songs ?? [];
-                this.getTracksDetail();
-                break;
-              case 'playlists':
-                this.playlists = result.playlists ?? [];
-                break;
-              case 'podcasts':
-                this.podcasts = result.djRadios ?? [];
-                break;
-            }
-          });
-          NProgress.done();
-          this.show = true;
-        });
-      };
+      const requests = SEARCH_TYPES.map(type =>
+        this.search(type, keywords, controller.signal).then(response => {
+          if (requestId !== this.searchRequestId || response.canceled) return;
+          if (response.result === undefined) {
+            errors.push(response.error);
+            return;
+          }
+          this.applySearchResult(
+            response.type,
+            response.result,
+            requestId,
+            controller.signal
+          );
+        })
+      );
 
-      const requests = [
-        this.search('artists'),
-        this.search('albums'),
-        this.search('tracks'),
-        this.search('musicVideos'),
-        this.search('playlists'),
-        this.search('podcasts'),
-      ];
-
-      requestAll(requests);
-    },
-    getTracksDetail() {
-      const trackIDs = this.tracks.map(t => t.id);
-      if (trackIDs.length === 0) return;
-      getTrackDetail(trackIDs.join(',')).then(result => {
-        this.tracks = result.songs;
+      Promise.allSettled(requests).then(() => {
+        if (requestId !== this.searchRequestId) return;
+        clearTimeout(this.progressTimer);
+        this.progressTimer = null;
+        this.loading = false;
+        this.searchAbortController = null;
+        NProgress.done();
+        if (errors.length > 0) {
+          const error = errors[0];
+          this.showToast(
+            error?.response?.data?.msg ||
+              error?.response?.data?.message ||
+              error?.message ||
+              '搜索请求超时'
+          );
+        }
       });
+    },
+    getTracksDetail(requestId, signal, tracks) {
+      const trackIDs = tracks.map(t => t.id);
+      if (trackIDs.length === 0) return;
+      getTrackDetail(trackIDs.join(','), {
+        signal,
+        timeout: SEARCH_TIMEOUT_MS,
+      })
+        .then(result => {
+          if (requestId === this.searchRequestId && !signal.aborted) {
+            this.tracks = result.songs;
+          }
+        })
+        .catch(() => undefined);
     },
   },
 };

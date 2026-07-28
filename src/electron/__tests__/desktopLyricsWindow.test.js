@@ -33,27 +33,33 @@ class MockWindow extends EventEmitter {
     this.setAlwaysOnTop = vi.fn();
     this.setFocusable = vi.fn();
     this.setIgnoreMouseEvents = vi.fn();
+    this.setPosition = vi.fn();
     this.setResizable = vi.fn();
+    this.hookWindowMessage = vi.fn();
     this.setVisibleOnAllWorkspaces = vi.fn();
     this.showInactive = vi.fn();
     this.hide = vi.fn();
-    this.getBounds = vi.fn(() => ({
+    this.bounds = {
       height: options.height,
       width: options.width,
       x: options.x,
       y: options.y,
-    }));
-    this.setBounds = vi.fn();
+    };
+    this.getBounds = vi.fn(() => ({ ...this.bounds }));
+    this.setBounds = vi.fn(bounds => {
+      this.bounds = { ...this.bounds, ...bounds };
+    });
   }
 }
 
-const createController = () =>
+const createController = (options = {}) =>
   new DesktopLyricsWindow({
     WindowClass: MockWindow,
     getDisplays: () => [
       { workArea: { height: 800, width: 1200, x: 10, y: 20 } },
     ],
     preloadPath: '/preload.js',
+    ...options,
   });
 
 describe('desktop lyrics window', () => {
@@ -63,9 +69,14 @@ describe('desktop lyrics window', () => {
     expect(html).toContain("default-src 'none'");
     expect(html).not.toContain('<script');
     expect(html).not.toContain('innerHTML');
+    expect(html).toContain('id="opacity-indicator"');
+    expect(html).toContain('-webkit-app-region: drag');
+    expect(
+      html.match(/<div class="resize-handle" data-resize-edge=/g)
+    ).toHaveLength(8);
   });
 
-  it('creates a non-focusing click-through window only when enabled', () => {
+  it('creates an interactive unlocked window only when enabled', () => {
     const controller = createController();
 
     controller.update({ line: 'Hidden' });
@@ -75,12 +86,12 @@ describe('desktop lyrics window', () => {
     const win = controller.window;
     expect(win.options).toMatchObject({
       alwaysOnTop: true,
-      focusable: false,
+      focusable: true,
       frame: false,
       skipTaskbar: true,
       transparent: true,
     });
-    expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(true, {
+    expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(false, {
       forward: true,
     });
   });
@@ -99,7 +110,7 @@ describe('desktop lyrics window', () => {
         playing: false,
         settings: expect.objectContaining({
           enabled: true,
-          locked: true,
+          locked: false,
           visible: true,
         }),
         translation: 'Translation',
@@ -140,9 +151,98 @@ describe('desktop lyrics window', () => {
       { forward: true }
     );
     expect(controller.window.setFocusable).toHaveBeenLastCalledWith(true);
-    expect(controller.window.setResizable).toHaveBeenLastCalledWith(true);
+    expect(controller.window.options.resizable).toBe(false);
+    expect(controller.window.setResizable).not.toHaveBeenCalled();
     expect(store.set).toHaveBeenCalled();
     expect(settings.desktopLyrics.locked).toBe(false);
+  });
+
+  it('adjusts background opacity by wheel steps only while unlocked', () => {
+    const controller = createController();
+
+    controller.setEnabled(true);
+    controller.handleCommand({
+      type: 'adjustBackgroundOpacity',
+      value: 1,
+    });
+    expect(controller.settings.backgroundOpacity).toBe(0.2);
+
+    controller.handleCommand({
+      type: 'adjustBackgroundOpacity',
+      value: -1,
+    });
+    expect(controller.settings.backgroundOpacity).toBe(0.1);
+
+    controller.setLocked(true);
+    controller.handleCommand({
+      type: 'adjustBackgroundOpacity',
+      value: 1,
+    });
+    expect(controller.settings.backgroundOpacity).toBe(0.1);
+  });
+
+  it('uses native dragging while disabling native resizing', () => {
+    const controller = createController();
+    controller.setEnabled(true);
+    const win = controller.window;
+    expect(win.options).toMatchObject({
+      maxHeight: 400,
+      maxWidth: 1920,
+      minHeight: 92,
+      minWidth: 360,
+      resizable: false,
+    });
+    expect(win.setPosition).not.toHaveBeenCalled();
+    expect(win.setResizable).not.toHaveBeenCalled();
+  });
+
+  it('resizes only from validated custom edges and clamps dimensions', () => {
+    let cursorPoint = { x: 100, y: 200 };
+    const controller = createController({
+      getCursorPoint: () => cursorPoint,
+    });
+    controller.setEnabled(true);
+    const win = controller.window;
+    const initialBounds = win.getBounds();
+
+    controller.handleCommand({ type: 'startResize', value: 'se' });
+    cursorPoint = { x: 2100, y: 1200 };
+    controller.handleCommand({ type: 'moveResize' });
+
+    expect(win.setBounds).toHaveBeenLastCalledWith(
+      {
+        height: 400,
+        width: 1920,
+        x: initialBounds.x,
+        y: initialBounds.y,
+      },
+      false
+    );
+
+    controller.handleCommand({ type: 'endResize' });
+    controller.handleCommand({ type: 'startResize', value: 'invalid' });
+    cursorPoint = { x: 0, y: 0 };
+    controller.handleCommand({ type: 'moveResize' });
+    expect(win.setBounds).toHaveBeenCalledOnce();
+  });
+
+  it('adjusts opacity from native wheel input', () => {
+    const controller = createController();
+    controller.setEnabled(true);
+
+    controller.handleWheelDelta(120);
+
+    expect(controller.settings.backgroundOpacity).toBe(0.2);
+  });
+
+  it('blocks native resize attempts for the frameless window', () => {
+    const controller = createController();
+    controller.setEnabled(true);
+    const event = { preventDefault: vi.fn() };
+
+    controller.window.emit('will-resize', event);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
   });
 
   it('recovers an off-screen saved position', () => {

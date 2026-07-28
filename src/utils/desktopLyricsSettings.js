@@ -1,7 +1,7 @@
 export const DEFAULT_DESKTOP_LYRICS_SETTINGS = Object.freeze({
   enabled: false,
   visible: false,
-  locked: true,
+  locked: false,
   alwaysOnTop: true,
   showSecondary: true,
   fontSize: 32,
@@ -9,7 +9,7 @@ export const DEFAULT_DESKTOP_LYRICS_SETTINGS = Object.freeze({
   textAlign: 'center',
   textColor: '#ffffff',
   secondaryColor: '#d6e0ff',
-  backgroundOpacity: 0,
+  backgroundOpacity: 0.1,
   width: 960,
   height: 120,
   x: null,

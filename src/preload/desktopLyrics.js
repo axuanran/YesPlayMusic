@@ -1,5 +1,10 @@
 import { ipcRenderer } from 'electron';
 
+let appliedSettings = { locked: true };
+let opacityIndicatorTimer = null;
+let activeResizePointerId = null;
+let resizeMoveFrame = null;
+
 const sendCommand = (type, value) => {
   const payload = value === undefined ? { type } : { type, value };
   ipcRenderer.send('desktop-lyrics:command', payload);
@@ -10,8 +15,24 @@ const setText = (id, value) => {
   if (element) element.textContent = typeof value === 'string' ? value : '';
 };
 
+const showOpacityIndicator = value => {
+  const indicator = document.getElementById('opacity-indicator');
+  if (!indicator) return;
+  indicator.textContent = `背景 ${Math.round(value * 100)}%`;
+  indicator.classList.add('is-visible');
+  clearTimeout(opacityIndicatorTimer);
+  opacityIndicatorTimer = setTimeout(() => {
+    indicator.classList.remove('is-visible');
+  }, 800);
+};
+
 const applySettings = settings => {
   if (!settings || typeof settings !== 'object') return;
+  const previousOpacity = Number(appliedSettings.backgroundOpacity);
+  appliedSettings = {
+    ...appliedSettings,
+    ...settings,
+  };
   const root = document.documentElement;
   root.style.setProperty('--lyrics-font-size', `${settings.fontSize}px`);
   root.style.setProperty(
@@ -25,6 +46,14 @@ const applySettings = settings => {
     '--lyrics-background-opacity',
     String(settings.backgroundOpacity)
   );
+  const nextOpacity = Number(settings.backgroundOpacity);
+  if (
+    Number.isFinite(previousOpacity) &&
+    Number.isFinite(nextOpacity) &&
+    previousOpacity !== nextOpacity
+  ) {
+    showOpacityIndicator(nextOpacity);
+  }
   document.body.classList.toggle('is-locked', settings.locked === true);
   document.body.classList.toggle(
     'hide-secondary',
@@ -59,7 +88,42 @@ window.addEventListener('DOMContentLoaded', () => {
     const value = Number(event.target.value) / 100;
     if (Number.isFinite(value)) sendCommand('setVolume', value);
   });
-
+  document.addEventListener('pointerdown', event => {
+    const handle = event.target?.closest?.('[data-resize-edge]');
+    if (!handle || appliedSettings.locked === true || event.button !== 0) {
+      return;
+    }
+    activeResizePointerId = event.pointerId;
+    handle.setPointerCapture?.(event.pointerId);
+    sendCommand('startResize', handle.dataset.resizeEdge);
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  document.addEventListener('pointermove', event => {
+    if (event.pointerId !== activeResizePointerId || resizeMoveFrame !== null) {
+      return;
+    }
+    resizeMoveFrame = requestAnimationFrame(() => {
+      resizeMoveFrame = null;
+      sendCommand('moveResize');
+    });
+  });
+  const endResize = event => {
+    if (
+      activeResizePointerId === null ||
+      (event?.pointerId !== undefined &&
+        event.pointerId !== activeResizePointerId)
+    ) {
+      return;
+    }
+    activeResizePointerId = null;
+    if (resizeMoveFrame !== null) cancelAnimationFrame(resizeMoveFrame);
+    resizeMoveFrame = null;
+    sendCommand('endResize');
+  };
+  document.addEventListener('pointerup', endResize);
+  document.addEventListener('pointercancel', endResize);
+  window.addEventListener('blur', endResize);
   ipcRenderer.on('desktop-lyrics:render', (_event, payload) => {
     applyState(payload);
   });

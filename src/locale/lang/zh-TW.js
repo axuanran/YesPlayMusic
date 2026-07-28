@@ -400,7 +400,13 @@ export default {
     copyLyric: '複製歌詞',
     copyLyricWithTranslation: '複製歌詞（含翻譯）',
     downloadTrack: '下載歌曲',
+    downloadArtwork: '下載歌曲封面',
     downloadPlaylist: '下載整個歌單',
+  },
+  downloadArtwork: {
+    completed: '歌曲封面下載完成',
+    failed: '封面下載失敗：{error}',
+    unknownArtist: '未知藝人',
   },
   downloadTrack: {
     title: '下載歌曲',

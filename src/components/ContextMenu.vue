@@ -1,64 +1,177 @@
 <template>
-  <div ref="contextMenu" class="context-menu">
-    <div
-      v-if="showMenu"
-      ref="menu"
-      class="menu"
-      tabindex="-1"
-      :style="{ top: top, left: left }"
-      @blur="closeMenu"
-      @click="closeMenu"
-    >
-      <slot></slot>
-    </div>
+  <div class="context-menu">
+    <teleport to="body">
+      <div
+        v-if="showMenu"
+        class="context-menu-layer"
+        @contextmenu.prevent.self="closeMenu"
+        @pointerdown.self="closeMenu"
+      >
+        <div
+          ref="menu"
+          class="menu"
+          tabindex="-1"
+          :style="menuStyle"
+          @click="handleMenuClick"
+          @contextmenu.prevent
+          @keydown.esc.stop.prevent="closeMenu"
+        >
+          <slot></slot>
+        </div>
+      </div>
+    </teleport>
   </div>
 </template>
 
 <script>
-import { mapState } from 'vuex';
+import { getContextMenuLayout } from '@/utils/contextMenuPosition';
 
 export default {
   name: 'ContextMenu',
   data() {
     return {
+      anchorX: 0,
+      anchorY: 0,
       showMenu: false,
       top: '0px',
       left: '0px',
+      maxHeight: 'none',
+      maxWidth: '240px',
+      resizeObserver: null,
+      repositionFrame: null,
     };
   },
   computed: {
-    ...mapState(['player']),
+    menuStyle() {
+      return {
+        top: this.top,
+        left: this.left,
+        maxHeight: this.maxHeight,
+        maxWidth: this.maxWidth,
+      };
+    },
+  },
+  beforeUnmount() {
+    this.stopPositionTracking();
   },
   methods: {
-    setMenu(top, left) {
-      let heightOffset = this.player.enabled ? 64 : 0;
-      let largestHeight =
-        window.innerHeight - this.$refs.menu.offsetHeight - heightOffset;
-      let largestWidth = window.innerWidth - this.$refs.menu.offsetWidth - 25;
-      if (top > largestHeight) top = largestHeight;
-      if (left > largestWidth) left = largestWidth;
-      this.top = top + 'px';
-      this.left = left + 'px';
+    getVisibleBoundary() {
+      const visualViewport = window.visualViewport;
+      const viewportLeft = visualViewport?.offsetLeft || 0;
+      const viewportTop = visualViewport?.offsetTop || 0;
+      const viewportWidth = visualViewport?.width || window.innerWidth;
+      const viewportHeight = visualViewport?.height || window.innerHeight;
+      const viewportBottom = viewportTop + viewportHeight;
+      const navbar = document.querySelector('nav');
+      const player = document.querySelector('.player');
+      const navbarRect = navbar?.getClientRects().length
+        ? navbar.getBoundingClientRect()
+        : null;
+      const playerRect = player?.getClientRects().length
+        ? player.getBoundingClientRect()
+        : null;
+
+      return {
+        bottomInset:
+          playerRect && playerRect.top < viewportBottom
+            ? viewportBottom - playerRect.top
+            : 0,
+        topInset:
+          navbarRect && navbarRect.bottom > viewportTop
+            ? navbarRect.bottom - viewportTop
+            : 0,
+        viewportHeight,
+        viewportLeft,
+        viewportTop,
+        viewportWidth,
+      };
+    },
+
+    setMenu() {
+      const menu = this.$refs.menu;
+      if (!menu) return;
+      const boundary = this.getVisibleBoundary();
+      const layout = getContextMenuLayout({
+        ...boundary,
+        menuHeight: menu.scrollHeight,
+        menuWidth: menu.scrollWidth,
+        x: this.anchorX,
+        y: this.anchorY,
+      });
+      this.top = `${layout.top}px`;
+      this.left = `${layout.left}px`;
+      this.maxHeight = `${layout.maxHeight}px`;
+      this.maxWidth = `${Math.min(layout.maxWidth, 240)}px`;
+    },
+
+    schedulePositionUpdate() {
+      if (this.repositionFrame !== null) return;
+      this.repositionFrame = requestAnimationFrame(() => {
+        this.repositionFrame = null;
+        this.setMenu();
+      });
+    },
+
+    startPositionTracking() {
+      this.stopPositionTracking();
+      if (typeof ResizeObserver === 'function') {
+        this.resizeObserver = new ResizeObserver(this.schedulePositionUpdate);
+        this.resizeObserver.observe(this.$refs.menu);
+      }
+      window.addEventListener('resize', this.schedulePositionUpdate);
+      window.addEventListener('blur', this.closeMenu);
+      window.visualViewport?.addEventListener(
+        'resize',
+        this.schedulePositionUpdate
+      );
+      window.visualViewport?.addEventListener(
+        'scroll',
+        this.schedulePositionUpdate
+      );
+    },
+
+    stopPositionTracking() {
+      this.resizeObserver?.disconnect();
+      this.resizeObserver = null;
+      window.removeEventListener('resize', this.schedulePositionUpdate);
+      window.removeEventListener('blur', this.closeMenu);
+      window.visualViewport?.removeEventListener(
+        'resize',
+        this.schedulePositionUpdate
+      );
+      window.visualViewport?.removeEventListener(
+        'scroll',
+        this.schedulePositionUpdate
+      );
+      if (this.repositionFrame !== null) {
+        cancelAnimationFrame(this.repositionFrame);
+        this.repositionFrame = null;
+      }
     },
 
     closeMenu() {
+      if (!this.showMenu) return;
       this.showMenu = false;
+      this.stopPositionTracking();
       if (this.$parent.closeMenu !== undefined) {
         this.$parent.closeMenu();
       }
-      this.$store.commit('enableScrolling', true);
+    },
+
+    handleMenuClick(event) {
+      if (event.target?.closest?.('.item')) this.closeMenu();
     },
 
     openMenu(e) {
-      this.showMenu = true;
-      this.$nextTick(
-        function () {
-          this.$refs.menu.focus();
-          this.setMenu(e.y, e.x);
-        }.bind(this)
-      );
       e.preventDefault();
-      this.$store.commit('enableScrolling', false);
+      this.anchorX = e.clientX ?? e.x;
+      this.anchorY = e.clientY ?? e.y;
+      this.showMenu = true;
+      this.$nextTick(() => {
+        this.setMenu();
+        this.startPositionTracking();
+        this.$refs.menu?.focus({ preventScroll: true });
+      });
     },
   },
 };
@@ -66,9 +179,15 @@ export default {
 
 <style lang="scss" scoped>
 .context-menu {
-  width: 100%;
-  height: 100%;
+  display: contents;
   user-select: none;
+}
+
+.context-menu-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  -webkit-app-region: no-drag;
 }
 
 .menu {
@@ -83,7 +202,10 @@ export default {
   border-radius: 12px;
   box-sizing: border-box;
   padding: 6px;
-  z-index: 1000;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  z-index: 1;
   -webkit-app-region: no-drag;
   transition:
     background 125ms ease-out,

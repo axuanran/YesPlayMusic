@@ -23,6 +23,7 @@ import { clearSessionDiskCache } from './cache.js';
 import {
   beginTrackDownloadBatch,
   finishTrackDownloadBatch,
+  saveArtworkDownload,
   saveTrackDownload,
   saveTrackDownloadToBatch,
 } from './trackDownload.js';
@@ -209,6 +210,17 @@ export function initIpcMain(
           win.webContents.send('download:progress', progress);
         }
       },
+    });
+  });
+  ipcMain.handle('download:artwork', (event, payload) => {
+    if (event.sender !== win.webContents) {
+      throw new Error('Invalid download sender');
+    }
+    return saveArtworkDownload({
+      win,
+      dialog,
+      net,
+      payload,
     });
   });
   ipcMain.handle('download:batch-begin', (event, payload) => {

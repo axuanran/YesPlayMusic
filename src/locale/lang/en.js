@@ -416,7 +416,13 @@ export default {
     copyLyric: 'Copy Lyric',
     copyLyricWithTranslation: 'Copy Lyric With Translation',
     downloadTrack: 'Download track',
+    downloadArtwork: 'Download artwork',
     downloadPlaylist: 'Download entire playlist',
+  },
+  downloadArtwork: {
+    completed: 'Artwork downloaded',
+    failed: 'Artwork download failed: {error}',
+    unknownArtist: 'Unknown artist',
   },
   downloadTrack: {
     title: 'Download track',

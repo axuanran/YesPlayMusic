@@ -4,6 +4,7 @@
       <Cover
         :id="folder.id"
         :image-url="folderCoverUrl"
+        :fallback-image-url="localMusicCover"
         type="playlist"
         :fixed-size="288"
         :cover-hover="false"
@@ -138,7 +139,10 @@ export default {
         this.folder.id,
         'local',
         'first',
-        { name: this.folder.name }
+        {
+          coverImgUrl: this.folderCoverUrl,
+          name: this.folder.name,
+        }
       );
     },
     async removeFolder() {

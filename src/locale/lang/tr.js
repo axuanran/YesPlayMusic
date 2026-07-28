@@ -407,7 +407,13 @@ export default {
     copyLyric: 'Şarkı sözünü kopyala',
     copyLyricWithTranslation: 'Şarkı sözünü çeviriyle kopyala',
     downloadTrack: 'Parçayı indir',
+    downloadArtwork: 'Albüm kapağını indir',
     downloadPlaylist: 'Tüm çalma listesini indir',
+  },
+  downloadArtwork: {
+    completed: 'Albüm kapağı indirildi',
+    failed: 'Albüm kapağı indirilemedi: {error}',
+    unknownArtist: 'Bilinmeyen sanatçı',
   },
   downloadTrack: {
     title: 'Parçayı indir',

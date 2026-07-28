@@ -56,14 +56,16 @@ export function getMP3(id, options = {}) {
  */
 export function getTrackDetail(ids, options = {}) {
   const fetchLatest = () => {
-    return request({
+    const config = {
       url: '/song/detail',
       method: 'get',
       signal: options.signal,
       params: {
         ids,
       },
-    }).then(data => {
+    };
+    if (Number.isFinite(options.timeout)) config.timeout = options.timeout;
+    return request(config).then(data => {
       data.songs.map(song => {
         const privileges = data.privileges.find(t => t.id === song.id);
         cacheTrackDetail(song, privileges);

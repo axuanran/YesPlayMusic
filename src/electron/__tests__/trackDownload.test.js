@@ -6,6 +6,7 @@ import {
   beginTrackDownloadBatch,
   finishTrackDownloadBatch,
   normalizeTrackDownloadRequest,
+  saveArtworkDownload,
   saveTrackDownload,
   saveTrackDownloadToBatch,
 } from '../trackDownload.js';
@@ -111,6 +112,65 @@ describe('track download request validation', () => {
       received: body.length,
       total: body.length,
     });
+  });
+
+  it('downloads image artwork and rejects non-image responses', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'ypm-artwork-test-'));
+    temporaryDirectories.push(directory);
+    const filePath = path.join(directory, 'cover.jpg');
+    const win = {
+      webContents: {
+        getURL: () => 'http://127.0.0.1:20201/',
+      },
+    };
+    const dialog = {
+      showSaveDialog: vi.fn().mockResolvedValue({
+        canceled: false,
+        filePath,
+      }),
+    };
+    const image = new Uint8Array([255, 216, 255, 217]);
+
+    const result = await saveArtworkDownload({
+      win,
+      dialog,
+      net: {
+        fetch: vi.fn().mockResolvedValue(
+          new Response(image, {
+            headers: { 'content-type': 'image/jpeg' },
+          })
+        ),
+      },
+      payload: {
+        url: '/local-music/local%3Atrack/artwork',
+        suggestedName: 'Artist - Song - cover.jpg',
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'completed',
+      filePath,
+      bytes: image.length,
+    });
+    expect(new Uint8Array(await readFile(filePath))).toEqual(image);
+
+    await expect(
+      saveArtworkDownload({
+        win,
+        dialog,
+        net: {
+          fetch: vi.fn().mockResolvedValue(
+            new Response('<html></html>', {
+              headers: { 'content-type': 'text/html' },
+            })
+          ),
+        },
+        payload: {
+          url: 'https://example.test/not-an-image',
+          suggestedName: 'cover.jpg',
+        },
+      })
+    ).rejects.toThrow('Unexpected download content type');
   });
 
   it('downloads a batch into one directory and avoids duplicate names', async () => {

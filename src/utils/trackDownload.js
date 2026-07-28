@@ -37,3 +37,41 @@ export function createTrackDownloadFilename(track, quality) {
   const baseName = [artists, track?.name].filter(Boolean).join(' - ');
   return `${sanitizeTrackDownloadName(baseName)}.${qualityConfig.extension}`;
 }
+
+const positiveInteger = value => {
+  const number = Number.parseInt(String(value || ''), 10);
+  return Number.isInteger(number) && number > 0 ? number : undefined;
+};
+
+export function createTrackDownloadMetadata(track, lyricResult) {
+  const artists = (track?.ar || track?.artists || [])
+    .map(artist => artist?.name)
+    .filter(Boolean);
+  const album = track?.al || track?.album || {};
+  const albumArtist =
+    album.artist?.name ||
+    album.artists
+      ?.map(artist => artist?.name)
+      .filter(Boolean)
+      .join(', ') ||
+    artists[0] ||
+    '';
+  const publishTime = Number(track?.publishTime || album.publishTime);
+  const publishingDate =
+    Number.isFinite(publishTime) && publishTime > 0
+      ? new Date(publishTime).toISOString().slice(0, 10)
+      : '';
+
+  return {
+    album: album.name || '',
+    albumArtist,
+    artist: artists.join(', '),
+    coverUrl: album.picUrl || track?.coverUrl || '',
+    discNumber: positiveInteger(track?.cd),
+    lyrics: lyricResult?.lrc?.lyric || '',
+    publishingDate,
+    title: track?.name || '',
+    trackNumber: positiveInteger(track?.no),
+    translatedLyrics: lyricResult?.tlyric?.lyric || '',
+  };
+}

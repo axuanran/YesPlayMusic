@@ -16,12 +16,16 @@ import { mapTrackPlayableStatus } from '@/utils/common';
  * @param {number=} params.offset
  * @param {number=} params.type
  */
-export function search(params) {
-  return request({
+export function search(params, options = {}) {
+  const config = {
     url: '/cloudsearch',
     method: 'get',
     params,
-  }).then(data => {
+  };
+  if (Number.isFinite(options.timeout)) config.timeout = options.timeout;
+  if (options.signal) config.signal = options.signal;
+
+  return request(config).then(data => {
     if (Array.isArray(data.result?.songs)) {
       data.result.songs = mapTrackPlayableStatus(data.result.songs);
     }

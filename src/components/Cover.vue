@@ -15,11 +15,12 @@
         </button>
       </div>
       <img
-        :src="imageUrl"
+        :src="resolvedImageUrl"
         :style="imageStyles"
         :loading="imageLoading"
         :fetchpriority="imageFetchPriority"
         decoding="async"
+        @error="handleImageError"
       />
       <div
         v-if="coverHover || alwaysShowShadow"
@@ -37,6 +38,7 @@ export default {
     id: { type: [Number, String], required: true },
     type: { type: String, required: true },
     imageUrl: { type: String, required: true },
+    fallbackImageUrl: { type: String, default: '' },
     fixedSize: { type: Number, default: 0 },
     playButtonSize: { type: Number, default: 22 },
     coverHover: { type: Boolean, default: true },
@@ -50,7 +52,17 @@ export default {
     route: { type: [String, Object], default: null },
     playAction: { type: Function, default: null },
   },
+  data() {
+    return {
+      failedImageUrl: '',
+    };
+  },
   computed: {
+    resolvedImageUrl() {
+      return this.failedImageUrl === this.imageUrl && this.fallbackImageUrl
+        ? this.fallbackImageUrl
+        : this.imageUrl;
+    },
     containerStyles() {
       if (this.fixedSize === 0) return {};
       return {
@@ -71,12 +83,20 @@ export default {
     },
     shadowStyles() {
       let styles = {};
-      styles.backgroundImage = `url(${this.imageUrl})`;
+      styles.backgroundImage = `url(${this.resolvedImageUrl})`;
       if (this.type === 'artist') styles.borderRadius = '50%';
       return styles;
     },
   },
   methods: {
+    handleImageError() {
+      if (
+        this.fallbackImageUrl &&
+        this.resolvedImageUrl !== this.fallbackImageUrl
+      ) {
+        this.failedImageUrl = this.imageUrl;
+      }
+    },
     play() {
       if (this.playAction) {
         this.playAction();

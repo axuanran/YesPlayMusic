@@ -166,6 +166,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearDiskCache: () => ipcRenderer.invoke('cache:clear-disk'),
   },
   download: {
+    saveArtwork: payload => {
+      const sanitizedPayload = sanitizeSerializableValue(payload);
+      if (!isPlainObject(sanitizedPayload)) {
+        return Promise.reject(new Error('Invalid artwork download request'));
+      }
+      return ipcRenderer.invoke('download:artwork', sanitizedPayload);
+    },
     saveTrack: payload => {
       const sanitizedPayload = sanitizeSerializableValue(payload);
       if (!isPlainObject(sanitizedPayload)) {

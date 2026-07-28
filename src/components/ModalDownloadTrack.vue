@@ -74,9 +74,11 @@
 <script>
 import { mapActions, mapMutations, mapState } from 'vuex';
 import Modal from '@/components/Modal.vue';
+import { getLyric } from '@/api/track';
 import { resolveTrackSource } from '@/utils/resolveAudioSource';
 import {
   createTrackDownloadFilename,
+  createTrackDownloadMetadata,
   normalizeTrackDownloadQuality,
   TRACK_DOWNLOAD_QUALITIES,
 } from '@/utils/trackDownload';
@@ -218,9 +220,9 @@ export default {
       }
     },
     async downloadSingle() {
-      const url = await this.resolveDownloadUrl(this.track);
+      const request = await this.createDownloadRequest(this.track);
       const result = await window.electronAPI?.download?.saveTrack?.({
-        url,
+        ...request,
         suggestedName: createTrackDownloadFilename(this.track, this.quality),
       });
       if (result?.status === 'completed') {
@@ -246,12 +248,12 @@ export default {
           this.receivedBytes = 0;
           this.totalBytes = 0;
           try {
-            const url = await this.resolveDownloadUrl(track);
+            const request = await this.createDownloadRequest(track);
             await downloadApi.saveBatchTrack({
               batchId: batch.batchId,
               index: index + 1,
               totalTracks: this.tracks.length,
-              url,
+              ...request,
               suggestedName: createTrackDownloadFilename(track, this.quality),
             });
             this.completedTracks += 1;
@@ -275,6 +277,16 @@ export default {
         })
       );
       this.show = false;
+    },
+    async createDownloadRequest(track) {
+      const [url, lyricResult] = await Promise.all([
+        this.resolveDownloadUrl(track),
+        getLyric(track.id).catch(() => undefined),
+      ]);
+      return {
+        metadata: createTrackDownloadMetadata(track, lyricResult),
+        url,
+      };
     },
     async resolveDownloadUrl(track) {
       const url = await resolveTrackSource(track, {

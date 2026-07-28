@@ -67,4 +67,31 @@ describe('search', () => {
     expect(mocks.mapTrackPlayableStatus).toHaveBeenCalledWith(songs);
     expect(response.result.songs).toBe(mappedSongs);
   });
+
+  it('forwards per-search timeout and cancellation options', async () => {
+    const controller = new AbortController();
+    mocks.request.mockResolvedValue({ code: 200, result: {} });
+
+    await search(
+      {
+        keywords: 'progressive',
+        type: 10,
+      },
+      {
+        signal: controller.signal,
+        timeout: 8000,
+      }
+    );
+
+    expect(mocks.request).toHaveBeenCalledWith({
+      url: '/cloudsearch',
+      method: 'get',
+      params: {
+        keywords: 'progressive',
+        type: 10,
+      },
+      signal: controller.signal,
+      timeout: 8000,
+    });
+  });
 });

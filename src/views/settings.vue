@@ -1333,7 +1333,7 @@ export default {
         });
       },
     },
-    desktopLyricsLocked: desktopLyricsSetting('locked', true),
+    desktopLyricsLocked: desktopLyricsSetting('locked', false),
     desktopLyricsAlwaysOnTop: desktopLyricsSetting('alwaysOnTop', true),
     desktopLyricsShowSecondary: desktopLyricsSetting('showSecondary', true),
     desktopLyricsFontSize: desktopLyricsSetting('fontSize', 32),
@@ -1349,7 +1349,7 @@ export default {
     desktopLyricsTextAlign: desktopLyricsSetting('textAlign', 'center'),
     desktopLyricsBackgroundOpacity: desktopLyricsSetting(
       'backgroundOpacity',
-      0
+      0.1
     ),
     closeAppOption: setting('closeAppOption'),
     enableDiscordRichPresence: setting('enableDiscordRichPresence'),

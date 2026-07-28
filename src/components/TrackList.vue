@@ -24,6 +24,13 @@
         {{ $t('contextMenu.downloadTrack') }}
       </div>
       <div
+        v-if="isElectron && rightClickedArtworkUrl"
+        class="item"
+        @click="downloadArtwork"
+      >
+        {{ $t('contextMenu.downloadArtwork') }}
+      </div>
+      <div
         v-if="extraContextMenuItem.includes('removeTrackFromQueue')"
         class="item"
         @click="removeTrackFromQueue"
@@ -201,6 +208,15 @@ export default {
           }
         : this.rightClickedTrack;
     },
+    rightClickedArtworkUrl() {
+      return (
+        this.rightClickedTrack?.al?.picUrl ||
+        this.rightClickedTrack?.album?.picUrl ||
+        this.rightClickedTrack?.coverUrl ||
+        this.rightClickedTrack?.simpleSong?.al?.picUrl ||
+        ''
+      );
+    },
   },
   created() {
     if (this.type === 'tracklist') {
@@ -228,13 +244,16 @@ export default {
       };
       this.rightClickedTrackIndex = -1;
     },
-    scrollToTrack(trackID) {
+    getTrackElement(trackID) {
+      const normalizedTrackID = String(trackID ?? '');
       const trackIndex = this.tracks.findIndex(
-        track => (track.id || track.songId) === trackID
+        track => String(track.id || track.songId) === normalizedTrackID
       );
-      if (trackIndex < 0) return false;
-
-      const trackElement = this.$el.querySelectorAll('.track')[trackIndex];
+      if (trackIndex < 0) return null;
+      return this.$el.querySelectorAll('.track')[trackIndex] || null;
+    },
+    scrollToTrack(trackID) {
+      const trackElement = this.getTrackElement(trackID);
       if (!trackElement) return false;
       trackElement.scrollIntoView({
         behavior: 'smooth',
@@ -334,6 +353,36 @@ export default {
         key: 'show',
         value: true,
       });
+    },
+    async downloadArtwork() {
+      const url = this.rightClickedArtworkUrl;
+      if (!url) return;
+      const track = this.rightClickedTrack;
+      const artist =
+        track.ar?.[0]?.name ||
+        track.artists?.[0]?.name ||
+        track.artist ||
+        locale.global.t('downloadArtwork.unknownArtist');
+      const extension =
+        new URL(url, window.location.href).pathname
+          .match(/\.(jpe?g|png|webp|gif|avif)$/i)?.[1]
+          ?.toLowerCase() || 'jpg';
+
+      try {
+        const result = await window.electronAPI.download.saveArtwork({
+          url,
+          suggestedName: `${artist} - ${track.name} - cover.${extension}`,
+        });
+        if (result?.status === 'completed') {
+          this.showToast(locale.global.t('downloadArtwork.completed'));
+        }
+      } catch (error) {
+        this.showToast(
+          locale.global.t('downloadArtwork.failed', {
+            error: error?.message || String(error),
+          })
+        );
+      }
     },
     removeTrackFromPlaylist() {
       if (!isAccountLoggedIn()) {
