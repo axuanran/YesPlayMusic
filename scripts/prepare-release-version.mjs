@@ -15,60 +15,76 @@ if (!versionArg) {
   process.exit(1)
 }
 
-const releaseVersion = versionArg.replace(/^v/, '')
+const inputVersion = versionArg.replace(/^v/, '')
 
-function normalizeLegacyVersion(version) {
+function toCompactReleaseVersion(version) {
   const compact = version.match(/^(\d+\.\d+\.\d+)(a|b|rc)(\d+)$/i)
   if (compact) {
-    const prerelease = {
-      a: 'alpha',
-      b: 'beta',
-      rc: 'rc',
-    }[compact[2].toLowerCase()]
-
-    return `${compact[1]}-${prerelease}.${compact[3]}`
+    return `${compact[1]}${compact[2].toLowerCase()}${compact[3]}`
   }
 
-  const joined = version.match(
-    /^(\d+\.\d+\.\d+)-(alpha|beta|rc)(\d+)$/i
+  const semverPrerelease = version.match(
+    /^(\d+\.\d+\.\d+)-(alpha|beta|rc)\.(\d+)$/i
   )
-  if (joined) {
-    return `${joined[1]}-${joined[2].toLowerCase()}.${joined[3]}`
+  if (semverPrerelease) {
+    const prerelease = {
+      alpha: 'a',
+      beta: 'b',
+      rc: 'rc',
+    }[semverPrerelease[2].toLowerCase()]
+
+    return `${semverPrerelease[1]}${prerelease}${semverPrerelease[3]}`
   }
 
-  return version
+  if (/^\d+\.\d+\.\d+$/.test(version)) {
+    return version
+  }
+
+  console.error(`Unsupported release version: ${version}`)
+  console.error('Use versions such as 0.1.1a1, 0.1.1b1, 0.1.1rc1, or 0.1.1')
+  process.exit(1)
 }
 
-const appVersion = normalizeLegacyVersion(releaseVersion)
+function toApplicationVersion(version) {
+  const compact = version.match(/^(\d+\.\d+\.\d+)(a|b|rc)(\d+)$/i)
+  if (!compact) {
+    return version
+  }
+
+  const prerelease = {
+    a: 'alpha',
+    b: 'beta',
+    rc: 'rc',
+  }[compact[2].toLowerCase()]
+
+  return `${compact[1]}-${prerelease}.${compact[3]}`
+}
+
+const releaseVersion = toCompactReleaseVersion(inputVersion)
+const appVersion = toApplicationVersion(releaseVersion)
 const semverPattern =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
 
 if (!semverPattern.test(appVersion)) {
-  console.error(`Invalid release version: ${releaseVersion}`)
   console.error(`Normalized application version is not SemVer: ${appVersion}`)
   process.exit(1)
 }
 
-const aurPkgver = releaseVersion.replaceAll('-', '_')
-if (!/^[0-9A-Za-z._+]+$/.test(aurPkgver)) {
-  console.error(`Version cannot be converted to a valid AUR pkgver: ${releaseVersion}`)
-  process.exit(1)
-}
-
-const isPrerelease = appVersion.includes('-')
-const pacmanAsset = `YesPlayMusic-${appVersion}.pacman`
+const isPrerelease = /(?:a|b|rc)\d+$/i.test(releaseVersion)
+const pacmanAsset = `YesPlayMusic-${releaseVersion}.pacman`
 
 if (writePackage) {
   const packagePath = path.resolve('package.json')
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
   packageJson.version = appVersion
+  packageJson.releaseVersion = releaseVersion
   fs.writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`)
 }
 
 const outputs = {
   release_version: releaseVersion,
   app_version: appVersion,
-  aur_pkgver: aurPkgver,
+  aur_pkgver: releaseVersion,
   is_prerelease: String(isPrerelease),
   pacman_asset: pacmanAsset,
 }
