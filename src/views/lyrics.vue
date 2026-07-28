@@ -560,8 +560,12 @@ export default {
     },
     showLyrics(show) {
       if (show) {
+        clearTimeout(this.lyricsAutoResumeTimer);
         this.shouldAutoScrollLyrics = true;
-        this.$nextTick(() => this.updateLyricsEdgeSpacer());
+        this.$nextTick(() => {
+          this.syncCurrentLyricPosition(true);
+          this.resumeLyricsAutoScroll();
+        });
         this.setLyricsInterval();
         this.$store.commit('enableScrolling', false);
       } else {
