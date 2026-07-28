@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import path from 'node:path';
 import {
   createLocalMusicFolderId,
   createLocalMusicId,
@@ -70,10 +71,11 @@ describe('local music service', () => {
 
   it('imports supported files, deduplicates them and prunes missing files', async () => {
     const store = createStore();
-    const existingFiles = new Set([
-      'C:\\Music\\one.mp3',
-      'C:\\Music\\two.flac',
-    ]);
+    const musicPath = path.resolve('Music');
+    const onePath = path.join(musicPath, 'one.mp3');
+    const twoPath = path.join(musicPath, 'two.flac');
+    const notesPath = path.join(musicPath, 'notes.txt');
+    const existingFiles = new Set([onePath, twoPath]);
     const metadataParser = vi.fn(async filePath => ({
       common: { title: filePath.includes('one') ? 'One' : 'Two' },
       format: { duration: 60 },
@@ -87,16 +89,16 @@ describe('local music service', () => {
     });
 
     const result = await service.importFiles([
-      'C:\\Music\\one.mp3',
-      'C:\\Music\\one.mp3',
-      'C:\\Music\\two.flac',
-      'C:\\Music\\notes.txt',
+      onePath,
+      onePath,
+      twoPath,
+      notesPath,
     ]);
 
     expect(result.imported).toBe(3);
     expect(result.skipped).toBe(1);
     expect(result.tracks).toHaveLength(2);
-    existingFiles.delete('C:\\Music\\one.mp3');
+    existingFiles.delete(onePath);
     expect(service.list()).toHaveLength(1);
   });
 
@@ -116,8 +118,11 @@ describe('local music service', () => {
 
   it('imports a folder as a playlist and only watches it while active', async () => {
     const store = createStore();
-    const folderPath = 'C:\\Music';
-    let files = ['C:\\Music\\one.mp3', 'C:\\Music\\nested\\two.flac'];
+    const folderPath = path.resolve('Music');
+    let files = [
+      path.join(folderPath, 'one.mp3'),
+      path.join(folderPath, 'nested', 'two.flac'),
+    ];
     const folderScanner = vi.fn(async () => files);
     const watcher = { close: vi.fn(), on: vi.fn() };
     const watchFactory = vi.fn(() => watcher);
@@ -160,7 +165,7 @@ describe('local music service', () => {
     expect(opened.tracks).toHaveLength(2);
     expect(watchFactory).toHaveBeenCalledTimes(1);
 
-    files = ['C:\\Music\\one.mp3'];
+    files = [path.join(folderPath, 'one.mp3')];
     const refreshed = await service.refreshFolder(folderId);
     expect(refreshed.tracks).toHaveLength(1);
     expect(onChange).toHaveBeenCalledWith({ folderId });
@@ -171,13 +176,13 @@ describe('local music service', () => {
 
   it('removes a folder playlist without touching source files', async () => {
     const store = createStore();
-    const folderPath = 'C:\\Music';
+    const folderPath = path.resolve('Music');
     const service = createLocalMusicService({
       store,
       baseUrl: 'http://127.0.0.1:3210',
       metadataParser: async () => ({ common: {}, format: {} }),
       fileExists: () => true,
-      folderScanner: async () => ['C:\\Music\\song.mp3'],
+      folderScanner: async () => [path.join(folderPath, 'song.mp3')],
       fileStat: async () => ({ size: 100, mtimeMs: 200 }),
       watchFactory: () => ({ close: vi.fn(), on: vi.fn() }),
     });
