@@ -1,0 +1,79 @@
+name: Prepare Release
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: SemVer tag, for example v0.1.1-alpha.1
+        required: true
+        type: string
+
+jobs:
+  prepare:
+    name: update version and push tag
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate release token
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$RELEASE_TOKEN" ]]; then
+            echo "Repository secret RELEASE_TOKEN is required." >&2
+            exit 1
+          fi
+
+      - name: Check out dev branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Update package version and push tag
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin dev --tags
+          if git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}" >/dev/null; then
+            echo "Tag already exists: ${RELEASE_TAG}" >&2
+            exit 1
+          fi
+
+          node scripts/prepare-release-version.mjs \
+            "$RELEASE_TAG" \
+            --write-package
+
+          git config user.name "YesPlayMusic Release Bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git add package.json
+
+          if git diff --cached --quiet; then
+            echo "package.json already contains ${RELEASE_TAG#v}; refusing to create an unversioned release commit." >&2
+            exit 1
+          fi
+
+          git commit -m "chore: release ${RELEASE_TAG} [release]"
+          git push origin HEAD:dev
+
+          git tag -a "$RELEASE_TAG" -m "Release ${RELEASE_TAG}"
+          git push origin "refs/tags/${RELEASE_TAG}"
+
+          {
+            echo "## Release prepared"
+            echo
+            echo "- Tag: \`${RELEASE_TAG}\`"
+            echo "- Commit: \`$(git rev-parse HEAD)\`"
+            echo "- npm version: \`$(node -p "require('./package.json').version")\`"
+          } >> "$GITHUB_STEP_SUMMARY"
