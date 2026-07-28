@@ -1,341 +1,703 @@
+# YesPlayMusic
 
-求 star 呀 ~
-
-### 请使用有latest标签的版本。prerelease 版本未经检查，只作为开发下载用
-
-### 目前已经测试平台： windows、docker、linux，非测试平台可能可用，但未测试
-
-目前稳定版本：release / v0.1.0-alpha.7.2-dev3 / 128
-
----
-
-
-<br />
 <p align="center">
-  <a href="https://music.qier222.com" target="blank">
-    <img src="images/logo.png" alt="Logo" width="156" height="156">
-  </a>
-  <h2 align="center" style="font-weight: 600">YesPlayMusic</h2>
-
-  <p align="center">
-    高颜值的第三方网易云播放器
-    <br />
-    <a href="https://music.qier222.com" target="blank"><strong>🌎 访问DEMO</strong></a>&nbsp;&nbsp;|&nbsp;&nbsp;
-    <a href="#%EF%B8%8F-安装" target="blank"><strong>📦️ 下载安装包</strong></a>&nbsp;&nbsp;|&nbsp;&nbsp;
-    <a href="https://t.me/yesplaymusic" target="blank"><strong>💬 加入交流群</strong></a>&nbsp;&nbsp;|&nbsp;&nbsp;
-    <a href="https://t.me/ypmaxuanran" target="blank"><strong>Telegram 频道（axuanran）</strong></a>
-    <br />
-    <br />
-  </p>
+  <img src="images/logo.png" alt="YesPlayMusic Logo" width="156" height="156">
 </p>
 
-[![Library][library-screenshot]](https://music.qier222.com)
+<h2 align="center">YesPlayMusic</h2>
 
-## axuanran's fork
+<p align="center">
+  一个基于 Vue 3、Vite 与 Electron 的现代音乐播放器
+  <br>
+  支持网易云音乐、本地音乐、播客与 Emby 兼容媒体服务器
+</p>
 
- - 将技术栈从vue2 重构为 vite+vue3
- - 添加网页登录功能，可供填写cookie或者通过内置浏览器登录网页版网易云
- - 添加音频resolver、独立音频解析、插件式添加provider
- - 添加lx音源（尽管试下来并不怎么好用）
- - 优化播放器性能、添加低性能模式
- - 添加tui，支持私人漫游、终端登录、同步cookie、搜索
+<p align="center">
+  <a href="https://github.com/axuanran/YesPlayMusic/releases/latest">
+    <img src="https://img.shields.io/github/v/release/axuanran/YesPlayMusic?include_prereleases&label=Release" alt="Release">
+  </a>
+  <a href="https://github.com/axuanran/YesPlayMusic/actions/workflows/build.yaml">
+    <img src="https://img.shields.io/github/actions/workflow/status/axuanran/YesPlayMusic/build.yaml?branch=dev&label=Build" alt="Build">
+  </a>
+  <a href="https://github.com/axuanran/YesPlayMusic/stargazers">
+    <img src="https://img.shields.io/github/stars/axuanran/YesPlayMusic?style=flat" alt="Stars">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/github/license/axuanran/YesPlayMusic" alt="License">
+  </a>
+</p>
 
-具体功能实现查看[wiki](https://github.com/axuanran/YesPlayMusic/wiki/YesPlayMusic-%E5%88%86%E6%94%AF%E5%8A%9F%E8%83%BD%E8%AF%B4%E6%98%8E)
+<p align="center">
+  <a href="https://github.com/axuanran/YesPlayMusic/releases/latest"><strong>下载安装包</strong></a>
+  ·
+  <a href="https://github.com/axuanran/YesPlayMusic/wiki"><strong>项目 Wiki</strong></a>
+  ·
+  <a href="https://github.com/axuanran/YesPlayMusic/issues"><strong>问题反馈</strong></a>
+  ·
+  <a href="https://t.me/ypmaxuanran"><strong>Telegram 频道</strong></a>
+</p>
 
 ---
 
-移植过程中暂时删除内容：
-Mpris
+## 项目说明
 
-TUI截图：
-<img width="1679" height="595" alt="2026_July_01_19_46_27 Code" src="https://github.com/user-attachments/assets/7193d0ef-5bef-462e-b2e7-332d2e08de68" />
+这是由 `axuanran` 维护的 YesPlayMusic 分支。
+
+项目在保留原版网易云音乐播放器体验的基础上，对前端、Electron 桌面端、音频解析和媒体库进行了持续重构。
+
+主要变化包括：
+
+- 从 Vue 2 迁移至 Vue 3、Vite 和 Vue Router 4
+- 使用 `electron-vite` 重构 Electron 工程
+- 内置网易云音乐 API 与音频 Resolver
+- 支持插件式音频 Provider
+- 支持本地音乐与本地文件夹歌单
+- 支持 Emby 兼容媒体服务器
+- 支持播客发现与播放
+- 增强桌面歌词和系统媒体控制
+- 提供 Windows、Linux、macOS 与 Docker 构建
+
+> 项目仍处于 Alpha 开发阶段。开发分支可能出现功能变化或兼容性问题。
 
 ---
 
-有问题在issue中提出，或者tg询问
+## 发布说明
 
-以下为上游readme
+### 稳定版本
+
+请优先使用 Releases 页面中标记为 **Latest** 的版本：
+
+[前往 Releases](https://github.com/axuanran/YesPlayMusic/releases/latest)
+
+### 开发版本
+
+`dev` 是项目的主要开发分支。
+
+推送到 `dev` 后，GitHub Actions 会自动生成 prerelease。开发版本包含最新功能，但未经完整稳定性验证。
+
+建议普通用户使用正式 Release；需要测试新功能时再使用 prerelease。
 
 ---
 
-## ✨ 特性
+## 平台支持
 
-- ✅ 使用 Vue.js 全家桶开发
-- 🔴 网易云账号登录（扫码/手机/邮箱登录）
-- 📺 支持 MV 播放
-- 📃 支持歌词显示
-- 📻 支持私人 FM / 每日推荐歌曲
-- 🚫🤝 无任何社交功能
-- 🌎️ 海外用户可直接播放（需要登录网易云账号）
-- 🔐 支持 [UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server#音源清单)，自动使用[各类音源](https://github.com/UnblockNeteaseMusic/server#音源清单)替换变灰歌曲链接 （网页版不支持）
-  - 「各类音源」指默认启用的音源。
-  - YouTube 音源需自行安装 `yt-dlp`。
-- ~~✔️ 每日自动签到（手机端和电脑端同时签到）~~
-- 🌚 Light/Dark Mode 自动切换
-- 👆 支持 Touch Bar
-- 🖥️ 支持 PWA，可在 Chrome/Edge 里点击地址栏右边的 ➕ 安装到电脑
-- 🟥 支持 Last.fm Scrobble
-- ☁️ 支持音乐云盘
-- ⌨️ 自定义快捷键和全局快捷键
-- 🎧 支持 Mpris
-- 🛠 更多特性开发中
+| 平台 | 构建产物 | 状态 |
+| --- | --- | --- |
+| Windows x64 | NSIS 安装包、Portable | 已测试 |
+| Linux x64 | AppImage、deb、rpm、tar.gz、snap、pacman | 已测试 |
+| Linux ARM | deb、tar.gz | 构建支持 |
+| macOS x64 | dmg | 自动构建 |
+| macOS ARM64 | dmg | 自动构建 |
+| Docker | Compose、GHCR 镜像 | 已测试 |
+| Web / PWA | Vite Web 应用 | 支持 |
 
+未充分测试的平台可能可以运行，但不保证不存在平台相关问题。
 
-## 📦️ 安装
+---
 
-Electron 版本支持 macOS、Windows、linux
+## 主要功能
 
-访问本项目的 [Releases](https://github.com/axuanran/YesPlayMusic/releases/latest)
-页面下载系统对应的安装包。
+### 网易云音乐
 
-## ⚙️ Docker 部署
+- Cookie 登录
+- 内置浏览器网页登录
+- 私人 FM
+- 每日推荐
+- 歌曲、专辑、歌手和歌单
+- 音乐云盘
+- MV 播放
+- 搜索与云搜索
+- 收藏及用户歌单管理
 
-推荐使用 Docker Compose，会同时启动 YesPlayMusic、网易云 API、音频 resolver/admin 后端，UnblockNeteaseMusic
-默认镜像由 GitHub Actions 构建并推送到 `ghcr.io/axuanran/yesplaymusic:latest`
+### 音频解析
 
- 
-*latest会跟随dev更新，dev作为开发分支并不稳定，时有修改，如有问题建议固定到指定版本或携带有release tag的版本。修改内容可检查提交信息*
+内置统一音频 Resolver，并以 Provider 形式管理不同音频来源。
 
-1. Docker Compose 启动
+当前内置 Provider：
 
-```sh
+- Netease
+- LX
+- UnblockNeteaseMusic
+- Fallback
+
+支持：
+
+- 独立音频解析
+- 不同音质选择
+- 灰色歌曲替换
+- 音频缓存
+- Resolver 管理接口
+- 自定义 Provider 扩展
+
+部分第三方音源的可用性可能受服务状态、网络环境和接口变化影响。
+
+### 本地音乐
+
+桌面端支持本地音乐库：
+
+- 添加本地音乐文件夹
+- 扫描并读取音频元数据
+- 本地歌曲播放
+- 本地封面显示
+- 本地歌词匹配
+- 文件夹歌单
+- 本地媒体库管理
+- 本地音乐与在线音乐统一播放
+
+### 流媒体服务器
+
+支持连接使用 Emby 兼容接口的媒体服务器：
+
+- 配置服务器地址与认证信息
+- 浏览媒体库
+- 浏览专辑、歌手与歌曲
+- 播放服务器中的音乐
+- 在 YesPlayMusic 中统一管理流媒体内容
+
+不同服务器实现可能存在接口兼容差异。遇到问题时请在 Issue 中附上服务器类型和版本。
+
+### 播客
+
+- 播客内容发现
+- 播客搜索
+- 节目列表
+- 单集播放
+- 播放速度控制
+- 与音乐播放器共用播放队列和控制逻辑
+
+### 歌词
+
+- 滚动歌词
+- 歌词翻译
+- 罗马音或发音歌词
+- 第二行歌词显示模式切换
+- 原生桌面歌词窗口
+- 桌面歌词锁定与点击穿透
+- 桌面歌词位置和样式设置
+- AMLL WebSocket 歌词同步
+- 主窗口隐藏时继续同步桌面歌词
+
+### 下载与缓存
+
+桌面端提供：
+
+- 单曲下载
+- 歌单批量下载
+- 下载音质选择
+- 下载进度显示
+- 批量下载失败统计
+- 已缓存歌曲浏览
+- 缓存播放
+- 缓存清理
+- 更可靠的缓存目录处理
+
+### 桌面集成
+
+- Windows SMTC 媒体控制
+- Windows SMTC 播放进度与媒体信息
+- Linux MPRIS
+- Discord Rich Presence
+- Discord 播放状态与进度
+- 系统托盘
+- 深色主题托盘图标
+- 全局快捷键
+- 可配置快捷键
+- 系统媒体按键
+- 关闭或最小化到托盘
+- 自动更新
+- Windows 窗口阴影
+- 低性能模式
+
+### 播放体验
+
+- 播放速度调节
+- 鼠标滚轮调节音量
+- 播放队列
+- 在播放列表中定位当前歌曲
+- 将歌曲添加到歌单
+- 从播放器快速打开歌单操作
+- 未登录状态下的本地播放历史
+- 媒体封面与播放进度同步
+- Light / Dark Mode
+
+---
+
+## 安装桌面客户端
+
+前往项目 Releases 页面：
+
+https://github.com/axuanran/YesPlayMusic/releases
+
+根据系统下载相应文件。
+
+### Windows
+
+推荐使用：
+
+- `Setup.exe`：安装版本
+- `yesplaymusic.exe`：Portable 版本
+
+### Linux
+
+根据发行版选择：
+
+- AppImage
+- deb
+- rpm
+- tar.gz
+- snap
+- pacman
+
+AppImage 下载后可能需要添加执行权限：
+
+```bash
+chmod +x YesPlayMusic-*.AppImage
+./YesPlayMusic-*.AppImage
+```
+
+### macOS
+
+提供：
+
+- Intel x64
+- Apple Silicon ARM64
+
+macOS 构建目前由 CI 自动生成，但测试覆盖程度可能低于 Windows 和 Linux。
+
+---
+
+## Docker 部署
+
+推荐使用 Docker Compose。
+
+Compose 会启动：
+
+- YesPlayMusic Web 服务
+- 内置网易云音乐 API
+- 音频 Resolver 与管理后端
+- UnblockNeteaseMusic 辅助服务
+
+### 启动
+
+```bash
+git clone --branch dev https://github.com/axuanran/YesPlayMusic.git
+cd YesPlayMusic
+
 docker compose pull
 docker compose up -d
 ```
 
-YesPlayMusic 地址为 `http://localhost`，resolver 配置会持久化到 `yesplaymusic-data` 数据卷。
+默认访问地址：
 
-2. 查看运行状态
+```text
+http://localhost
+```
 
-```sh
+### 查看状态
+
+```bash
 docker compose ps
 ```
 
-3. 单容器启动（不包含独立的 UnblockNeteaseMusic 服务）
+### 查看日志
 
-```sh
-docker pull ghcr.io/axuanran/yesplaymusic:latest
-docker run -d --name yesplaymusic -p 80:80 -v yesplaymusic-data:/data ghcr.io/axuanran/yesplaymusic:latest
+```bash
+docker compose logs -f
 ```
+
+### 停止服务
+
+```bash
+docker compose down
+```
+
+Resolver 配置和运行数据会持久化到：
+
+```text
+yesplaymusic-data
+```
+
+### 使用指定镜像版本
+
+默认使用：
+
+```text
+ghcr.io/axuanran/yesplaymusic:latest
+```
+
+可以通过环境变量指定版本：
+
+```bash
+YESPLAYMUSIC_IMAGE=ghcr.io/axuanran/yesplaymusic:<tag> docker compose up -d
+```
+
+由于 `latest` 可能跟随开发分支更新，长期部署建议固定到具体 Release 标签。
+
+### 单容器运行
+
+```bash
+docker pull ghcr.io/axuanran/yesplaymusic:latest
+
+docker run -d \
+  --name yesplaymusic \
+  --restart always \
+  -p 80:80 \
+  -v yesplaymusic-data:/data \
+  ghcr.io/axuanran/yesplaymusic:latest
+```
+
+单容器模式不包含独立的 UnblockNeteaseMusic 服务。
+
+---
+
 ## TUI
 
-*TUI 尚未在打包文件中实装*
+项目提供终端界面，可用于：
 
-打开tui方式： ./yesplaymuic --tui
+- 网易云登录
+- Cookie 同步
+- 搜索
+- 私人漫游或私人 FM
+- 终端音乐播放
 
-TUI 依赖mpv进行播放
+TUI 使用 `mpv` 播放音频，并优先使用系统安装的 mpv。
 
-优先使用系统mpv，安装文件里包含mpv
+### 从源码运行
+
+```bash
+yarn tui
+```
+
+### 从桌面程序启动
+
+```bash
+yesplaymusic --tui
+```
+
+也可以直接运行构建产生的独立 TUI 程序：
+
+```bash
+yesplaymusic-tui
+```
+
+Windows 和 Linux 构建流程会生成独立 TUI 产物。
+
+### TUI 截图
+
+<img width="1679" height="595" alt="YesPlayMusic TUI" src="https://github.com/user-attachments/assets/7193d0ef-5bef-462e-b2e7-332d2e08de68">
 
 ---
 
-上游内容：
+## 开发环境
 
----
+### 环境要求
 
-## 同类项目（排名无先后）
+- Node.js `>=22 <26`
+- Yarn `1.22.22`
+- Git
+- Electron 构建所需的平台依赖
 
-欢迎大家通过 PR 分享你的项目，让更多人看到！
+启用 Yarn：
 
-- [algerkong/AlgerMusicPlayer](https://github.com/algerkong/AlgerMusicPlayer)
-- [asxez/MusicBox](https://github.com/asxez/MusicBox)
-- [lianchengwu/wmplayer](https://github.com/lianchengwu/wmplayer)
-
-## ⚙️ 部署至 Vercel
-
-除了下载安装包使用，你还可以将本项目部署到 Vercel 或你的服务器上。下面是部署到 Vercel 的方法。
-
-本项目的 Demo (https://music.qier222.com) 就是部署在 Vercel 上的网站。
-
-[![Powered by Vercel](https://www.datocms-assets.com/31049/1618983297-powered-by-vercel.svg)](https://vercel.com/?utm_source=ohmusic&utm_campaign=oss)
-
-1. 部署网易云 API，详情参见 [Binaryify/NeteaseCloudMusicApi](https://neteasecloudmusicapi.vercel.app/#/?id=%e5%ae%89%e8%a3%85)
-   。你也可以将 API 部署到 Vercel。
-
-2. 点击本仓库右上角的 Fork，复制本仓库到你的 GitHub 账号。
-
-3. 点击仓库的 Add File，选择 Create new file，输入 `vercel.json`，将下面的内容复制粘贴到文件中，并将 `https://your-netease-api.example.com` 替换为你刚刚部署的网易云 API 地址：
-
-```json
-{
-  "rewrites": [
-    {
-      "source": "/api/:match*",
-      "destination": "https://your-netease-api.example.com/:match*"
-    }
-  ]
-}
+```bash
+corepack enable
 ```
 
-4. 打开 [Vercel.com](https://vercel.com)，使用 GitHub 登录。
+或者：
 
-5. 点击 Import Git Repository 并选择你刚刚复制的仓库并点击 Import。
-
-6. 点击 PERSONAL ACCOUNT 旁边的 Select。
-
-7. 点击 Environment Variables，填写 Name 为 `VUE_APP_NETEASE_API_URL`，Value 为 `/api`，点击 Add。最后点击底部的 Deploy 就可以部署到
-   Vercel 了。
-
-## ⚙️ 部署到自己的服务器
-
-除了部署到 Vercel，你还可以部署到自己的服务器上
-
-1. 部署网易云 API，详情参见 [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi)
-2. 克隆本仓库
-
-```sh
-git clone --recursive https://github.com/qier222/YesPlayMusic.git
+```bash
+npm install -g yarn@1.22.22
 ```
 
-3. 安装依赖
+### 克隆仓库
 
-```sh
+```bash
+git clone --branch dev --recursive https://github.com/axuanran/YesPlayMusic.git
+cd YesPlayMusic
+```
+
+### 安装依赖
+
+```bash
 yarn install
-
 ```
 
-4. （可选）使用 Nginx 反向代理 API，将 API 路径映射为 `/api`，如果 API 和网页不在同一个域名下的话（跨域），会有一些 bug。
+### 创建环境变量
 
-5. 复制 `/.env.example` 文件为 `/.env`，修改里面 `VUE_APP_NETEASE_API_URL` 的值为网易云 API 地址。本地开发的话可以填写 API 地址为 `http://localhost:3000`，YesPlayMusic 地址为 `http://localhost:20201`。如果你使用了反向代理 API，可以填写 API 地址为 `/api`。
+Linux 或 macOS：
 
-```
-VUE_APP_NETEASE_API_URL=http://localhost:3000
-```
-
-6. 编译打包
-
-```sh
-yarn run build
-```
-
-7. 将 `/dist` 目录下的文件上传到你的 Web 服务器
-
-## ⚙️ 宝塔面板 docker 应用商店 部署
-
-1. 安装宝塔面板，前往[宝塔面板官网](https://www.bt.cn/new/download.html) ，选择正式版的脚本下载安装。
-
-2. 安装后登录宝塔面板，在左侧导航栏中点击 Docker，首次进入会提示安装 Docker 服务，点击立即安装，按提示完成安装
-
-3. 安装完成后在应用商店中找到 YesPlayMusic，点击安装，配置域名、端口等基本信息即可完成安装。
-
-4. 安装后在浏览器输入上一步骤设置的域名即可访问。
-
-## ⚙️ Docker 部署
-
-推荐使用 Docker Compose，会同时启动 YesPlayMusic、内置网易云 API、音频 resolver/admin 后端，以及 UnblockNeteaseMusic 辅助服务。
-默认镜像由 GitHub Actions 构建并推送到 `ghcr.io/axuanran/yesplaymusic:latest`，部署机器只拉取镜像，不在本地构建。
-
-1. Docker Compose 启动
-
-```sh
-docker compose pull
-docker compose up -d
-```
-
-YesPlayMusic 地址为 `http://localhost`，resolver 配置会持久化到 `yesplaymusic-data` 数据卷。
-
-2. 查看运行状态
-
-```sh
-docker compose ps
-```
-
-3. 单容器启动（不包含独立的 UnblockNeteaseMusic 服务）
-
-```sh
-docker pull ghcr.io/axuanran/yesplaymusic:latest
-docker run -d --name yesplaymusic -p 80:80 -v yesplaymusic-data:/data ghcr.io/axuanran/yesplaymusic:latest
-```
-
-## ⚙️ 部署至 Replit
-
-1. 新建 Repl，选择 Bash 模板
-
-2. 在 Replit shell 中运行以下命令
-
-```sh
-bash <(curl -s -L https://raw.githubusercontent.com/qier222/YesPlayMusic/main/install-replit.sh)
-```
-
-3. 首次运行成功后，只需点击绿色按钮 `Run` 即可再次运行
-
-4. 由于 replit 个人版限制内存为 1G（教育版为 3G），构建过程中可能会失败，请再次运行上述命令或运行以下命令：
-
-```sh
-cd /home/runner/${REPL_SLUG}/music && yarn install && yarn run build
-```
-
-## 👷‍♂️ 打包客户端
-
-如果在 Release 页面没有找到适合你的设备的安装包的话，你可以根据下面的步骤来打包自己的客户端。
-
-1. 打包 Electron 需要用到 Node.js 和 Yarn。本仓库当前要求 Node.js `>=22 <26`，并使用 Yarn `1.22.x`。可前往 [Node.js 官网](https://nodejs.org/zh-cn/) 下载安装包。安装 Node.js
-   后可在终端里执行 `corepack enable` 或 `npm install -g yarn@1.22.22` 来安装 Yarn。
-
-2. 使用 `git clone --recursive https://github.com/qier222/YesPlayMusic.git` 克隆本仓库到本地。
-
-3. 使用 `yarn install` 安装项目依赖。
-
-4. 复制 `/.env.example` 文件为 `/.env` 。
-
-5. 选择下列表格的命令来打包适合的你的安装包，打包出来的文件在 `/dist_electron` 目录下。了解更多信息可访问 [electron-builder 文档](https://www.electron.build/cli)
-
-| 命令                                       | 说明                      |
-| ------------------------------------------ | ------------------------- |
-| `yarn electron:build-win --ia32`           | Windows 32 位             |
-| `yarn electron:build-win --arm64`          | Windows ARM               |
-| `yarn electron:build-linux --armv7l --deb` | Debian armv7l（树莓派等） |
-| `yarn electron:build-mac --arm64 --dir`    | macOS ARM                 |
-
-## :computer: 配置开发环境
-
-本项目由 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) 提供 API。
-
-运行本项目
-
-```shell
-# 安装依赖
-yarn install
-
-# 创建本地环境变量
+```bash
 cp .env.example .env
+```
 
-# 运行（网页端）
+Windows PowerShell：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+---
+
+## 开发命令
+
+### Web 开发模式
+
+```bash
 yarn dev
+```
 
-# 运行（Electron 桌面端，兼容命令；实际入口为 yarn desktop:dev）
+### Electron 开发模式
+
+```bash
+yarn desktop:dev
+```
+
+兼容命令：
+
+```bash
 yarn electron:serve
 ```
 
-本地运行 NeteaseCloudMusicApi，或者将 API [部署至 Vercel](#%EF%B8%8F-部署至-vercel)
+### Electron 依赖修复后启动
 
-```shell
-# 运行 API （默认 3000 端口）
-yarn netease_api:run
+当 Electron 二进制或原生依赖安装不完整时：
+
+```bash
+yarn electron:repair-and-serve
 ```
 
-## ☑️ Todo
+### 运行测试
 
-查看 Todo 请访问本项目的 [Projects](https://github.com/qier222/YesPlayMusic/projects/1)
+```bash
+yarn test
+```
 
-欢迎提 Issue 和 Pull request。
+### 代码检查
 
-## 📜 开源许可
+```bash
+yarn lint
+```
 
-本项目仅供个人学习研究使用，禁止用于商业及非法用途。
+### 完整验证
 
-基于 [MIT license](https://opensource.org/licenses/MIT) 许可进行开源。
+```bash
+yarn verify
+```
 
-## 灵感来源
+该命令会依次执行：
 
-API 源代码来自 [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi)
+```text
+lint → test → build
+```
 
-- [Apple Music](https://music.apple.com)
-- [YouTube Music](https://music.youtube.com)
-- [Spotify](https://www.spotify.com)
-- [网易云音乐](https://music.163.com)
+---
 
-## 🖼️ 截图
+## 构建
+
+### Web 构建
+
+```bash
+yarn build
+```
+
+输出目录：
+
+```text
+dist
+```
+
+### 当前平台桌面构建
+
+```bash
+yarn desktop:build
+```
+
+### Windows
+
+```bash
+yarn electron:build-win
+```
+
+Windows 安装包：
+
+```bash
+yarn electron:build-win-installer
+```
+
+Windows Portable：
+
+```bash
+yarn electron:build-win-portable
+```
+
+### Linux
+
+```bash
+yarn electron:build-linux
+```
+
+### macOS
+
+```bash
+yarn electron:build-mac
+```
+
+桌面构建输出目录：
+
+```text
+dist_electron
+```
+
+---
+
+## 技术栈
+
+### 前端
+
+- Vue 3
+- Vue Router 4
+- Vuex 4
+- Vue I18n
+- Vite
+- Sass
+
+### 桌面端
+
+- Electron
+- electron-vite
+- electron-builder
+- electron-updater
+- MPRIS
+- Windows SMTC
+- Discord Rich Presence
+
+### 后端与媒体
+
+- Node.js
+- Express
+- NeteaseCloudMusicApi Enhanced
+- UnblockNeteaseMusic
+- music-metadata
+- mpv
+
+### 测试与质量
+
+- Vitest
+- ESLint
+- Prettier
+- GitHub Actions
+
+---
+
+## 项目结构
+
+```text
+YesPlayMusic
+├── src
+│   ├── components          Vue 组件
+│   ├── views               页面
+│   ├── player              播放器与音频解析
+│   ├── plugins             插件及音频 Provider
+│   ├── electron            Electron 桌面功能
+│   ├── main                Electron 主进程
+│   ├── preload             安全 Preload 接口
+│   └── utils               通用工具
+├── server                  Resolver 与管理服务
+├── admin                   Resolver 管理页面
+├── scripts                 构建及 TUI 脚本
+├── docs                    功能设计文档
+├── llm-docs                开发规划与实现文档
+└── .github                 CI、发布和打包配置
+```
+
+---
+
+## 开发计划
+
+正在规划或继续完善的方向包括：
+
+- Apple Music 登录和歌单导入
+- 更完整的音频 Provider 插件接口
+- 更多流媒体服务器兼容
+- 本地媒体库管理优化
+- 桌面歌词跨平台适配
+- 下载和缓存管理优化
+- TUI 功能完善
+- 播放器性能与稳定性优化
+- 更多自动化测试
+
+规划文档不代表功能已经在当前 Release 中完整实现。
+
+---
+
+## 问题反馈
+
+遇到问题时请优先提交 Issue：
+
+https://github.com/axuanran/YesPlayMusic/issues
+
+建议附上：
+
+- YesPlayMusic 版本
+- 操作系统和版本
+- 安装包类型
+- 是否使用 Docker
+- 问题复现步骤
+- 控制台或应用日志
+- 相关截图
+
+功能建议也可以通过 Issue 提交。
+
+---
+
+## 贡献
+
+欢迎提交：
+
+- Bug 修复
+- 新功能
+- 平台适配
+- 音频 Provider
+- 文档改进
+- 翻译
+- 自动化测试
+
+开发分支为：
+
+```text
+dev
+```
+
+提交 Pull Request 时，请将目标分支设置为 `dev`。
+
+---
+
+## 上游项目
+
+本项目基于：
+
+- [qier222/YesPlayMusic](https://github.com/qier222/YesPlayMusic)
+
+相关项目：
+
+- [NeteaseCloudMusicApi Enhanced](https://github.com/neteasecloudmusicapienhanced/api-enhanced)
+- [UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server)
+
+感谢原项目作者、贡献者以及所有参与测试和反馈的用户。
+
+---
+
+## 开源许可
+
+本项目使用 [MIT License](LICENSE)。
+
+使用本项目时，请同时遵守网易云音乐、媒体服务器以及其他第三方服务的服务条款和所在地区的法律法规。
+
+本项目与网易云音乐官方无关。
+
+---
+
+## 截图
 
 ![lyrics][lyrics-screenshot]
 ![library-dark][library-dark-screenshot]
@@ -346,8 +708,7 @@ API 源代码来自 [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryif
 ![home][home-screenshot]
 ![explore][explore-screenshot]
 
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+<!-- Markdown links and images -->
 
 [album-screenshot]: images/album.png
 [artist-screenshot]: images/artist.png
@@ -359,6 +720,10 @@ API 源代码来自 [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryif
 [library-dark-screenshot]: images/library-dark.png
 [search-screenshot]: images/search.png
 
-special thank：codex
+---
+
+<p align="center">
+  Special thanks to Codex
+</p>
 
 [![Star History Chart](https://api.star-history.com/svg?repos=axuanran/YesPlayMusic&type=Date)](https://www.star-history.com/#axuanran/YesPlayMusic&Date)
