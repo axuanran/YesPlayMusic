@@ -466,6 +466,11 @@ class Background {
         : {}),
       title: 'YesPlayMusic',
       show: false,
+      ...(isLinux
+        ? {
+            icon: path.join(global.__static, 'img/icons/512x512.png'),
+          }
+        : {}),
       webPreferences: {
         preload: path.join(__dirname, '../preload/index.js'),
         webSecurity: true,

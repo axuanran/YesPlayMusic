@@ -155,7 +155,7 @@
         }
       ],
       "category": "Music",
-      "icon": "build/icons/icon.icns",
+      "icon": "build/icons",
       "extraResources": [
         {
           "from": "dist_tui",
