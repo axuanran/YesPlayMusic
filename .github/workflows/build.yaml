@@ -12,7 +12,6 @@ on:
   push:
     branches:
       - dev
-      - master
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -31,56 +30,13 @@ on:
           - prerelease
           - release
       release_tag:
-        description: Optional release tag, for example v0.1.1-alpha.1
+        description: Optional SemVer tag, for example v0.1.1-alpha.1
         required: false
         type: string
 
 jobs:
-  prepare:
-    name: prepare release version
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.version.outputs.tag }}
-      npm_version: ${{ steps.version.outputs.npm_version }}
-      aur_version: ${{ steps.version.outputs.aur_version }}
-
-    steps:
-      - name: Resolve release versions
-        id: version
-        shell: bash
-        env:
-          INPUT_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
-        run: |
-          set -euo pipefail
-
-          tag="$INPUT_TAG"
-          if [[ -z "$tag" && "$GITHUB_REF" == refs/tags/v* ]]; then
-            tag="$GITHUB_REF_NAME"
-          fi
-
-          if [[ -z "$tag" ]]; then
-            echo "tag=" >> "$GITHUB_OUTPUT"
-            echo "npm_version=" >> "$GITHUB_OUTPUT"
-            echo "aur_version=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]]; then
-            echo "Invalid release tag: $tag" >&2
-            echo "Expected a SemVer tag such as v0.1.1 or v0.1.1-alpha.1" >&2
-            exit 1
-          fi
-
-          npm_version="${tag#v}"
-          aur_version="${npm_version/-/_}"
-
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "npm_version=$npm_version" >> "$GITHUB_OUTPUT"
-          echo "aur_version=$aur_version" >> "$GITHUB_OUTPUT"
-
   build:
     name: build (${{ matrix.os }})
-    needs: prepare
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -93,13 +49,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Set package version
-        if: needs.prepare.outputs.npm_version != ''
-        shell: bash
-        env:
-          NPM_VERSION: ${{ needs.prepare.outputs.npm_version }}
-        run: npm pkg set "version=${NPM_VERSION}"
 
       - name: Cache electron-builder
         uses: actions/cache@v4
@@ -120,6 +69,39 @@ jobs:
           install-native-deps: 'true'
           verify-rollup: 'true'
 
+      - name: Prepare application version
+        id: version
+        shell: bash
+        env:
+          MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          release_tag=""
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            release_tag="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${MANUAL_RELEASE_TAG:-}" ]]; then
+            release_tag="${MANUAL_RELEASE_TAG}"
+          fi
+
+          if [[ -n "$release_tag" ]]; then
+            if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]]; then
+              echo "Release tags must use SemVer such as v0.1.1-alpha.1: $release_tag" >&2
+              exit 1
+            fi
+            version_input="$release_tag"
+          else
+            version_input="$(node -p "require('./package.json').releaseVersion || require('./package.json').version")"
+          fi
+
+          node scripts/prepare-release-version.mjs \
+            "$version_input" \
+            --write-package \
+            --github-output
+
+          echo "Release version: $(node -p "require('./package.json').releaseVersion")"
+          echo "Internal application version: $(node -p "require('./package.json').version")"
+
       - name: Build Electron app
         run: yarn electron-vite build && yarn tui:build
         env:
@@ -138,14 +120,26 @@ jobs:
         run: npx electron-builder --publish never
         env:
           GH_TOKEN: ${{ github.token }}
-          EP_PRELEASE: true
+          EP_PRELEASE: ${{ steps.version.outputs.is_prerelease }}
 
       - name: Package Windows app
         if: runner.os == 'Windows'
         run: npx electron-builder -w --publish never
         env:
           GH_TOKEN: ${{ github.token }}
-          EP_PRELEASE: true
+          EP_PRELEASE: ${{ steps.version.outputs.is_prerelease }}
+
+      - name: Normalize release artifact names
+        shell: bash
+        env:
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
+        run: |
+          set -euo pipefail
+          node scripts/normalize-release-artifacts.mjs \
+            dist_electron \
+            "$APP_VERSION" \
+            "$RELEASE_VERSION"
 
       - name: List dist_electron
         shell: bash
@@ -224,38 +218,20 @@ jobs:
 
   publish:
     name: publish release
-    needs: [prepare, build]
+    needs: build
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
       tag: ${{ steps.tag.outputs.tag }}
-      aur_version: ${{ needs.prepare.outputs.aur_version }}
+      release_version: ${{ steps.version.outputs.release_version }}
+      app_version: ${{ steps.version.outputs.app_version }}
+      aur_pkgver: ${{ steps.version.outputs.aur_pkgver }}
+      pacman_asset: ${{ steps.version.outputs.pacman_asset }}
 
     steps:
-      - name: Check out Git repository
-        if: github.event_name == 'workflow_dispatch' && needs.prepare.outputs.npm_version != ''
+      - name: Check out release scripts
         uses: actions/checkout@v4
-
-      - name: Commit package version
-        id: version_commit
-        if: github.event_name == 'workflow_dispatch' && needs.prepare.outputs.npm_version != ''
-        shell: bash
-        env:
-          NPM_VERSION: ${{ needs.prepare.outputs.npm_version }}
-        run: |
-          set -euo pipefail
-          npm pkg set "version=${NPM_VERSION}"
-          git config user.name "YesPlayMusic Release Bot"
-          git config user.email "release-bot@users.noreply.github.com"
-          git add package.json
-
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: release v${NPM_VERSION}"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
-          fi
-
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -264,22 +240,107 @@ jobs:
           merge-multiple: true
           path: artifacts
 
-      - name: List release artifacts
+      - name: Resolve release version
+        id: version
         shell: bash
+        env:
+          MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
+          set -euo pipefail
+
+          release_tag=""
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            release_tag="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${MANUAL_RELEASE_TAG:-}" ]]; then
+            release_tag="${MANUAL_RELEASE_TAG}"
+          fi
+
+          if [[ -n "$release_tag" ]]; then
+            if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]]; then
+              echo "Release tags must use SemVer such as v0.1.1-alpha.1: $release_tag" >&2
+              exit 1
+            fi
+            version_input="$release_tag"
+          else
+            version_input="$(node -p "require('./package.json').releaseVersion || require('./package.json').version")"
+          fi
+
+          node scripts/prepare-release-version.mjs \
+            "$version_input" \
+            --github-output
+
+      - name: Normalize and verify release artifacts
+        shell: bash
+        env:
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
+          EXPECTED_PACMAN_ASSET: ${{ steps.version.outputs.pacman_asset }}
+        run: |
+          set -euo pipefail
+
+          node scripts/normalize-release-artifacts.mjs \
+            artifacts \
+            "$APP_VERSION" \
+            "$RELEASE_VERSION"
+
           echo "release artifacts:"
-          find artifacts -type f -print
+          find artifacts -type f -print | sort
           test "$(find artifacts -type f | wc -l)" -gt 0
+
+          mapfile -t pacman_files < <(
+            find artifacts -maxdepth 1 -type f -name '*.pacman' -print
+          )
+
+          if [[ "${#pacman_files[@]}" -ne 1 ]]; then
+            echo "Expected exactly one pacman artifact, found ${#pacman_files[@]}" >&2
+            printf '%s\n' "${pacman_files[@]}"
+            exit 1
+          fi
+
+          expected_path="artifacts/${EXPECTED_PACMAN_ASSET}"
+          if [[ "${pacman_files[0]}" != "$expected_path" ]]; then
+            echo "Unexpected Pacman asset: ${pacman_files[0]}" >&2
+            echo "Expected: $expected_path" >&2
+            exit 1
+          fi
+
+      - name: Commit package version
+        id: version_commit
+        if: github.event_name == 'workflow_dispatch' && github.ref_type == 'branch' && inputs.release_tag != ''
+        shell: bash
+        env:
+          MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          node scripts/prepare-release-version.mjs \
+            "$MANUAL_RELEASE_TAG" \
+            --write-package
+          git config user.name "YesPlayMusic Release Bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git add package.json
+
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: release ${MANUAL_RELEASE_TAG}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Decide publish mode
         id: mode
         shell: bash
+        env:
+          VERSION_IS_PRERELEASE: ${{ steps.version.outputs.is_prerelease }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             mode="${{ inputs.release_mode }}"
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            mode="release"
-          elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            if [[ "$VERSION_IS_PRERELEASE" == "true" ]]; then
+              mode="prerelease"
+            else
+              mode="release"
+            fi
+          elif [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
             mode="prerelease"
           else
             mode="artifact"
@@ -290,15 +351,23 @@ jobs:
       - name: Build release tag
         id: tag
         shell: bash
+        env:
+          MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
+          set -euo pipefail
           branch="${GITHUB_REF_NAME//\//-}"
 
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             tag="${GITHUB_REF_NAME}"
-          elif [[ -n "${{ needs.prepare.outputs.tag }}" ]]; then
-            tag="${{ needs.prepare.outputs.tag }}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${MANUAL_RELEASE_TAG:-}" ]]; then
+            tag="${MANUAL_RELEASE_TAG}"
           else
             tag="${{ steps.mode.outputs.mode }}-${branch}-run${GITHUB_RUN_NUMBER}"
+          fi
+
+          if [[ ! "$tag" =~ ^[0-9A-Za-z._/-]+$ ]]; then
+            echo "Invalid release tag: $tag" >&2
+            exit 1
           fi
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -309,29 +378,44 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           target_commitish: ${{ steps.version_commit.outputs.sha || github.sha }}
-          name: ${{ steps.mode.outputs.mode }} / ${{ github.ref_name }} / ${{ github.run_number }}
+          name: YesPlayMusic ${{ steps.version.outputs.release_version }}
           body: |
-            Branch: ${{ github.ref_name }}
+            Version: ${{ steps.version.outputs.release_version }}
+            Source ref: ${{ github.ref_name }}
             Run: ${{ github.run_id }}
             Commit: ${{ github.sha }}
             Mode: ${{ steps.mode.outputs.mode }}
           prerelease: ${{ steps.mode.outputs.mode == 'prerelease' }}
           draft: ${{ steps.mode.outputs.mode == 'draft' }}
           make_latest: ${{ steps.mode.outputs.mode == 'release' }}
+          overwrite_files: true
+          fail_on_unmatched_files: true
           files: artifacts/*
 
   aur:
     name: publish AUR
     needs: publish
-    if: needs.publish.outputs.mode == 'release' && startsWith(needs.publish.outputs.tag, 'v')
+    if: startsWith(needs.publish.outputs.tag, 'v') && needs.publish.outputs.mode != 'draft'
     runs-on: ubuntu-latest
     environment: aur
     env:
       AUR_PACKAGE: yesplaymusic-axuanran-bin
+      RELEASE_TAG: ${{ needs.publish.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.publish.outputs.release_version }}
+      AUR_PKGVER: ${{ needs.publish.outputs.aur_pkgver }}
+      PACMAN_ASSET: ${{ needs.publish.outputs.pacman_asset }}
 
     steps:
       - name: Check out AUR package template
         uses: actions/checkout@v4
+
+      - name: Verify release asset exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${PACMAN_ASSET}"
+          echo "Checking $asset_url"
+          curl --fail --silent --show-error --location --head "$asset_url" >/dev/null
 
       - name: Configure AUR SSH
         env:
@@ -352,16 +436,12 @@ jobs:
           ssh-keygen -y -f ~/.ssh/aur >/dev/null
 
       - name: Update AUR package
-        env:
-          RELEASE_TAG: ${{ needs.publish.outputs.tag }}
-          RELEASE_AUR_VERSION: ${{ needs.publish.outputs.aur_version }}
         shell: bash
         run: |
           set -euo pipefail
-          version="${RELEASE_AUR_VERSION:-${RELEASE_TAG#v}}"
-          version="${version/-/_}"
-          if [[ ! "$version" =~ ^[0-9]+([.][0-9A-Za-z_+]+)*$ ]]; then
-            echo "Invalid AUR pkgver derived from release tag: $version" >&2
+
+          if [[ ! "$RELEASE_TAG" == "v${RELEASE_VERSION}" ]]; then
+            echo "Release tag and version do not match: $RELEASE_TAG / $RELEASE_VERSION" >&2
             exit 1
           fi
 
@@ -369,12 +449,11 @@ jobs:
           git clone "ssh://aur@aur.archlinux.org/${AUR_PACKAGE}.git" "$aur_dir"
           cd "$aur_dir"
 
-          if [[ ! -f PKGBUILD ]]; then
-            install -m 644 "${GITHUB_WORKSPACE}/.github/aur/PKGBUILD" PKGBUILD
-          fi
+          install -m 644 "${GITHUB_WORKSPACE}/.github/aur/PKGBUILD" PKGBUILD
 
-          sed -Ei "s/^pkgver=.*/pkgver=${version}/" PKGBUILD
+          sed -Ei "s/^pkgver=.*/pkgver=${AUR_PKGVER}/" PKGBUILD
           sed -Ei "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          sed -Ei "s/^_releasever=.*/_releasever=${RELEASE_VERSION}/" PKGBUILD
           sed -Ei \
             "s#https://github.com/[^/]+/YesPlayMusic#https://github.com/${GITHUB_REPOSITORY}#g" \
             PKGBUILD
@@ -393,7 +472,7 @@ jobs:
               pacman -Sy --noconfirm --needed pacman-contrib
               groupadd -o -g "$HOST_GID" builder
               useradd -o -m -u "$HOST_UID" -g "$HOST_GID" builder
-              chown builder:builder /pkg/PKGBUILD
+              chown -R builder:builder /pkg
               su builder -c "cd /pkg && updpkgsums && makepkg --printsrcinfo > .SRCINFO"
             '
 
@@ -406,5 +485,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Update to ${version}"
+          git commit -m "Update to ${RELEASE_VERSION}"
           git push origin master
