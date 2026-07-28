@@ -3,6 +3,8 @@
 pkgname=yesplaymusic-axuanran-bin
 pkgver=0.0.0
 pkgrel=1
+_releasever=0.0.0
+_appver=0.0.0
 pkgdesc="A third-party Netease Cloud Music player"
 arch=('x86_64')
 url="https://github.com/axuanran/YesPlayMusic"
@@ -27,14 +29,14 @@ optdepends=(
 )
 options=('!strip' '!debug')
 source=(
-    "YesPlayMusic-${pkgver}.pacman::${url}/releases/download/v${pkgver}/yesplaymusic-${pkgver}.pacman"
-    "LICENSE-${pkgver}::https://raw.githubusercontent.com/axuanran/YesPlayMusic/v${pkgver}/LICENSE"
+    "YesPlayMusic-${_appver}.pacman::${url}/releases/download/v${_releasever}/YesPlayMusic-${_appver}.pacman"
+    "LICENSE-${_releasever}::https://raw.githubusercontent.com/axuanran/YesPlayMusic/v${_releasever}/LICENSE"
 )
 sha256sums=('SKIP'
             'SKIP')
 
 package() {
-    tar -xf "YesPlayMusic-${pkgver}.pacman" -C "$pkgdir"
+    tar -xf "YesPlayMusic-${_appver}.pacman" -C "$pkgdir"
 
     rm -f "$pkgdir"/.{PKGINFO,MTREE,INSTALL}
 
@@ -46,6 +48,6 @@ package() {
     sed -i 's|Categories=Music;|Categories=Music;AudioVideo;Player;|' \
         "$pkgdir/usr/share/applications/yesplaymusic.desktop"
 
-    install -Dm644 "$srcdir/LICENSE-${pkgver}" \
+    install -Dm644 "$srcdir/LICENSE-${_releasever}" \
         "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
