@@ -8,7 +8,7 @@
 <p align="center">
   一个基于 Vue 3、Vite 与 Electron 的现代音乐播放器
   <br>
-  支持网易云音乐、本地音乐、播客与 Emby 兼容媒体服务器
+  支持网易云音乐、本地音乐与 Emby 兼容媒体服务器
   <br>
   求STAR ~
 </p>
