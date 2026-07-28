@@ -213,7 +213,7 @@
         </div>
       </div>
       <div class="right-side">
-        <transition name="slide-fade">
+        <transition name="lyric-locate-button">
           <button-icon
             v-show="!noLyric && !shouldAutoScrollLyrics"
             class="back-to-current-lyric"
@@ -1510,5 +1510,23 @@ export default {
 .slide-fade-leave-to {
   transform: translateX(27vh);
   opacity: 0;
+}
+
+.lyric-locate-button-enter-active {
+  transition:
+    opacity 0.24s ease-out,
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.lyric-locate-button-leave-active {
+  transition:
+    opacity 0.18s ease-in,
+    transform 0.2s ease-in;
+}
+
+.lyric-locate-button-enter-from,
+.lyric-locate-button-leave-to {
+  opacity: 0;
+  transform: translateY(18px) scale(0.82);
 }
 </style>

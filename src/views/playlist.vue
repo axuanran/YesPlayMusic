@@ -165,16 +165,19 @@
       </div>
     </div>
 
-    <div v-if="currentTrackIndex >= 0" class="track-list-toolbar">
+    <transition name="locate-button">
       <ButtonTwoTone
+        v-if="currentTrackIndex >= 0"
+        class="locate-current-track-button"
         icon-class="volume"
         color="grey"
         :loading="locatingCurrentTrack"
+        :title="$t('playlist.locateCurrentTrack')"
         @click="scrollToCurrentTrack"
       >
         {{ $t('playlist.locateCurrentTrack') }}
       </ButtonTwoTone>
-    </div>
+    </transition>
 
     <TrackList
       :id="playlist.id"
@@ -672,10 +675,38 @@ export default {
 .playlist {
   margin-top: 32px;
 }
-.track-list-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
+.locate-current-track-button {
+  position: fixed;
+  right: 32px;
+  bottom: 88px;
+  z-index: 90;
+  margin-right: 0;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+}
+
+.locate-button-enter-active {
+  transition:
+    opacity 0.24s ease-out,
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.locate-button-leave-active {
+  transition:
+    opacity 0.18s ease-in,
+    transform 0.2s ease-in;
+}
+
+.locate-button-enter-from,
+.locate-button-leave-to {
+  opacity: 0;
+  transform: translateY(18px) scale(0.88);
+}
+
+@media (max-width: 834px) {
+  .locate-current-track-button {
+    right: 20px;
+    bottom: 84px;
+  }
 }
 .playlist-info {
   display: flex;
