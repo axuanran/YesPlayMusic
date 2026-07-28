@@ -71,6 +71,34 @@ for (const filePath of files.sort((a, b) => b.length - a.length)) {
   )
 }
 
+const pacmanFiles = walkFiles(directory).filter(
+  (filePath) => path.extname(filePath).toLowerCase() === '.pacman'
+)
+
+if (pacmanFiles.length > 0) {
+  if (pacmanFiles.length !== 1) {
+    console.error(`Expected one Pacman artifact, found ${pacmanFiles.length}`)
+    process.exit(1)
+  }
+
+  const expectedPacmanPath = path.join(
+    path.dirname(pacmanFiles[0]),
+    `YesPlayMusic-${releaseVersion}.pacman`
+  )
+
+  if (pacmanFiles[0] !== expectedPacmanPath) {
+    if (fs.existsSync(expectedPacmanPath)) {
+      console.error(`Cannot normalize Pacman artifact because target exists: ${expectedPacmanPath}`)
+      process.exit(1)
+    }
+
+    fs.renameSync(pacmanFiles[0], expectedPacmanPath)
+    console.log(
+      `Normalized Pacman artifact: ${path.relative(directory, pacmanFiles[0])} -> ${path.relative(directory, expectedPacmanPath)}`
+    )
+  }
+}
+
 const staleFiles = walkFiles(directory).filter((filePath) =>
   path.basename(filePath).includes(appVersion)
 )
