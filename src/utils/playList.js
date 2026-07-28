@@ -29,33 +29,61 @@ export function getListSourcePath() {
 
 export async function getRecommendPlayList(limit, removePrivateRecommand) {
   if (isAccountLoggedIn()) {
-    const playlists = await Promise.all([
+    const [dailyResult, publicResult] = await Promise.allSettled([
       dailyRecommendPlaylist(),
       recommendPlaylist({ limit }),
     ]);
-    let recommend = playlists[0].recommend ?? [];
+
+    let recommend =
+      dailyResult.status === 'fulfilled' &&
+      Array.isArray(dailyResult.value?.recommend)
+        ? dailyResult.value.recommend
+        : [];
     if (recommend.length) {
       if (removePrivateRecommand) recommend = recommend.slice(1);
       await replaceRecommendResult(recommend);
     }
-    return recommend.concat(playlists[1].result).slice(0, limit);
+
+    const publicPlaylists =
+      publicResult.status === 'fulfilled' &&
+      Array.isArray(publicResult.value?.result)
+        ? publicResult.value.result
+        : [];
+    const playlists = recommend.concat(publicPlaylists).slice(0, limit);
+    if (playlists.length === 0) {
+      throw (
+        (dailyResult.status === 'rejected' && dailyResult.reason) ||
+        (publicResult.status === 'rejected' && publicResult.reason) ||
+        new Error('Recommended playlists response is empty')
+      );
+    }
+    return playlists;
   } else {
     const response = await recommendPlaylist({ limit });
-    return response.result;
+    return Array.isArray(response?.result) ? response.result : [];
   }
 }
 
 async function replaceRecommendResult(recommend) {
-  for (let r of recommend) {
-    if (specialPlaylist.indexOf(r.id) > -1) {
-      const data = await getPlaylistDetail(r.id, true);
-      const playlist = data.playlist;
-      if (playlist) {
-        r.name = playlist.name;
-        r.picUrl = playlist.coverImgUrl;
+  await Promise.all(
+    recommend.map(async item => {
+      if (specialPlaylist.includes(item.id)) {
+        try {
+          const data = await getPlaylistDetail(item.id, true);
+          const playlist = data.playlist;
+          if (playlist) {
+            item.name = playlist.name;
+            item.picUrl = playlist.coverImgUrl;
+          }
+        } catch (error) {
+          console.warn(
+            `[playlist] Failed to refresh special playlist ${item.id}`,
+            error
+          );
+        }
       }
-    }
-  }
+    })
+  );
 }
 
 const specialPlaylist = [3136952023, 2829883282, 2829816518, 2829896389];

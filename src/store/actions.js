@@ -63,7 +63,7 @@ export default {
   fetchLikedSongs: ({ state, commit }) => {
     if (!isLooseLoggedIn()) return;
     if (isAccountLoggedIn()) {
-      return userLikedSongsIDs({ uid: state.data.user.userId }).then(result => {
+      return userLikedSongsIDs(state.data.user.userId).then(result => {
         if (result.ids) {
           commit('updateLikedXXX', {
             name: 'songs',

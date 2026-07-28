@@ -436,7 +436,9 @@ export default {
           this.loadDataPromise = null;
         }
       })();
-      this.$store.dispatch('fetchLikedSongs');
+      Promise.resolve(this.$store.dispatch('fetchLikedSongs')).catch(error => {
+        console.error('[library] Failed to load liked song IDs', error);
+      });
       this.$store.dispatch('fetchLikedAlbums');
       this.$store.dispatch('fetchLikedArtists');
       this.$store.dispatch('fetchLikedMVs');
