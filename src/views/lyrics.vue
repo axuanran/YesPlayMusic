@@ -198,31 +198,35 @@
               >
                 <svg-icon icon-class="shuffle" />
               </button-icon>
-              <button-icon
-                v-show="isShowLyricTypeSwitch"
-                class="lyric-display-switch"
-                :title="$t(lyricDisplayModeTitle)"
-                @click="switchLyricType"
-              >
-                <span class="lyric-switch-icon">{{
-                  $t(lyricDisplayModeLabel)
-                }}</span>
-              </button-icon>
+              <div v-show="!noLyric" class="lyric-behavior-menu">
+                <button-icon class="lyric-behavior-trigger" title="歌词行为">
+                  <svg-icon icon-class="more" />
+                </button-icon>
+                <div class="lyric-behavior-actions">
+                  <button-icon
+                    title="回到当前歌词并继续跟随"
+                    :class="{ active: shouldAutoScrollLyrics }"
+                    @click="resumeLyricsAutoScroll"
+                  >
+                    <svg-icon icon-class="locate" />
+                  </button-icon>
+                  <button-icon
+                    v-show="isShowLyricTypeSwitch"
+                    class="lyric-display-switch"
+                    :title="$t(lyricDisplayModeTitle)"
+                    @click="switchLyricType"
+                  >
+                    <span class="lyric-switch-icon">{{
+                      $t(lyricDisplayModeLabel)
+                    }}</span>
+                  </button-icon>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
       <div class="right-side">
-        <transition name="lyric-locate-button">
-          <button-icon
-            v-show="!noLyric && !shouldAutoScrollLyrics"
-            class="back-to-current-lyric"
-            title="回到当前歌词"
-            @click="resumeLyricsAutoScroll"
-          >
-            <svg-icon icon-class="arrow-down" />
-          </button-icon>
-        </transition>
         <transition name="slide-fade">
           <div
             v-show="!noLyric"
@@ -1294,15 +1298,70 @@ export default {
         }
       }
 
-      .lyric-switch-icon {
-        color: var(--color-text);
-        font-size: 14px;
-        line-height: 14px;
-        opacity: 0.88;
-      }
+      .lyric-behavior-menu {
+        position: relative;
+        flex: 0 0 32px;
+        width: 32px;
+        height: 32px;
+        margin-left: 8px;
+        z-index: 4;
 
-      .lyric-display-switch {
-        margin-left: 12px;
+        &::after {
+          position: absolute;
+          top: 0;
+          right: -8px;
+          width: 8px;
+          height: 100%;
+          content: '';
+        }
+
+        .lyric-behavior-trigger {
+          width: 32px;
+          height: 32px;
+          padding: 8px;
+          border-radius: 50%;
+        }
+
+        .lyric-behavior-actions {
+          position: absolute;
+          top: 50%;
+          left: calc(100% + 6px);
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          padding: 4px;
+          border-radius: 12px;
+          background: var(--color-secondary-bg-for-transparent);
+          backdrop-filter: blur(12px);
+          opacity: 0;
+          transform: translate(-8px, -50%) scale(0.92);
+          transform-origin: center left;
+          pointer-events: none;
+          transition:
+            opacity 0.2s ease,
+            transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+
+          button {
+            min-width: 32px;
+            height: 32px;
+            padding: 8px;
+          }
+
+          .lyric-switch-icon {
+            color: var(--color-text);
+            font-size: 13px;
+            line-height: 13px;
+            opacity: 0.88;
+            white-space: nowrap;
+          }
+        }
+
+        &:hover .lyric-behavior-actions,
+        &:focus-within .lyric-behavior-actions {
+          opacity: 1;
+          transform: translate(0, -50%) scale(1);
+          pointer-events: auto;
+        }
       }
     }
   }
@@ -1343,25 +1402,6 @@ export default {
   margin-right: 24px;
   position: relative;
   z-index: 0;
-
-  .back-to-current-lyric {
-    position: absolute;
-    bottom: 24px;
-    right: 24px;
-    z-index: 2;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: var(--color-secondary-bg-for-transparent);
-    backdrop-filter: blur(12px);
-
-    .svg-icon {
-      width: 18px;
-      height: 18px;
-      opacity: 0.88;
-      transform: rotate(180deg);
-    }
-  }
 
   .lyrics-container {
     height: 100%;
@@ -1514,23 +1554,5 @@ export default {
 .slide-fade-leave-to {
   transform: translateX(27vh);
   opacity: 0;
-}
-
-.lyric-locate-button-enter-active {
-  transition:
-    opacity 0.24s ease-out,
-    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.lyric-locate-button-leave-active {
-  transition:
-    opacity 0.18s ease-in,
-    transform 0.2s ease-in;
-}
-
-.lyric-locate-button-enter-from,
-.lyric-locate-button-leave-to {
-  opacity: 0;
-  transform: translateY(18px) scale(0.82);
 }
 </style>
