@@ -314,6 +314,7 @@ export default {
       localFolders: [],
       importingLocalFolders: false,
       removeLocalMusicListener: null,
+      loadDataPromise: null,
     };
   },
   computed: {
@@ -418,27 +419,30 @@ export default {
   methods: {
     ...mapActions(['showToast']),
     ...mapMutations(['updateModal', 'updateData']),
-    loadData() {
-      if (!this.loggedIn) return;
-      if (this.liked.songsWithDetails.length > 0) {
-        NProgress.done();
-        this.show = true;
-        this.$store.dispatch('fetchLikedSongsWithDetails');
-        this.getRandomLyric();
-      } else {
-        this.$store.dispatch('fetchLikedSongsWithDetails').then(() => {
+    async loadData() {
+      if (!this.loggedIn || this.loadDataPromise) return this.loadDataPromise;
+      this.loadDataPromise = (async () => {
+        try {
+          await this.$store.dispatch('fetchLikedPlaylist');
+          await this.$store.dispatch('fetchLikedSongsWithDetails');
           NProgress.done();
           this.show = true;
           this.getRandomLyric();
-        });
-      }
+        } catch (error) {
+          NProgress.done();
+          this.show = true;
+          console.error('[library] Failed to load liked songs', error);
+        } finally {
+          this.loadDataPromise = null;
+        }
+      })();
       this.$store.dispatch('fetchLikedSongs');
-      this.$store.dispatch('fetchLikedPlaylist');
       this.$store.dispatch('fetchLikedAlbums');
       this.$store.dispatch('fetchLikedArtists');
       this.$store.dispatch('fetchLikedMVs');
       this.$store.dispatch('fetchCloudDisk');
       this.$store.dispatch('fetchPlayHistory');
+      return this.loadDataPromise;
     },
     playLikedSongs() {
       this.$store.state.player.playPlaylistByID(

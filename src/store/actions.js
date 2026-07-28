@@ -76,6 +76,7 @@ export default {
     }
   },
   fetchLikedSongsWithDetails: ({ state, commit }) => {
+    if (!state.data.likedSongPlaylistID) return Promise.resolve();
     return getPlaylistDetail(state.data.likedSongPlaylistID, true).then(
       result => {
         if (!result.playlist?.trackIds?.length) {
