@@ -1,4 +1,3 @@
-# YesPlayMusic
 
 <p align="center">
   <img src="images/logo.png" alt="YesPlayMusic Logo" width="156" height="156">
@@ -10,6 +9,8 @@
   一个基于 Vue 3、Vite 与 Electron 的现代音乐播放器
   <br>
   支持网易云音乐、本地音乐、播客与 Emby 兼容媒体服务器
+  <br>
+  求STAR ~
 </p>
 
 <p align="center">
@@ -36,6 +37,7 @@
   ·
   <a href="https://t.me/ypmaxuanran"><strong>Telegram 频道</strong></a>
 </p>
+
 
 ---
 
@@ -274,9 +276,8 @@ Compose 会启动：
 ### 启动
 
 ```bash
-git clone --branch dev https://github.com/axuanran/YesPlayMusic.git
-cd YesPlayMusic
-
+mkdir YesPlayMusic
+wget https://raw.githubusercontent.com/axuanran/YesPlayMusic/refs/heads/dev/docker-compose.yml
 docker compose pull
 docker compose up -d
 ```
@@ -446,11 +447,6 @@ yarn dev
 yarn desktop:dev
 ```
 
-兼容命令：
-
-```bash
-yarn electron:serve
-```
 
 ### Electron 依赖修复后启动
 
@@ -507,6 +503,9 @@ yarn desktop:build
 ```
 
 ### Windows
+
+建议windows开发测试使用 electron:build-win-dir，节省压缩时间，有其他平台构建需要直接使用github ci
+
 
 ```bash
 yarn electron:build-win
