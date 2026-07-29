@@ -62,8 +62,9 @@ Release 工作流在发布 tag 后会自动调用 `Publish Gentoo overlay`，生
 推送到 `axuanran/xr-overlay` 的 `main` 分支。需要在 YesPlayMusic 仓库的
 Actions secrets 中配置：
 
-- `XR_OVERLAY_TOKEN`：对 `axuanran/xr-overlay` 具有 Contents
-  read/write 权限的 fine-grained personal access token。
+- `XR_OVERLAY_DEPLOY_KEY`：为 `axuanran/xr-overlay` 创建且允许写入的 SSH
+  deploy key 私钥。公钥添加到 overlay 的 Deploy keys，私钥添加到
+  YesPlayMusic 的 Actions secrets；它只授予单个 overlay 仓库权限。
 
 已经存在的 Release 可以在 Actions 页面手动运行 `Publish Gentoo overlay`，
 输入不带 `v` 的版本号，例如 `0.1.1-alpha.6`。工作流会兼容新旧两种 Linux

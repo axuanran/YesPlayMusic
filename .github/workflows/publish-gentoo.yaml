@@ -8,7 +8,7 @@ on:
         required: true
         type: string
     secrets:
-      XR_OVERLAY_TOKEN:
+      XR_OVERLAY_DEPLOY_KEY:
         required: true
   workflow_dispatch:
     inputs:
@@ -37,7 +37,7 @@ jobs:
         with:
           repository: axuanran/xr-overlay
           ref: main
-          token: ${{ secrets.XR_OVERLAY_TOKEN }}
+          ssh-key: ${{ secrets.XR_OVERLAY_DEPLOY_KEY }}
           path: overlay
 
       - name: Resolve release assets
