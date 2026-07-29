@@ -113,6 +113,7 @@
     },
     "linux": {
       "executableName": "yesplaymusic",
+      "artifactName": "${productName}-linux-${version}-${arch}.${ext}",
       "target": [
         {
           "target": "AppImage",

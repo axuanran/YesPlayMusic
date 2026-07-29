@@ -448,3 +448,12 @@ jobs:
 
           git commit -m "Update to ${RELEASE_VERSION}"
           git push origin master
+
+  gentoo:
+    name: publish Gentoo overlay
+    needs: publish
+    if: startsWith(needs.publish.outputs.tag, 'v') && needs.publish.outputs.mode != 'draft'
+    uses: ./.github/workflows/publish-gentoo.yaml
+    with:
+      release_version: ${{ needs.publish.outputs.release_version }}
+    secrets: inherit

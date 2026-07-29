@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=YesPlayMusic
+Comment=A third-party Netease Cloud Music player
+Exec=yesplaymusic %U
+Terminal=false
+Type=Application
+Icon=yesplaymusic
+Categories=AudioVideo;Audio;Music;Player;
+StartupWMClass=YesPlayMusic

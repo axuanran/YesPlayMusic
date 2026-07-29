@@ -94,8 +94,8 @@ AUR: [yesplaymusic-axuanran-bin](https://aur.archlinux.org/packages/yesplaymusic
 | 平台 | 构建产物 | 状态 |
 | --- | --- | --- |
 | Windows x64 | NSIS 安装包、Portable | 已测试 |
-| Linux x64 | AppImage、deb、rpm、tar.gz、snap、pacman | 已测试 |
-| Linux ARM | deb、tar.gz | 构建支持 |
+| Linux x64 | AppImage、deb、rpm、tar.gz、snap、pacman、Gentoo ebuild | 已测试 |
+| Linux ARM | deb、tar.gz、Gentoo ebuild | 构建支持 |
 | macOS x64 | dmg | 自动构建 |
 | macOS ARM64 | dmg | 自动构建 |
 | Docker | Compose、GHCR 镜像 | 已测试 |
@@ -251,6 +251,8 @@ https://github.com/axuanran/YesPlayMusic/releases
 - tar.gz
 - snap
 - pacman
+- Gentoo：使用 `media-sound/yesplaymusic-bin`，维护与发布见
+  [Gentoo 打包文档](docs/gentoo-package.md)
 
 AppImage 下载后可能需要添加执行权限：
 
