@@ -47,6 +47,12 @@
 
 目前已可以稳定使用～
 
+AUR: [yesplaymusic-axuanran-bin](https://aur.archlinux.org/packages/yesplaymusic-axuanran-bin)
+
+
+
+
+
 项目在保留原版网易云音乐播放器体验的基础上，对前端、Electron 桌面端、音频解析和媒体库进行了持续重构。
 
 主要变化包括：
