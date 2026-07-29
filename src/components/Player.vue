@@ -768,7 +768,7 @@ export default {
 
 .controls {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   height: 100%;
   padding: {
     right: 10vw;
@@ -788,12 +788,16 @@ export default {
 
 .playing {
   display: flex;
+  min-width: 0;
 }
 
 .playing .container {
   display: flex;
   align-items: center;
+  min-width: 0;
+  overflow: hidden;
   img {
+    flex-shrink: 0;
     height: 46px;
     border-radius: 5px;
     box-shadow: 0 6px 8px -2px rgba(0, 0, 0, 0.16);
@@ -801,6 +805,8 @@ export default {
     user-select: none;
   }
   .track-info {
+    min-width: 0;
+    flex: 1;
     height: 46px;
     margin-left: 12px;
     display: flex;
