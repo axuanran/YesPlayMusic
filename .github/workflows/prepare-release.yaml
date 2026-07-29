@@ -24,10 +24,15 @@ jobs:
       - name: Validate release token
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          XR_OVERLAY_DEPLOY_KEY: ${{ secrets.XR_OVERLAY_DEPLOY_KEY }}
         shell: bash
         run: |
           if [[ -z "$RELEASE_TOKEN" ]]; then
             echo "Repository secret RELEASE_TOKEN is required." >&2
+            exit 1
+          fi
+          if [[ -z "$XR_OVERLAY_DEPLOY_KEY" ]]; then
+            echo "Repository secret XR_OVERLAY_DEPLOY_KEY is required." >&2
             exit 1
           fi
 
@@ -76,4 +81,5 @@ jobs:
             echo "- Tag: \`${RELEASE_TAG}\`"
             echo "- Commit: \`$(git rev-parse HEAD)\`"
             echo "- npm version: \`$(node -p "require('./package.json').version")\`"
+            echo "- Gentoo: Release CI will publish to \`axuanran/xr-overlay\`"
           } >> "$GITHUB_STEP_SUMMARY"

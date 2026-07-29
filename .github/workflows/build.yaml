@@ -453,7 +453,110 @@ jobs:
     name: publish Gentoo overlay
     needs: publish
     if: startsWith(needs.publish.outputs.tag, 'v') && needs.publish.outputs.mode != 'draft'
-    uses: ./.github/workflows/publish-gentoo.yaml
-    with:
-      release_version: ${{ needs.publish.outputs.release_version }}
-    secrets: inherit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out YesPlayMusic
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Check out xr-overlay
+        uses: actions/checkout@v4
+        with:
+          repository: axuanran/xr-overlay
+          ref: main
+          ssh-key: ${{ secrets.XR_OVERLAY_DEPLOY_KEY }}
+          path: overlay
+
+      - name: Resolve release assets
+        id: assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.publish.outputs.release_version }}
+        run: |
+          set -euo pipefail
+
+          release_json="$(
+            curl --fail --silent --show-error --location \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/v${RELEASE_VERSION}"
+          )"
+
+          resolve_asset() {
+            local preferred="$1"
+            local legacy="$2"
+            local resolved
+
+            resolved="$(
+              jq -r --arg preferred "$preferred" --arg legacy "$legacy" \
+                '[.assets[].name | select(. == $preferred or . == $legacy)][0] // empty' \
+                <<<"$release_json"
+            )"
+
+            if [[ -z "$resolved" ]]; then
+              echo "Neither $preferred nor $legacy exists in the release." >&2
+              exit 1
+            fi
+
+            printf '%s' "$resolved"
+          }
+
+          amd64_asset="$(
+            resolve_asset \
+              "YesPlayMusic-linux-${RELEASE_VERSION}-x64.tar.gz" \
+              "yesplaymusic-${RELEASE_VERSION}.tar.gz"
+          )"
+          arm64_asset="$(
+            resolve_asset \
+              "YesPlayMusic-linux-${RELEASE_VERSION}-arm64.tar.gz" \
+              "yesplaymusic-${RELEASE_VERSION}-arm64.tar.gz"
+          )"
+
+          echo "amd64=$amd64_asset" >> "$GITHUB_OUTPUT"
+          echo "arm64=$arm64_asset" >> "$GITHUB_OUTPUT"
+
+      - name: Generate ebuild and Manifest
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.publish.outputs.release_version }}
+          AMD64_ASSET: ${{ steps.assets.outputs.amd64 }}
+          ARM64_ASSET: ${{ steps.assets.outputs.arm64 }}
+        run: |
+          node source/scripts/prepare-gentoo-package.mjs \
+            "$RELEASE_VERSION" \
+            overlay \
+            "--amd64-asset=$AMD64_ASSET" \
+            "--arm64-asset=$ARM64_ASSET"
+
+          package_dir="overlay/media-sound/yesplaymusic-bin"
+          node source/scripts/generate-gentoo-manifest.mjs \
+            "$RELEASE_VERSION" \
+            "$package_dir" \
+            "$AMD64_ASSET" \
+            "$ARM64_ASSET"
+
+          ! grep -R '@[A-Z0-9_]\+@' "$package_dir"
+          bash -n "$package_dir"/*.ebuild
+
+      - name: Commit and push overlay
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.publish.outputs.release_version }}
+        run: |
+          set -euo pipefail
+          cd overlay
+
+          git config user.name "YesPlayMusic Release Bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git add media-sound/yesplaymusic-bin
+
+          if git diff --cached --quiet; then
+            echo "xr-overlay is already up to date."
+            exit 0
+          fi
+
+          git commit -m "media-sound/yesplaymusic-bin: add ${RELEASE_VERSION}"
+          git push origin HEAD:main

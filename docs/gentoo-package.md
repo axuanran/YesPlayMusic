@@ -58,17 +58,18 @@ emerge -av media-sound/yesplaymusic-bin
 
 ### GitHub Actions 自动发布
 
-Release 工作流在发布 tag 后会自动调用 `Publish Gentoo overlay`，生成包并
-推送到 `axuanran/xr-overlay` 的 `main` 分支。需要在 YesPlayMusic 仓库的
-Actions secrets 中配置：
+通过 Actions 运行 `Prepare Release` 并输入版本 Tag。它会更新版本并推送
+Tag，随后自动触发 `Release` CI；Release 发布资产后，会在同一条 CI 中生成
+Gentoo 包并推送到 `axuanran/xr-overlay` 的 `main` 分支。
+
+需要在 YesPlayMusic 仓库的 Actions secrets 中配置：
 
 - `XR_OVERLAY_DEPLOY_KEY`：为 `axuanran/xr-overlay` 创建且允许写入的 SSH
   deploy key 私钥。公钥添加到 overlay 的 Deploy keys，私钥添加到
   YesPlayMusic 的 Actions secrets；它只授予单个 overlay 仓库权限。
 
-已经存在的 Release 可以在 Actions 页面手动运行 `Publish Gentoo overlay`，
-输入不带 `v` 的版本号，例如 `0.1.1-alpha.6`。工作流会兼容新旧两种 Linux
-压缩包命名，并自动生成真实 `Manifest`。
+`Prepare Release` 会在创建 Tag 前检查这个 Secret，缺少配置时会立即失败。
+Release CI 会兼容新旧两种 Linux 压缩包命名，并自动生成真实 `Manifest`。
 
 ### 发布到 GURU（推荐）
 
