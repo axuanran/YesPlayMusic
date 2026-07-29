@@ -251,8 +251,6 @@ https://github.com/axuanran/YesPlayMusic/releases
 - tar.gz
 - snap
 - pacman
-- Gentoo：使用 `media-sound/yesplaymusic-bin`，维护与发布见
-  [Gentoo 打包文档](docs/gentoo-package.md)
 
 AppImage 下载后可能需要添加执行权限：
 
@@ -260,6 +258,44 @@ AppImage 下载后可能需要添加执行权限：
 chmod +x YesPlayMusic-*.AppImage
 ./YesPlayMusic-*.AppImage
 ```
+
+#### Arch Linux
+
+推荐通过 AUR 安装
+[yesplaymusic-axuanran-bin](https://aur.archlinux.org/packages/yesplaymusic-axuanran-bin)：
+
+```bash
+yay -S yesplaymusic-axuanran-bin
+```
+
+也可以使用 `paru`：
+
+```bash
+paru -S yesplaymusic-axuanran-bin
+```
+
+#### Gentoo
+
+通过项目维护的
+[xr-overlay](https://github.com/axuanran/xr-overlay)
+安装 `media-sound/yesplaymusic-bin`：
+
+```bash
+sudo eselect repository add xr-overlay git https://github.com/axuanran/xr-overlay.git
+sudo emaint sync -r xr-overlay
+```
+
+该软件包目前使用测试关键字。amd64 用户执行：
+
+```bash
+sudo mkdir -p /etc/portage/package.accept_keywords
+echo "media-sound/yesplaymusic-bin ~amd64" | \
+  sudo tee /etc/portage/package.accept_keywords/yesplaymusic
+sudo emerge -av media-sound/yesplaymusic-bin
+```
+
+arm64 用户将上述 `~amd64` 替换为 `~arm64`。ebuild 的维护与发布流程见
+[Gentoo 打包文档](docs/gentoo-package.md)。
 
 ### macOS
 
@@ -269,6 +305,9 @@ chmod +x YesPlayMusic-*.AppImage
 - Apple Silicon ARM64
 
 macOS 构建目前由 CI 自动生成，但测试覆盖程度可能低于 Windows 和 Linux。
+
+可能需要自签名
+
 
 ---
 
