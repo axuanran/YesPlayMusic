@@ -83,7 +83,7 @@ AUR: [yesplaymusic-axuanran-bin](https://aur.archlinux.org/packages/yesplaymusic
 
 `dev` 是项目的主要开发分支。
 
-推送到 `dev` 后，GitHub Actions 会自动生成 prerelease。开发版本包含最新功能，但未经完整稳定性验证。
+推送到 `dev` 后，GitHub Actions 会自动生成 prerelease。开发版本包含最新功能，但未经任何稳定性验证。
 
 建议普通用户使用正式 Release；需要测试新功能时再使用 prerelease。
 
@@ -101,7 +101,7 @@ AUR: [yesplaymusic-axuanran-bin](https://aur.archlinux.org/packages/yesplaymusic
 | Docker | Compose、GHCR 镜像 | 已测试 |
 | Web / PWA | Vite Web 应用 | 支持 |
 
-未充分测试的平台可能可以运行，但不保证不存在平台相关问题。
+未充分测试的平台可能可以运行，但不保证不存在平台相关问题。有问题提issue
 
 ---
 
