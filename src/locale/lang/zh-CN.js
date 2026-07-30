@@ -11,7 +11,7 @@ export default {
     streaming: '流媒体',
     podcast: '播客',
     search: '搜索',
-    github: 'GitHub 仓库',
+    github: 'Github 仓库',
   },
   home: {
     recommendPlaylist: '推荐歌单',
