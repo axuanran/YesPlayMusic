@@ -6,3 +6,5 @@ export const env = appEnv;
 export const platform = appPlatform;
 export const isElectron = env.IS_ELECTRON === true;
 export const isDevelopment = env.NODE_ENV === 'development';
+export const isDownloadEnabled =
+  isElectron && env.VUE_APP_ENABLE_DOWNLOAD === 'true';

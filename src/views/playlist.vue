@@ -219,7 +219,7 @@
         $t('contextMenu.searchInPlaylist')
       }}</div>
       <div
-        v-if="isElectron && playlist.trackIds.length > 0"
+        v-if="isDownloadEnabled && playlist.trackIds.length > 0"
         class="item"
         @click="openPlaylistDownload"
       >
@@ -253,7 +253,7 @@ import { getTrackDetail } from '@/api/track';
 import { isAccountLoggedIn } from '@/utils/auth';
 import nativeAlert from '@/utils/nativeAlert';
 import locale from '@/locale';
-import { isElectron } from '@/utils/env';
+import { isDownloadEnabled, isElectron } from '@/utils/env';
 
 import ButtonTwoTone from '@/components/ButtonTwoTone.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
@@ -395,6 +395,7 @@ export default {
       currentTrackVisible: false,
       currentTrackVisibilityObserver: null,
       isElectron,
+      isDownloadEnabled,
     };
   },
   computed: {

@@ -17,14 +17,14 @@
         $t('contextMenu.addToQueue')
       }}</div>
       <div
-        v-if="isElectron && type !== 'cloudDisk' && !isExternalMusic"
+        v-if="isDownloadEnabled && type !== 'cloudDisk' && !isExternalMusic"
         class="item"
         @click="openDownloadModal"
       >
         {{ $t('contextMenu.downloadTrack') }}
       </div>
       <div
-        v-if="isElectron && rightClickedArtworkUrl"
+        v-if="isDownloadEnabled && rightClickedArtworkUrl"
         class="item"
         @click="downloadArtwork"
       >
@@ -116,7 +116,7 @@ import { isAccountLoggedIn } from '@/utils/auth';
 import TrackListItem from '@/components/TrackListItem.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
 import locale from '@/locale';
-import { isElectron } from '@/utils/env';
+import { isDownloadEnabled } from '@/utils/env';
 
 export default {
   name: 'TrackList',
@@ -187,7 +187,7 @@ export default {
       },
       rightClickedTrackIndex: -1,
       listStyles: {},
-      isElectron,
+      isDownloadEnabled,
     };
   },
   computed: {

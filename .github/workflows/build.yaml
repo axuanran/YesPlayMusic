@@ -334,6 +334,21 @@ jobs:
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      - name: Validate R2 configuration
+        if: steps.mode.outputs.mode != 'artifact'
+        shell: bash
+        env:
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$R2_ACCOUNT_ID" || { echo "Missing repository variable: R2_ACCOUNT_ID" >&2; exit 1; }
+          test -n "$R2_BUCKET_NAME" || { echo "Missing repository variable: R2_BUCKET_NAME" >&2; exit 1; }
+          test -n "$R2_ACCESS_KEY_ID" || { echo "Missing repository secret: R2_ACCESS_KEY_ID" >&2; exit 1; }
+          test -n "$R2_SECRET_ACCESS_KEY" || { echo "Missing repository secret: R2_SECRET_ACCESS_KEY" >&2; exit 1; }
+
       - name: Publish GitHub Release
         if: steps.mode.outputs.mode != 'artifact'
         uses: softprops/action-gh-release@v2
@@ -352,6 +367,28 @@ jobs:
           overwrite_files: true
           fail_on_unmatched_files: true
           files: artifacts/*
+
+      - name: Upload release artifacts to R2
+        if: steps.mode.outputs.mode != 'artifact'
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          destination="s3://${R2_BUCKET_NAME}/releases/${RELEASE_TAG}/"
+
+          aws --version
+          aws s3 cp artifacts "$destination" \
+            --recursive \
+            --endpoint-url "$endpoint" \
+            --no-progress
+          echo "Uploaded release artifacts to: $destination"
 
   aur:
     name: publish AUR
