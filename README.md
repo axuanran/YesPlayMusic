@@ -67,8 +67,6 @@ AUR: [yesplaymusic-axuanran-bin](https://aur.archlinux.org/packages/yesplaymusic
 - 增强桌面歌词和系统媒体控制
 - 提供 Windows、Linux、macOS 与 Docker 构建
 
-> 项目仍处于 Alpha 开发阶段。开发分支可能出现功能变化或兼容性问题。
-
 ---
 
 ## 发布说明
