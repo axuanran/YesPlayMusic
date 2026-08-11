@@ -334,7 +334,7 @@ jobs:
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-      - name: Validate R2 configuration
+      - name: Validate R2 and Telegram configuration
         if: steps.mode.outputs.mode != 'artifact'
         shell: bash
         env:
@@ -342,12 +342,16 @@ jobs:
           R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           set -euo pipefail
           test -n "$R2_ACCOUNT_ID" || { echo "Missing repository variable: R2_ACCOUNT_ID" >&2; exit 1; }
           test -n "$R2_BUCKET_NAME" || { echo "Missing repository variable: R2_BUCKET_NAME" >&2; exit 1; }
           test -n "$R2_ACCESS_KEY_ID" || { echo "Missing repository secret: R2_ACCESS_KEY_ID" >&2; exit 1; }
           test -n "$R2_SECRET_ACCESS_KEY" || { echo "Missing repository secret: R2_SECRET_ACCESS_KEY" >&2; exit 1; }
+          test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing repository secret: TELEGRAM_BOT_TOKEN" >&2; exit 1; }
+          test -n "$TELEGRAM_CHAT_ID" || { echo "Missing repository secret: TELEGRAM_CHAT_ID" >&2; exit 1; }
 
       - name: Publish GitHub Release
         if: steps.mode.outputs.mode != 'artifact'
@@ -378,6 +382,7 @@ jobs:
           R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
           R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          R2_PUBLIC_BASE_URL: https://ypmdl.repo.oxiilo.com
         run: |
           set -euo pipefail
           endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
@@ -389,6 +394,53 @@ jobs:
             --endpoint-url "$endpoint" \
             --no-progress
           echo "Uploaded release artifacts to: $destination"
+
+          python - <<'PY' > r2-public-links.txt
+          import os
+          from pathlib import Path
+          from urllib.parse import quote
+
+          base_url = os.environ["R2_PUBLIC_BASE_URL"].rstrip("/")
+          release_tag = os.environ["RELEASE_TAG"]
+          for artifact in sorted(Path("artifacts").iterdir()):
+              if artifact.is_file():
+                  object_key = f"releases/{release_tag}/{artifact.name}"
+                  print(f"{base_url}/{quote(object_key, safe='/')}")
+          PY
+          test -s r2-public-links.txt || { echo "No R2 public links were generated" >&2; exit 1; }
+
+      - name: Send R2 public links to Telegram
+        if: steps.mode.outputs.mode != 'artifact'
+        shell: bash
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          send_message() {
+            curl --fail-with-body --silent --show-error \
+              --request POST \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "disable_web_page_preview=true" \
+              --data-urlencode "text=$1" \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              >/dev/null
+          }
+
+          header="YesPlayMusic ${RELEASE_TAG} 已上传至 R2"
+          message="$header"
+          while IFS= read -r link; do
+            candidate="${message}"$'\n'"${link}"
+            if (( ${#candidate} > 3900 )); then
+              send_message "$message"
+              message="${header}（续）"$'\n'"${link}"
+            else
+              message="$candidate"
+            fi
+          done < r2-public-links.txt
+          send_message "$message"
 
   aur:
     name: publish AUR

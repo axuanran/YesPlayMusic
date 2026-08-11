@@ -14,6 +14,18 @@ on:
         options:
           - normal
           - store
+  workflow_call:
+    inputs:
+      compression:
+        description: Installer compression
+        required: false
+        default: normal
+        type: string
+      checkout_ref:
+        description: Git ref to build
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: private-download-build-${{ github.ref }}
@@ -31,21 +43,26 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.checkout_ref || github.ref }}
           submodules: recursive
 
-      - name: Validate R2 configuration
+      - name: Validate R2 and Telegram configuration
         shell: bash
         env:
           R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
           R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           set -euo pipefail
           test -n "$R2_ACCOUNT_ID" || { echo "Missing repository variable: R2_ACCOUNT_ID" >&2; exit 1; }
           test -n "$R2_BUCKET_NAME" || { echo "Missing repository variable: R2_BUCKET_NAME" >&2; exit 1; }
           test -n "$R2_ACCESS_KEY_ID" || { echo "Missing repository secret: R2_ACCESS_KEY_ID" >&2; exit 1; }
           test -n "$R2_SECRET_ACCESS_KEY" || { echo "Missing repository secret: R2_SECRET_ACCESS_KEY" >&2; exit 1; }
+          test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing repository secret: TELEGRAM_BOT_TOKEN" >&2; exit 1; }
+          test -n "$TELEGRAM_CHAT_ID" || { echo "Missing repository secret: TELEGRAM_CHAT_ID" >&2; exit 1; }
 
       - name: Cache electron-builder
         uses: actions/cache@v4
@@ -100,6 +117,7 @@ jobs:
           EP_PRELEASE: true
 
       - name: Upload private installer to R2
+        id: upload_r2
         shell: bash
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -107,6 +125,7 @@ jobs:
           AWS_DEFAULT_REGION: auto
           R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
           R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
+          R2_PUBLIC_BASE_URL: https://ypmdl.repo.oxiilo.com
         run: |
           set -euo pipefail
 
@@ -116,8 +135,10 @@ jobs:
             exit 1
           }
 
-          branch="${GITHUB_REF_NAME//\//-}"
-          destination="s3://${R2_BUCKET_NAME}/private-download/${branch}/run-${GITHUB_RUN_NUMBER}/$(basename "$installer")"
+          source_ref="${{ inputs.checkout_ref || github.ref_name }}"
+          source_ref="${source_ref//\//-}"
+          object_key="private-download/${source_ref}/run-${GITHUB_RUN_NUMBER}/$(basename "$installer")"
+          destination="s3://${R2_BUCKET_NAME}/${object_key}"
           endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
           aws --version
@@ -125,3 +146,24 @@ jobs:
             --endpoint-url "$endpoint" \
             --no-progress
           echo "Uploaded to: $destination"
+
+          public_url=$(OBJECT_KEY="$object_key" python -c \
+            'import os; from urllib.parse import quote; print("{}/{}".format(os.environ["R2_PUBLIC_BASE_URL"].rstrip("/"), quote(os.environ["OBJECT_KEY"], safe="/")))')
+          echo "public_url=${public_url}" >> "$GITHUB_OUTPUT"
+
+      - name: Send R2 public link to Telegram
+        shell: bash
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PUBLIC_URL: ${{ steps.upload_r2.outputs.public_url }}
+        run: |
+          set -euo pipefail
+          message="YesPlayMusic 私有下载版已上传至 R2"$'\n'"${PUBLIC_URL}"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "disable_web_page_preview=true" \
+            --data-urlencode "text=${message}" \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            >/dev/null
