@@ -1,4 +1,5 @@
 import { normalizeShortcuts } from '@/utils/shortcuts';
+import { showMainWindow } from './showMainWindow.js';
 const { app, Menu } = require('electron');
 // import { autoUpdater } from "electron-updater"
 // const version = app.getVersion();
@@ -159,7 +160,7 @@ export function createMenu(win, store) {
                   if (current.checked === false) {
                     win.hide();
                   } else {
-                    win.show();
+                    showMainWindow(win);
                   }
                 },
               },
@@ -174,7 +175,9 @@ export function createMenu(win, store) {
           label: 'GitHub',
           click: async () => {
             const { shell } = require('electron');
-            await shell.openExternal('https://github.com/axuanran/YesPlayMusic');
+            await shell.openExternal(
+              'https://github.com/axuanran/YesPlayMusic'
+            );
           },
         },
         {

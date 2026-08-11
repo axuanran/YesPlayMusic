@@ -1,5 +1,6 @@
 import MprisPlayer from '@jellybrick/mpris-service';
 import { app, ipcMain } from 'electron';
+import { showMainWindow } from './showMainWindow.js';
 
 export const MPRIS_UPDATE_CHANNEL = 'mpris:update';
 export const MPRIS_COMMAND_CHANNEL = 'mpris:command';
@@ -145,10 +146,7 @@ export class MprisService {
   }
 
   raiseWindow() {
-    if (this.window?.isDestroyed?.()) return;
-    if (this.window?.isMinimized?.()) this.window.restore();
-    this.window?.show();
-    this.window?.focus();
+    showMainWindow(this.window);
   }
 
   getPositionSeconds() {

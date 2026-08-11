@@ -54,6 +54,7 @@ import {
   shouldUseWindowShadow,
   updateWindowShadow,
 } from '../electron/windowAppearance.js';
+import { showMainWindow } from '../electron/showMainWindow.js';
 import {
   createLocalMusicService,
   registerLocalMusicRoutes,
@@ -674,9 +675,6 @@ class Background {
         store: this.store,
       });
       this.desktopLyrics.applySettings(this.desktopLyrics.settings);
-      this.window.once('ready-to-show', () => {
-        this.window.show();
-      });
       this.handleWindowEvents();
 
       // create tray
@@ -738,7 +736,7 @@ class Background {
       if (this.window === null) {
         this.createWindow();
       } else {
-        this.window.show();
+        showMainWindow(this.window);
       }
     });
 
@@ -772,11 +770,7 @@ class Background {
     if (!isMac) {
       app.on('second-instance', () => {
         if (this.window) {
-          this.window.show();
-          if (this.window.isMinimized()) {
-            this.window.restore();
-          }
-          this.window.focus();
+          showMainWindow(this.window);
         }
       });
     }
