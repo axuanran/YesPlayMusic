@@ -6,7 +6,7 @@ const { app, Menu } = require('electron');
 
 const isMac = process.platform === 'darwin';
 
-export function createMenu(win, store) {
+export function createMenu(win, store, desktopLyrics) {
   const shortcuts = normalizeShortcuts(store.get('settings.shortcuts'));
   const accelerator = id => {
     const binding = shortcuts.find(shortcut => shortcut.id === id)?.local;
@@ -130,6 +130,12 @@ export function createMenu(win, store) {
           click: () => {
             win.webContents.send('shuffle');
           },
+        },
+        { type: 'separator' },
+        {
+          label: 'Lock/Unlock Desktop Lyrics',
+          accelerator: accelerator('toggleDesktopLyricsLocked'),
+          click: () => desktopLyrics?.toggleLocked(),
         },
       ],
     },

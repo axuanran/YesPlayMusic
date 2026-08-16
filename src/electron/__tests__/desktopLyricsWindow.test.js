@@ -62,6 +62,17 @@ const createController = (options = {}) =>
     ...options,
   });
 
+const disabledUnlockedStore = () => ({
+  get: () => ({
+    desktopLyrics: {
+      backgroundOpacity: 0.1,
+      enabled: false,
+      locked: false,
+      visible: false,
+    },
+  }),
+});
+
 describe('desktop lyrics window', () => {
   it('builds a renderer without executable page scripts', () => {
     const html = buildDesktopLyricsHtml();
@@ -77,7 +88,7 @@ describe('desktop lyrics window', () => {
   });
 
   it('creates an interactive unlocked window only when enabled', () => {
-    const controller = createController();
+    const controller = createController({ store: disabledUnlockedStore() });
 
     controller.update({ line: 'Hidden' });
     expect(controller.window).toBeNull();
@@ -97,7 +108,7 @@ describe('desktop lyrics window', () => {
   });
 
   it('renders the latest line after load and destroys the window on disable', () => {
-    const controller = createController();
+    const controller = createController({ store: disabledUnlockedStore() });
     controller.update({ line: 'Line', translation: 'Translation' });
     controller.setEnabled(true);
     const win = controller.window;
@@ -158,7 +169,7 @@ describe('desktop lyrics window', () => {
   });
 
   it('adjusts background opacity by wheel steps only while unlocked', () => {
-    const controller = createController();
+    const controller = createController({ store: disabledUnlockedStore() });
 
     controller.setEnabled(true);
     controller.handleCommand({
@@ -200,6 +211,7 @@ describe('desktop lyrics window', () => {
     let cursorPoint = { x: 100, y: 200 };
     const controller = createController({
       getCursorPoint: () => cursorPoint,
+      store: disabledUnlockedStore(),
     });
     controller.setEnabled(true);
     const win = controller.window;
@@ -227,7 +239,7 @@ describe('desktop lyrics window', () => {
   });
 
   it('adjusts opacity from native wheel input', () => {
-    const controller = createController();
+    const controller = createController({ store: disabledUnlockedStore() });
     controller.setEnabled(true);
 
     controller.handleWheelDelta(120);

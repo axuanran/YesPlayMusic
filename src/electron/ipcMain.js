@@ -19,6 +19,7 @@ import {
   getDiscordStatus,
   getDiscordProgressTimestamps,
 } from './discordPresence.js';
+import { createLazyDiscordRpcClient } from './discordRpcClient.js';
 import { clearSessionDiskCache } from './cache.js';
 import {
   beginTrackDownloadBatch,
@@ -95,7 +96,8 @@ const exitAskWithoutMac = (e, win) => {
     });
 };
 
-const client = require('discord-rich-presence')('818936529484906596');
+const createDiscordClient = clientId =>
+  require('discord-rich-presence')(clientId);
 
 const DISCORD_STATUS_CHANNEL = 'discord:status';
 let discordConnected = false;
@@ -117,19 +119,22 @@ const publishDiscordStatus = () => {
   );
 };
 
-client.on('connected', () => {
-  discordConnected = true;
-  publishDiscordStatus();
-  if (pendingDiscordPresence) {
-    updateDiscordPresence(pendingDiscordPresence);
-  }
-});
-
-client.on('error', err => {
-  discordConnected = false;
-  publishDiscordStatus();
-  const errorMessage = err instanceof Error ? err.message : `${err}`;
-  log(`discord rich presence unavailable: ${errorMessage}`);
+const discordRpcClient = createLazyDiscordRpcClient({
+  clientId: '818936529484906596',
+  createClient: createDiscordClient,
+  onConnected: () => {
+    discordConnected = true;
+    publishDiscordStatus();
+    if (pendingDiscordPresence) {
+      updateDiscordPresence(pendingDiscordPresence);
+    }
+  },
+  onError: err => {
+    discordConnected = false;
+    publishDiscordStatus();
+    const errorMessage = err instanceof Error ? err.message : `${err}`;
+    log(`discord rich presence unavailable: ${errorMessage}`);
+  },
 });
 
 const updateDiscordPresence = presence => {
@@ -140,6 +145,8 @@ const updateDiscordPresence = presence => {
     return false;
   }
   try {
+    const client = discordRpcClient.getClient();
+    if (!client) return false;
     client.updatePresence(presence);
     return true;
   } catch (err) {
@@ -147,6 +154,23 @@ const updateDiscordPresence = presence => {
     log(`discord rich presence unavailable: ${errorMessage}`);
     return false;
   }
+};
+
+const setDiscordPresenceEnabled = enabled => {
+  const nextEnabled = enabled === true;
+  if (discordPresenceEnabled === nextEnabled) {
+    publishDiscordStatus();
+    return;
+  }
+
+  discordPresenceEnabled = nextEnabled;
+  discordConnected = false;
+  if (discordPresenceEnabled) {
+    discordRpcClient.connect();
+  } else {
+    discordRpcClient.disconnect();
+  }
+  publishDiscordStatus();
 };
 
 const isRecord = value =>
@@ -187,8 +211,9 @@ export function initIpcMain(
   streamingService
 ) {
   discordStatusWindow = win;
-  discordPresenceEnabled =
-    store.get('settings.enableDiscordRichPresence') === true;
+  setDiscordPresenceEnabled(
+    store.get('settings.enableDiscordRichPresence') === true
+  );
   win.webContents.on('did-finish-load', publishDiscordStatus);
   ipcMain.handle('discord:get-status', () =>
     getDiscordStatus(discordConnected, discordPresenceEnabled)
@@ -594,8 +619,7 @@ export function initIpcMain(
     if (!isRecord(options)) return;
     store.set('settings', options);
     desktopLyrics?.applySettings(options.desktopLyrics, { persist: false });
-    discordPresenceEnabled = options.enableDiscordRichPresence === true;
-    publishDiscordStatus();
+    setDiscordPresenceEnabled(options.enableDiscordRichPresence === true);
     if (discordPresenceEnabled && pendingDiscordPresence) {
       updateDiscordPresence(pendingDiscordPresence);
     }
@@ -744,7 +768,7 @@ export function initIpcMain(
     }
     store.set('settings.shortcuts', currentShortcuts);
 
-    createMenu(win, store);
+    createMenu(win, store, desktopLyrics);
     registerGlobalShortcuts(win, store, desktopLyrics);
   });
 
@@ -752,7 +776,7 @@ export function initIpcMain(
     log('restoreDefaultShortcuts');
     store.set('settings.shortcuts', cloneDeep(shortcuts));
 
-    createMenu(win, store);
+    createMenu(win, store, desktopLyrics);
     registerGlobalShortcuts(win, store, desktopLyrics);
   });
 

@@ -145,6 +145,28 @@ describe('audio provider registry', () => {
     expect(resolve).toHaveBeenCalledTimes(2);
   });
 
+  it('discards cached results when their provider is disabled', async () => {
+    let enabled = true;
+    const resolve = vi
+      .fn()
+      .mockResolvedValue('https://example.test/resolver.mp3');
+    registry.registerAudioProvider({
+      id: 'resolver',
+      enabled: () => enabled,
+      resolve,
+    });
+
+    await expect(
+      registry.resolveTrackSourceWithProviders(1, 'standard')
+    ).resolves.toBe('https://example.test/resolver.mp3');
+    enabled = false;
+    await expect(
+      registry.resolveTrackSourceWithProviders(1, 'standard')
+    ).resolves.toBeNull();
+
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
   it('falls back after provider errors and stores error status', async () => {
     registry.registerAudioProvider({
       id: 'bad',

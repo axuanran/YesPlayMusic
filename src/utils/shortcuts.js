@@ -64,6 +64,12 @@ const defaultShortcuts = [
     local: createBinding('', false),
     global: createBinding('Alt+CommandOrControl+D', false),
   },
+  {
+    id: 'toggleDesktopLyricsLocked',
+    name: '锁定/解锁桌面歌词',
+    local: createBinding('CommandOrControl+Shift+D'),
+    global: createBinding('Alt+CommandOrControl+Shift+D'),
+  },
 ];
 
 const normalizeBinding = (binding, legacyAccelerator, fallback) => {

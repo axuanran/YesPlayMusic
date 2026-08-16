@@ -19,10 +19,16 @@ const mocks = vi.hoisted(() => {
 
   return {
     axiosCreate: vi.fn(() => service),
+    doLogout: vi.fn(),
     getCookieString: vi.fn(() => ''),
+    isResolverEnabled: vi.fn(() => false),
+    refreshCookie: vi.fn(),
     requestHandlers,
     responseHandlers,
     service,
+    setCookies: vi.fn(),
+    syncCookiesFromDocument: vi.fn(),
+    syncCookieToResolverWithRetry: vi.fn(),
   };
 });
 
@@ -45,14 +51,19 @@ vi.mock('@/store', () => ({
 }));
 
 vi.mock('@/api/auth', () => ({
-  refreshCookie: vi.fn(),
+  refreshCookie: mocks.refreshCookie,
+}));
+
+vi.mock('@/api/audioResolver', () => ({
+  isResolverEnabled: mocks.isResolverEnabled,
+  syncCookieToResolverWithRetry: mocks.syncCookieToResolverWithRetry,
 }));
 
 vi.mock('@/utils/auth', () => ({
-  doLogout: vi.fn(),
+  doLogout: mocks.doLogout,
   getCookieString: mocks.getCookieString,
-  setCookies: vi.fn(),
-  syncCookiesFromDocument: vi.fn(),
+  setCookies: mocks.setCookies,
+  syncCookiesFromDocument: mocks.syncCookiesFromDocument,
 }));
 
 vi.mock('@/utils/env', () => ({
@@ -71,6 +82,7 @@ async function loadRequestInterceptors() {
 
   return {
     request: mocks.requestHandlers[0],
+    responseSuccess: mocks.responseHandlers[0].successHandler,
     responseError: mocks.responseHandlers[0].errorHandler,
   };
 }
@@ -80,6 +92,9 @@ describe('request service', () => {
     vi.clearAllMocks();
     localStorage.clear();
     mocks.getCookieString.mockReturnValue('');
+    mocks.isResolverEnabled.mockReturnValue(false);
+    mocks.refreshCookie.mockResolvedValue({ code: 200 });
+    mocks.syncCookieToResolverWithRetry.mockResolvedValue(true);
   });
 
   it('does not throw when settings are missing', async () => {
@@ -132,5 +147,54 @@ describe('request service', () => {
         },
       })
     ).rejects.toBe(data);
+  });
+
+  it('syncs refreshed cookies to an enabled resolver before retrying', async () => {
+    mocks.getCookieString.mockReturnValue('MUSIC_U=fresh; __csrf=token');
+    mocks.isResolverEnabled.mockReturnValue(true);
+    mocks.refreshCookie.mockResolvedValue({
+      code: 200,
+      cookie: 'MUSIC_U=fresh; __csrf=token',
+    });
+    const { responseSuccess } = await loadRequestInterceptors();
+
+    await responseSuccess({
+      data: { code: 301, msg: '需要登录' },
+      config: { url: '/playlist/detail' },
+    });
+
+    expect(mocks.syncCookiesFromDocument).toHaveBeenCalledTimes(1);
+    expect(mocks.syncCookieToResolverWithRetry).toHaveBeenCalledWith(
+      'MUSIC_U=fresh; __csrf=token',
+      {
+        timeoutMs: 8000,
+        intervalMs: 1000,
+      }
+    );
+    expect(mocks.service).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _retried: true,
+        params: expect.objectContaining({
+          cookie: 'MUSIC_U=fresh; __csrf=token',
+        }),
+      })
+    );
+  });
+
+  it('keeps a successful refresh when resolver cookie sync fails', async () => {
+    mocks.getCookieString.mockReturnValue('MUSIC_U=fresh');
+    mocks.isResolverEnabled.mockReturnValue(true);
+    mocks.syncCookieToResolverWithRetry.mockRejectedValue(
+      new Error('resolver unavailable')
+    );
+    const { responseSuccess } = await loadRequestInterceptors();
+
+    await responseSuccess({
+      data: { code: 301, msg: '需要登录' },
+      config: { url: '/playlist/detail' },
+    });
+
+    expect(mocks.doLogout).not.toHaveBeenCalled();
+    expect(mocks.service).toHaveBeenCalledTimes(1);
   });
 });

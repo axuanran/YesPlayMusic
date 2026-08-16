@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  applyPluginSettingLinks,
   getPluginEnabled,
   getPluginSettings,
   getSetting,
@@ -73,6 +74,58 @@ describe('plugin settings', () => {
     expect(commit).toHaveBeenCalledWith('updateSettings', {
       key: 'plugins',
       value: plugins,
+    });
+  });
+
+  it('turns off audio resolver when Resolver Admin is disabled', () => {
+    const commit = vi.fn();
+    const store = {
+      state: {
+        settings: {
+          useAudioResolver: true,
+          plugins: {},
+        },
+      },
+      commit,
+    };
+
+    setPluginEnabled(store, 'resolver-admin', false);
+
+    expect(commit).toHaveBeenNthCalledWith(1, 'updateSettings', {
+      key: 'useAudioResolver',
+      value: false,
+    });
+    expect(commit).toHaveBeenNthCalledWith(2, 'updateSettings', {
+      key: 'plugins',
+      value: {
+        'resolver-admin': { enabled: false },
+      },
+    });
+  });
+
+  it('keeps a disabled Resolver Admin linked during settings migration', () => {
+    expect(
+      applyPluginSettingLinks({
+        useAudioResolver: true,
+        plugins: {
+          'resolver-admin': { enabled: false },
+        },
+      })
+    ).toMatchObject({
+      useAudioResolver: false,
+    });
+  });
+
+  it('does not force audio resolver on when Resolver Admin is enabled', () => {
+    expect(
+      applyPluginSettingLinks({
+        useAudioResolver: false,
+        plugins: {
+          'resolver-admin': { enabled: true },
+        },
+      })
+    ).toMatchObject({
+      useAudioResolver: false,
     });
   });
 });

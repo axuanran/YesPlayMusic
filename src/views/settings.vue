@@ -94,6 +94,9 @@
           <div class="title">
             {{ $t('settings.MusicGenrePreference.text') }}
           </div>
+          <div class="description">
+            {{ $t('settings.MusicGenrePreference.description') }}
+          </div>
         </div>
         <div class="right">
           <select v-model="musicLanguage">
@@ -1333,7 +1336,7 @@ export default {
         });
       },
     },
-    desktopLyricsLocked: desktopLyricsSetting('locked', false),
+    desktopLyricsLocked: desktopLyricsSetting('locked', true),
     desktopLyricsAlwaysOnTop: desktopLyricsSetting('alwaysOnTop', true),
     desktopLyricsShowSecondary: desktopLyricsSetting('showSecondary', true),
     desktopLyricsFontSize: desktopLyricsSetting('fontSize', 32),
@@ -1349,7 +1352,7 @@ export default {
     desktopLyricsTextAlign: desktopLyricsSetting('textAlign', 'center'),
     desktopLyricsBackgroundOpacity: desktopLyricsSetting(
       'backgroundOpacity',
-      0.1
+      0
     ),
     closeAppOption: setting('closeAppOption'),
     enableDiscordRichPresence: setting('enableDiscordRichPresence'),
@@ -1370,7 +1373,7 @@ export default {
         }
       },
     },
-    enableGlobalShortcut: setting('enableGlobalShortcut'),
+    enableGlobalShortcut: setting('enableGlobalShortcut', false),
     showLibraryDefault: setting('showLibraryDefault', false),
     cacheLimit: {
       get() {

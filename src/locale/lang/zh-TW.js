@@ -195,6 +195,8 @@ export default {
     pause: '暫停',
     playbackRate: '播放速度',
     mute: '靜音',
+    lockDesktopLyrics: '鎖定桌面歌詞',
+    unlockDesktopLyrics: '解鎖桌面歌詞',
     progress: '播放進度',
     nextUp: '播放清單',
     translationLyric: '歌詞(譯)',
@@ -227,6 +229,7 @@ export default {
     customization: '自訂',
     MusicGenrePreference: {
       text: '音樂語種偏好',
+      description: '用於篩選首頁的新專輯與推薦歌手，不影響搜尋及本機音樂。',
       none: '無偏好',
       mandarin: '華語',
       western: '歐美',

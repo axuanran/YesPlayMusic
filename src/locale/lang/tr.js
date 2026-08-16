@@ -201,6 +201,8 @@ export default {
     pause: 'Durdur',
     playbackRate: 'Oynatma hızı',
     mute: 'Sesi kapat',
+    lockDesktopLyrics: 'Masaüstü şarkı sözlerini kilitle',
+    unlockDesktopLyrics: 'Masaüstü şarkı sözlerinin kilidini aç',
     progress: 'Oynatma ilerlemesi',
     nextUp: 'Sıradaki',
     translationLyric: 'şarkı sözleri (çeviri)',
@@ -233,6 +235,8 @@ export default {
     customization: 'Özelleştirme',
     MusicGenrePreference: {
       text: 'Müzik Dili Tercihi',
+      description:
+        'Ana sayfadaki yeni albümleri ve önerilen sanatçıları filtreler; arama ve yerel müzik etkilenmez.',
       none: 'Tercih yok',
       mandarin: 'Çince dili',
       western: 'Avrupa ve Amerika',

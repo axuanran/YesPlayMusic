@@ -2,11 +2,12 @@ import initLocalStorage from '@/store/initLocalStorage.js';
 import { isElectron } from '@/utils/env';
 import { normalizeShortcuts } from '@/utils/shortcuts';
 import { normalizeDesktopLyricsSettings } from '@/utils/desktopLyricsSettings';
+import { applyPluginSettingLinks } from '@/plugins/settings';
 import pkg from '../../package.json';
 
 const updateSetting = () => {
   const parsedSettings = JSON.parse(localStorage.getItem('settings'));
-  const settings = {
+  let settings = {
     ...initLocalStorage.settings,
     ...parsedSettings,
   };
@@ -39,6 +40,7 @@ const updateSetting = () => {
     settings.lyricsBackground = true;
   }
 
+  settings = applyPluginSettingLinks(settings);
   localStorage.setItem('settings', JSON.stringify(settings));
 };
 

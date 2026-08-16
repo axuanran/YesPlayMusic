@@ -6,6 +6,18 @@ function readSettingsFromStorage() {
   }
 }
 
+const RESOLVER_ADMIN_PLUGIN_ID = 'resolver-admin';
+
+export function applyPluginSettingLinks(settings = {}) {
+  if (settings.plugins?.[RESOLVER_ADMIN_PLUGIN_ID]?.enabled !== false) {
+    return settings;
+  }
+  return {
+    ...settings,
+    useAudioResolver: false,
+  };
+}
+
 export function getSetting(store, key, fallbackValue) {
   const value = store?.state?.settings?.[key];
   return value === undefined ? fallbackValue : value;
@@ -41,6 +53,9 @@ export function setPluginEnabled(store, pluginId, enabled) {
     },
   };
 
+  if (pluginId === RESOLVER_ADMIN_PLUGIN_ID && enabled === false) {
+    setSetting(store, 'useAudioResolver', false);
+  }
   setSetting(store, 'plugins', plugins);
   return plugins;
 }

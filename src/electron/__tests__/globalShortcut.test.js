@@ -49,7 +49,8 @@ describe('global shortcut registration', () => {
 
   it('registers enabled shortcuts from the normalized schema', () => {
     const win = createWindow();
-    const results = registerGlobalShortcuts(win, createStore());
+    const desktopLyrics = { toggleLocked: vi.fn() };
+    const results = registerGlobalShortcuts(win, createStore(), desktopLyrics);
     const enabledGlobalCount = defaultShortcuts.filter(
       shortcut => shortcut.global.enabled
     ).length;
@@ -66,6 +67,12 @@ describe('global shortcut registration', () => {
     )[1];
     likeHandler();
     expect(win.webContents.send).toHaveBeenCalledWith('like');
+
+    const lockHandler = mocks.globalShortcut.register.mock.calls.find(
+      ([accelerator]) => accelerator === 'Alt+CommandOrControl+Shift+D'
+    )[1];
+    lockHandler();
+    expect(desktopLyrics.toggleLocked).toHaveBeenCalledOnce();
   });
 
   it('skips one disabled shortcut without affecting the others', () => {
@@ -90,6 +97,16 @@ describe('global shortcut registration', () => {
     expect(results).toEqual([]);
     expect(mocks.globalShortcut.register).not.toHaveBeenCalled();
     expect(mocks.globalShortcut.unregisterAll).toHaveBeenCalledOnce();
+  });
+
+  it('keeps global shortcuts off when the master switch is missing', () => {
+    const results = registerGlobalShortcuts(
+      createWindow(),
+      createStore({ 'settings.enableGlobalShortcut': undefined })
+    );
+
+    expect(results).toEqual([]);
+    expect(mocks.globalShortcut.register).not.toHaveBeenCalled();
   });
 
   it('reports an unavailable accelerator without throwing', () => {

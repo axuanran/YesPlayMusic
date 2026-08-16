@@ -203,6 +203,8 @@ export default {
     pause: 'Pause',
     playbackRate: 'Playback speed',
     mute: 'Mute',
+    lockDesktopLyrics: 'Lock desktop lyrics',
+    unlockDesktopLyrics: 'Unlock desktop lyrics',
     progress: 'Playback progress',
     nextUp: 'Next Up',
     translationLyric: 'Translation',
@@ -235,6 +237,8 @@ export default {
     customization: 'Customization',
     MusicGenrePreference: {
       text: 'Music Language Preference',
+      description:
+        'Filters new albums and recommended artists on Home; search and local music are unaffected.',
       none: 'No preferences',
       mandarin: 'Mandarin',
       western: 'Europe & America',

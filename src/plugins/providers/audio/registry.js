@@ -77,13 +77,19 @@ export function createAudioProviderRegistry({
       sourceCache.delete(cacheKey);
       return null;
     }
+    const provider = audioProviders.get(cached.providerId);
+    if (!provider || provider.enabled?.() === false) {
+      sourceCache.delete(cacheKey);
+      return null;
+    }
     return cached.playUrl;
   }
 
-  function setCachedSource(cacheKey, playUrl) {
+  function setCachedSource(cacheKey, playUrl, providerId) {
     if (!cacheKey || !playUrl || cacheTtl <= 0) return;
     sourceCache.set(cacheKey, {
       playUrl,
+      providerId,
       expiresAt: now() + cacheTtl,
     });
   }
@@ -164,7 +170,7 @@ export function createAudioProviderRegistry({
           quality,
           providerId: provider.id,
         });
-        setCachedSource(cacheKey, normalizedResult.playUrl);
+        setCachedSource(cacheKey, normalizedResult.playUrl, provider.id);
         return normalizedResult.playUrl;
       } catch (error) {
         const message = error?.message || String(error);

@@ -8,6 +8,10 @@ describe('shortcut normalization', () => {
   it('provides enabled local and global bindings by default', () => {
     const shortcuts = normalizeShortcuts();
     const like = getShortcut(shortcuts, 'like');
+    const desktopLyricsLock = getShortcut(
+      shortcuts,
+      'toggleDesktopLyricsLocked'
+    );
 
     expect(shortcuts).toHaveLength(defaultShortcuts.length);
     expect(like).toMatchObject({
@@ -17,6 +21,16 @@ describe('shortcut normalization', () => {
       },
       local: {
         accelerator: 'CommandOrControl+L',
+        enabled: true,
+      },
+    });
+    expect(desktopLyricsLock).toMatchObject({
+      global: {
+        accelerator: 'Alt+CommandOrControl+Shift+D',
+        enabled: true,
+      },
+      local: {
+        accelerator: 'CommandOrControl+Shift+D',
         enabled: true,
       },
     });

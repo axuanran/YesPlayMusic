@@ -1,7 +1,7 @@
 export const DEFAULT_DESKTOP_LYRICS_SETTINGS = Object.freeze({
-  enabled: false,
-  visible: false,
-  locked: false,
+  enabled: true,
+  visible: true,
+  locked: true,
   alwaysOnTop: true,
   showSecondary: true,
   fontSize: 32,
@@ -9,7 +9,7 @@ export const DEFAULT_DESKTOP_LYRICS_SETTINGS = Object.freeze({
   textAlign: 'center',
   textColor: '#ffffff',
   secondaryColor: '#d6e0ff',
-  backgroundOpacity: 0.1,
+  backgroundOpacity: 0,
   width: 960,
   height: 120,
   x: null,
@@ -40,7 +40,9 @@ export function normalizeDesktopLyricsSettings(value = {}, legacyEnabled) {
   const enabled =
     typeof source.enabled === 'boolean'
       ? source.enabled
-      : legacyEnabled === true;
+      : typeof legacyEnabled === 'boolean'
+        ? legacyEnabled
+        : defaults.enabled;
 
   return {
     enabled,

@@ -6,10 +6,12 @@ import {
 } from '../desktopLyricsSettings.js';
 
 describe('desktop lyrics settings', () => {
-  it('starts unlocked with a slightly opaque background', () => {
+  it('starts enabled, locked, and fully transparent', () => {
     expect(normalizeDesktopLyricsSettings()).toMatchObject({
-      backgroundOpacity: 0.1,
-      locked: false,
+      backgroundOpacity: 0,
+      enabled: true,
+      locked: true,
+      visible: true,
     });
   });
 

@@ -17,6 +17,7 @@ const createHandlers = (win, desktopLyrics) => ({
   repeat: () => win.webContents.send('repeat'),
   shuffle: () => win.webContents.send('shuffle'),
   toggleDesktopLyrics: () => desktopLyrics?.toggle(),
+  toggleDesktopLyricsLocked: () => desktopLyrics?.toggleLocked(),
   minimize: () => {
     if (win.isVisible()) {
       win.hide();
@@ -29,7 +30,7 @@ const createHandlers = (win, desktopLyrics) => ({
 export function registerGlobalShortcuts(win, store, desktopLyrics) {
   globalShortcut.unregisterAll();
 
-  if (store.get('settings.enableGlobalShortcut') === false) {
+  if (store.get('settings.enableGlobalShortcut') !== true) {
     log('global shortcuts disabled');
     return [];
   }

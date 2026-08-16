@@ -6,6 +6,10 @@ import {
   syncCookiesFromDocument,
 } from '@/utils/auth';
 import { refreshCookie } from '@/api/auth';
+import {
+  isResolverEnabled,
+  syncCookieToResolverWithRetry,
+} from '@/api/audioResolver';
 import { env } from '@/utils/env';
 import store from '@/store';
 import axios from 'axios';
@@ -54,6 +58,22 @@ function runTokenRefresh() {
         setCookies(result.cookie);
       }
       syncCookiesFromDocument();
+      if (isResolverEnabled()) {
+        const cookie = getCookieString();
+        if (cookie) {
+          try {
+            await syncCookieToResolverWithRetry(cookie, {
+              timeoutMs: 8000,
+              intervalMs: 1000,
+            });
+          } catch (error) {
+            console.warn(
+              '[refresh] Failed to sync refreshed cookie to resolver',
+              error
+            );
+          }
+        }
+      }
       console.log('[refresh] Token refreshed successfully');
     } catch (error) {
       console.warn('[refresh] Token refresh failed, logging out', error);

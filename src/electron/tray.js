@@ -111,12 +111,9 @@ function createMenuTemplate(win, store, desktopLyrics) {
           click: () => desktopLyrics?.toggle(),
         },
         {
-          label: '解锁桌面歌词',
-          click: () => desktopLyrics?.setLocked(false),
-        },
-        {
-          label: '锁定桌面歌词',
-          click: () => desktopLyrics?.setLocked(true),
+          label: '锁定/解锁桌面歌词',
+          accelerator: accelerator('toggleDesktopLyricsLocked'),
+          click: () => desktopLyrics?.toggleLocked(),
         },
       ],
     },

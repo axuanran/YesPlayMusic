@@ -199,6 +199,8 @@ export default {
     pause: '暂停',
     playbackRate: '播放倍速',
     mute: '静音',
+    lockDesktopLyrics: '锁定桌面歌词',
+    unlockDesktopLyrics: '解锁桌面歌词',
     progress: '播放进度',
     nextUp: '播放列表',
     translationLyric: '歌词(译)',
@@ -231,6 +233,7 @@ export default {
     customization: '自定义',
     MusicGenrePreference: {
       text: '音乐语种偏好',
+      description: '用于筛选首页的新专辑和推荐歌手，不影响搜索及本地音乐。',
       none: '无偏好',
       mandarin: '华语',
       western: '欧美',

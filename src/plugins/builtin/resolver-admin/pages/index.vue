@@ -61,7 +61,7 @@ const setting = (key, defaultValue) => ({
 
 const resolverEnabledSetting = {
   get() {
-    return this.settings.useAudioResolver ?? false;
+    return this.settings.useAudioResolver ?? true;
   },
   set(value) {
     const wasEnabled = this.settings.useAudioResolver === true;
@@ -153,6 +153,10 @@ export default {
     },
     async syncFrontendCookieToResolver() {
       try {
+        if (!this.useAudioResolver) {
+          this.showToast('请先启用音频解析');
+          return;
+        }
         const cookie = getCookieString();
         if (!cookie) {
           this.showToast('前端没有可同步的 Cookie');

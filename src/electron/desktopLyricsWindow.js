@@ -39,7 +39,7 @@ export function buildDesktopLyricsHtml() {
         --lyrics-text-color: #fff;
         --lyrics-secondary-color: #d6e0ff;
         --lyrics-text-align: center;
-        --lyrics-background-opacity: 0.1;
+        --lyrics-background-opacity: 0;
       }
       * { box-sizing: border-box; }
       html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
@@ -167,7 +167,7 @@ export function buildDesktopLyricsHtml() {
       }
     </style>
   </head>
-  <body>
+  <body class="is-locked">
     <div id="lyrics">
       <div id="line"></div>
       <div id="translation"></div>
@@ -288,6 +288,10 @@ export class DesktopLyricsWindow {
   setLocked(locked) {
     if (locked === true) this.endResize();
     this.patchSettings({ locked: locked === true });
+  }
+
+  toggleLocked() {
+    this.setLocked(!this.settings.locked);
   }
 
   resetPosition() {

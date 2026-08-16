@@ -121,13 +121,14 @@ export async function updateResolverConfig(config) {
  * Sync cookie to resolver backend for persistence.
  * Called after successful login so resolver can use the cookie for API requests.
  * @param {string} cookie - The cookie string to sync
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} Whether the cookie was synced
  */
 export async function syncCookieToResolver(cookie) {
-  if (!cookie) return;
+  if (!cookie || !isResolverEnabled()) return false;
   const client = getResolverClient();
   await client.post('/api/admin/cookie', { cookie });
   console.log('[resolver] Cookie synced to backend');
+  return true;
 }
 
 /**
@@ -135,10 +136,10 @@ export async function syncCookieToResolver(cookie) {
  * Useful when the backend starts slower than the renderer.
  * @param {string} cookie
  * @param {{ timeoutMs?: number, intervalMs?: number, onAttempt?: (attempt:number, error?:Error) => void }} [options]
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} Whether the cookie was synced
  */
 export async function syncCookieToResolverWithRetry(cookie, options = {}) {
-  if (!cookie) return;
+  if (!cookie || !isResolverEnabled()) return false;
   const timeoutMs = options.timeoutMs ?? 30000;
   const intervalMs = options.intervalMs ?? 1000;
   const deadline = Date.now() + timeoutMs;
@@ -146,12 +147,12 @@ export async function syncCookieToResolverWithRetry(cookie, options = {}) {
   let lastError;
 
   while (Date.now() <= deadline) {
+    if (!isResolverEnabled()) return false;
     attempt += 1;
     try {
       const client = getResolverClient();
       await client.get('/api/admin/cookie');
-      await syncCookieToResolver(cookie);
-      return;
+      return await syncCookieToResolver(cookie);
     } catch (error) {
       lastError = error;
       options.onAttempt?.(attempt, error);

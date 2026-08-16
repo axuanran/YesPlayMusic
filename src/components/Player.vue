@@ -226,6 +226,21 @@
             <svg-icon icon-class="desktop-lyrics" />
           </button-icon>
           <button-icon
+            v-if="isElectron && desktopLyricsEnabled"
+            :aria-pressed="desktopLyricsLocked"
+            :class="{ active: desktopLyricsLocked }"
+            :title="
+              $t(
+                desktopLyricsLocked
+                  ? 'player.unlockDesktopLyrics'
+                  : 'player.lockDesktopLyrics'
+              )
+            "
+            @click="toggleDesktopLyricsLocked"
+          >
+            <svg-icon :icon-class="desktopLyricsLocked ? 'lock' : 'unlock'" />
+          </button-icon>
+          <button-icon
             class="lyrics-button"
             title="歌词"
             style="margin-left: 12px"
@@ -335,6 +350,15 @@ export default {
       const value = this.settings.desktopLyrics;
       return value?.enabled === true && value?.visible === true;
     },
+    desktopLyricsEnabled() {
+      const enabled = this.settings.desktopLyrics?.enabled;
+      return typeof enabled === 'boolean'
+        ? enabled
+        : this.settings.enableDesktopLyrics === true;
+    },
+    desktopLyricsLocked() {
+      return this.settings.desktopLyrics?.locked === true;
+    },
     showDiscordStatus() {
       return (
         this.isElectron && this.settings.enableDiscordRichPresence === true
@@ -424,6 +448,11 @@ export default {
     },
     toggleDesktopLyrics() {
       window.electronAPI?.desktopLyrics?.toggle();
+    },
+    toggleDesktopLyricsLocked() {
+      window.electronAPI?.desktopLyrics?.updateSettings({
+        locked: !this.desktopLyricsLocked,
+      });
     },
     updateDiscordStatus(status) {
       this.discordConnected =

@@ -715,7 +715,7 @@ class Background {
       this.checkForUpdates();
 
       // create menu
-      createMenu(this.window, this.store);
+      createMenu(this.window, this.store, this.desktopLyrics);
 
       // create dock menu for macOS
       const createdDockMenu = createDockMenu(this.window);
@@ -726,7 +726,7 @@ class Background {
       if (createdTouchBar) this.window.setTouchBar(createdTouchBar);
 
       // register global shortcuts
-      if (this.store.get('settings.enableGlobalShortcut') !== false) {
+      if (this.store.get('settings.enableGlobalShortcut') === true) {
         registerGlobalShortcuts(this.window, this.store, this.desktopLyrics);
       }
     });
