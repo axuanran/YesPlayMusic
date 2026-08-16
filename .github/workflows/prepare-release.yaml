@@ -19,8 +19,6 @@ jobs:
   prepare:
     name: update version and push tag
     runs-on: ubuntu-latest
-    outputs:
-      release_tag: ${{ steps.release.outputs.release_tag }}
 
     steps:
       - name: Validate release token
@@ -46,7 +44,6 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Update package version and push tag
-        id: release
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
         shell: bash
@@ -77,7 +74,6 @@ jobs:
 
           git tag -a "$RELEASE_TAG" -m "Release ${RELEASE_TAG}"
           git push origin "refs/tags/${RELEASE_TAG}"
-          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
 
           {
             echo "## Release prepared"
@@ -87,12 +83,3 @@ jobs:
             echo "- npm version: \`$(node -p "require('./package.json').version")\`"
             echo "- Gentoo: Release CI will publish to \`axuanran/xr-overlay\`"
           } >> "$GITHUB_STEP_SUMMARY"
-
-  private-download:
-    name: build private download edition
-    needs: prepare
-    uses: ./.github/workflows/private-download-build.yaml
-    with:
-      compression: normal
-      checkout_ref: ${{ needs.prepare.outputs.release_tag }}
-    secrets: inherit
