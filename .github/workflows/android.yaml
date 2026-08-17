@@ -8,20 +8,13 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-    branches:
-      - dev
-    paths:
-      - '.github/workflows/android.yaml'
-      - 'android/**'
-      - 'assets/**'
-      - 'src/**'
-      - 'public/**'
-      - 'package.json'
-      - 'yarn.lock'
-      - 'vite.config.mjs'
-      - 'capacitor.config.json'
-      - 'index.html'
+  workflow_call:
+    inputs:
+      publish-artifact:
+        description: Upload the versioned APK for the caller's release job
+        required: false
+        default: false
+        type: boolean
   pull_request:
     branches:
       - dev
@@ -54,6 +47,22 @@ jobs:
           install-native-deps: 'false'
           verify-rollup: 'true'
 
+      - name: Resolve Android release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version_input="${GITHUB_REF_NAME}"
+          else
+            version_input="$(node -p "require('./package.json').releaseVersion || require('./package.json').version")"
+          fi
+
+          node scripts/prepare-release-version.mjs \
+            "$version_input" \
+            --github-output
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -75,22 +84,44 @@ jobs:
 
       - name: Test, lint and build debug APK
         working-directory: android
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace --no-daemon
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
+          RELEASE_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          ./gradlew testDebugUnitTest lintDebug assembleDebug \
+            "-PreleaseVersionName=${RELEASE_VERSION}" \
+            "-PreleaseVersionCode=${RELEASE_VERSION_CODE}" \
+            --stacktrace \
+            --no-daemon
 
       - name: Upload Android reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: YesPlayMusic-android-reports
+          name: Android-build-reports
           path: |
             android/app/build/reports/tests/testDebugUnitTest/
             android/app/build/reports/lint-results-debug.html
             android/app/build/reports/lint-results-debug.xml
           if-no-files-found: ignore
 
-      - name: Upload debug APK
+      - name: Collect versioned Android APK
+        if: inputs.publish-artifact
+        shell: bash
+        env:
+          ANDROID_ASSET: ${{ steps.version.outputs.android_asset }}
+        run: |
+          set -euo pipefail
+          mkdir -p release_android
+          install -m 644 \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            "release_android/${ANDROID_ASSET}"
+          test -f "release_android/${ANDROID_ASSET}"
+
+      - name: Upload Android release artifact
+        if: inputs.publish-artifact
         uses: actions/upload-artifact@v4
         with:
-          name: YesPlayMusic-android-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: YesPlayMusic-android
+          path: release_android/*
           if-no-files-found: error

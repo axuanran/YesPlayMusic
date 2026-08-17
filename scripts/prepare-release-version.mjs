@@ -33,6 +33,7 @@ const appVersion = inputVersion;
 const aurPkgver = inputVersion.replace('-', '_');
 const isPrerelease = inputVersion.includes('-');
 const pacmanAsset = `YesPlayMusic-${releaseVersion}.pacman`;
+const androidAsset = `YesPlayMusic-android-${releaseVersion}-debug.apk`;
 
 if (writePackage) {
   const packagePath = path.resolve('package.json');
@@ -48,6 +49,7 @@ const outputs = {
   aur_pkgver: aurPkgver,
   is_prerelease: String(isPrerelease),
   pacman_asset: pacmanAsset,
+  android_asset: androidAsset,
 };
 
 if (emitGitHubOutput) {

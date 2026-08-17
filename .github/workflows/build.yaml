@@ -208,9 +208,18 @@ jobs:
             dist_electron/latest*.yml
           if-no-files-found: error
 
+  android:
+    name: build (android)
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name != 'push' || !contains(github.event.head_commit.message, '[release]')
+    uses: ./.github/workflows/android.yaml
+    with:
+      publish-artifact: true
+
   publish:
     name: publish release
-    needs: build
+    needs:
+      - build
+      - android
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     outputs:
@@ -263,6 +272,7 @@ jobs:
           APP_VERSION: ${{ steps.version.outputs.app_version }}
           RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
           EXPECTED_PACMAN_ASSET: ${{ steps.version.outputs.pacman_asset }}
+          EXPECTED_ANDROID_ASSET: ${{ steps.version.outputs.android_asset }}
         run: |
           set -euo pipefail
 
@@ -289,6 +299,23 @@ jobs:
           if [[ "${pacman_files[0]}" != "$expected_path" ]]; then
             echo "Unexpected Pacman asset: ${pacman_files[0]}" >&2
             echo "Expected: $expected_path" >&2
+            exit 1
+          fi
+
+          mapfile -t android_files < <(
+            find artifacts -maxdepth 1 -type f -name '*.apk' -print
+          )
+
+          if [[ "${#android_files[@]}" -ne 1 ]]; then
+            echo "Expected exactly one Android APK, found ${#android_files[@]}" >&2
+            printf '%s\n' "${android_files[@]}"
+            exit 1
+          fi
+
+          expected_android_path="artifacts/${EXPECTED_ANDROID_ASSET}"
+          if [[ "${android_files[0]}" != "$expected_android_path" ]]; then
+            echo "Unexpected Android APK: ${android_files[0]}" >&2
+            echo "Expected: $expected_android_path" >&2
             exit 1
           fi
 
