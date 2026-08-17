@@ -125,8 +125,7 @@ public final class PlaybackService extends MediaSessionService {
                                     .add(NEXT_COMMAND)
                                     .build();
                             return new MediaSession.ConnectionResult.AcceptedResultBuilder(
-                                session,
-                                controller
+                                session
                             )
                                 .setAvailableSessionCommands(commands)
                                 .build();
