@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">YesPlayMusic</string>
+    <string name="title_activity_main">YesPlayMusic</string>
+    <string name="package_name">com.axuanran.yesplaymusic</string>
+    <string name="custom_url_scheme">com.axuanran.yesplaymusic</string>
+</resources>

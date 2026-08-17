@@ -197,6 +197,11 @@ export default {
 }
 
 @media (max-width: 834px) {
+  .cover-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 24px 12px !important;
+  }
+
   .item .text .title {
     font-size: 14px;
   }

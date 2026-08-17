@@ -6,8 +6,9 @@ import { getPlaylistDetail, intelligencePlaylist } from '@/api/playlist';
 import { scrobble } from '@/api/track';
 import store from '@/store';
 import AudioEngine from '@/utils/AudioEngine';
+import AndroidAudioEngine from '@/mobile/AndroidAudioEngine';
 import { isCreateTray, isLinux } from '@/utils/platform';
-import { isElectron } from '@/utils/env';
+import { isCapacitor, isElectron } from '@/utils/env';
 import { emitPlayerEvent, PLAYER_EVENTS } from '@/plugins/playerEvents';
 import PlayerQueue from '@/utils/player/Queue';
 import { createActor } from 'xstate';
@@ -21,6 +22,7 @@ import {
   getMediaSessionDuration,
 } from '@/utils/mediaSession';
 const isCreateMpris = isElectron && isLinux;
+const RuntimeAudioEngine = isCapacitor ? AndroidAudioEngine : AudioEngine;
 
 const PLAY_PAUSE_FADE_DURATION = 200;
 const PROGRESS_PERSIST_INTERVAL = 5000;
@@ -65,6 +67,10 @@ function formatTrackDebugLabel(track) {
         .join(', ')
     : '';
   return `${name}${artists ? ` by ${artists}` : ''} #${id}`;
+}
+
+function sameTrackId(left, right) {
+  return String(left ?? '') === String(right ?? '');
 }
 
 function setTitle(track) {
@@ -178,7 +184,7 @@ export default class {
      */
     this.createdBlobRecords = [];
 
-    this._audio = new AudioEngine({
+    this._audio = new RuntimeAudioEngine({
       onEnded: token => {
         const player = this._getReactiveSelf();
         if (token === player._audioToken) player._nextTrackCallback();
@@ -214,6 +220,22 @@ export default class {
       onError: (error, token) => {
         const player = this._getReactiveSelf();
         if (token === player._audioToken) player._handleAudioError(error);
+      },
+      onNext: token => {
+        const player = this._getReactiveSelf();
+        if (token === player._audioToken) {
+          player._playNextTrack(player.isPersonalFM);
+        }
+      },
+      onPrevious: token => {
+        const player = this._getReactiveSelf();
+        if (token === player._audioToken) player.playPrevTrack();
+      },
+      onTrackTransition: (transition, token) => {
+        const player = this._getReactiveSelf();
+        if (token === player._audioToken) {
+          player._adoptNativeTrackTransition(transition);
+        }
       },
     });
     Object.defineProperty(this, '_audio', {
@@ -367,6 +389,7 @@ export default class {
     this._queue.repeatMode = mode;
     this._exportQueueState();
     this.persist();
+    if (isCapacitor) this._cacheNextTrack();
   }
   get shuffle() {
     return this._queue?.shuffleEnabled ?? this._shuffle;
@@ -385,6 +408,7 @@ export default class {
     this.current = this.list.indexOf(this.currentTrackID);
     this._exportQueueState();
     this.persist();
+    if (isCapacitor) this._cacheNextTrack();
   }
   get reversed() {
     return this._queue?.reversed ?? this._reversed;
@@ -398,6 +422,7 @@ export default class {
     this._queue.reversed = reversed;
     this._exportQueueState();
     this.persist();
+    if (isCapacitor) this._cacheNextTrack();
   }
   get volume() {
     return this._volume;
@@ -803,7 +828,27 @@ export default class {
     console.debug(
       `[debug][Player.js] loadAudioSource => ${formatTrackDebugLabel(this._currentTrack)} source:${source}`
     );
-    this._audio.load(source, this._audioToken);
+    const artists = (this._currentTrack.ar || this._currentTrack.artists || [])
+      .map(artist => artist?.name)
+      .filter(Boolean)
+      .join(', ');
+    this._audio.load(source, this._audioToken, {
+      id: String(this._currentTrack.id || ''),
+      title: this._currentTrack.name || '',
+      artist: artists,
+      album:
+        this._currentTrack.al?.name || this._currentTrack.album?.name || '',
+      artwork:
+        this._currentTrack.al?.picUrl || this._currentTrack.album?.picUrl || '',
+      duration: getMediaSessionDuration(this._currentTrack),
+    });
+    if (
+      isCapacitor &&
+      store.state.settings.automaticallyCacheSongs &&
+      this._audio.cacheSource
+    ) {
+      this._audio.cacheSource(source, this._currentTrack);
+    }
     this._audio.playbackRate(this._playbackRate);
     emitPlayerEvent(PLAYER_EVENTS.AUDIO_LOADED, {
       source,
@@ -985,11 +1030,22 @@ export default class {
       });
   }
   _cacheNextTrack() {
-    let nextTrackID = this._isPersonalFM
-      ? (this._personalFMNextTrack?.id ?? 0)
-      : this._getSiblingTrack(true)[0];
-    if (!nextTrackID) return;
-    if (this._personalFMTrack.id == nextTrackID) return;
+    let nextTrackID;
+    if (!this._isPersonalFM && this.repeatMode === 'one') {
+      this._audio.clearNextSource?.();
+      return;
+    }
+    if (this._isPersonalFM) {
+      nextTrackID = this._personalFMNextTrack?.id ?? 0;
+    } else if (this._queue.playNextList.length > 0) {
+      nextTrackID = this._queue.playNextList[0];
+    } else {
+      nextTrackID = this._getSiblingTrack(true)[0];
+    }
+    if (!nextTrackID || sameTrackId(this._personalFMTrack.id, nextTrackID)) {
+      this._audio.clearNextSource?.();
+      return;
+    }
     if (this._prefetchingTrackId === nextTrackID) return;
 
     const prefetchToken = ++this._prefetchToken;
@@ -998,7 +1054,26 @@ export default class {
       .loadTrack(nextTrackID)
       .then(track => {
         if (prefetchToken !== this._prefetchToken) return null;
-        return this._resolver.resolveSource(track);
+        return this._resolver.resolveSource(track).then(source => {
+          if (prefetchToken !== this._prefetchToken) return null;
+          if (!source) {
+            this._audio.clearNextSource?.();
+            return null;
+          }
+          const nativeTasks = [];
+          if (isCapacitor && this._audio.queueNextSource) {
+            nativeTasks.push(this._audio.queueNextSource(source, track));
+          }
+          if (
+            isCapacitor &&
+            store.state.settings.automaticallyCacheSongs &&
+            this._audio.cacheSource
+          ) {
+            nativeTasks.push(this._audio.cacheSource(source, track));
+          }
+          if (nativeTasks.length > 0) return Promise.all(nativeTasks);
+          return source;
+        });
       })
       .catch(error => {
         console.debug('[debug][Player.js] cacheNextTrack failed', error);
@@ -1018,6 +1093,7 @@ export default class {
     this._syncQueueState();
   }
   _initMediaSession() {
+    if (isCapacitor) return;
     if ('mediaSession' in navigator) {
       navigator.mediaSession.setActionHandler('play', () => {
         this.play();
@@ -1053,7 +1129,7 @@ export default class {
       .filter(Boolean);
     const length = getMediaSessionDuration(track);
 
-    if ('mediaSession' in navigator) {
+    if (!isCapacitor && 'mediaSession' in navigator) {
       navigator.mediaSession.metadata = new window.MediaMetadata(metadata);
       this._updateMediaSessionPlaybackState();
       this._updateMediaSessionPositionState(0);
@@ -1073,6 +1149,7 @@ export default class {
     });
   }
   _updateMediaSessionPlaybackState() {
+    if (isCapacitor) return;
     if (!('mediaSession' in navigator)) return;
     try {
       navigator.mediaSession.playbackState =
@@ -1086,6 +1163,7 @@ export default class {
     }
   }
   _updateMediaSessionPositionState(position = this._audio?.currentTime?.()) {
+    if (isCapacitor) return;
     if ('mediaSession' in navigator === false) {
       return;
     }
@@ -1115,6 +1193,69 @@ export default class {
     } else {
       player._playNextTrack(player.isPersonalFM);
     }
+  }
+  async _adoptNativeTrackTransition({ mediaId, reason, source, track } = {}) {
+    if (!isCapacitor || !mediaId || sameTrackId(mediaId, this.currentTrackID)) {
+      return false;
+    }
+    const previousTrack = this._currentTrack;
+    if (previousTrack?.name && reason !== 'resume') {
+      this._scrobble(
+        previousTrack,
+        reason === 'auto' ? 0 : this._progress,
+        reason === 'auto'
+      );
+    }
+
+    this._trackRequestToken += 1;
+    this._prefetchToken += 1;
+    this._prefetchingTrackId = null;
+    this._abortTrackRequest();
+    let nextTrack = track;
+    if (!nextTrack) {
+      try {
+        nextTrack = await this._resolver.loadTrack(mediaId);
+      } catch (error) {
+        console.error('[android-audio-queue] failed to load transition', error);
+        store.dispatch('showToast', '后台切歌成功，但歌曲信息加载失败');
+        return false;
+      }
+    }
+
+    if (this._isPersonalFM) {
+      this._personalFMTrack = nextTrack;
+    } else if (
+      this._queue.playNextList.length > 0 &&
+      sameTrackId(this._queue.playNextList[0], mediaId)
+    ) {
+      this._queue.takePlayNext();
+    } else {
+      const index = this._queue.activeList.findIndex(id =>
+        sameTrackId(id, mediaId)
+      );
+      if (index >= 0) this._queue.activeCurrent = index;
+    }
+    this._exportQueueState();
+    this._currentAudioSource = source || '';
+    this._progress = 0;
+    this._setCurrentTrack(nextTrack);
+    this._updateMediaSessionMetaData(nextTrack);
+    this._syncNativePlaybackState();
+    if (nextTrack.name) setTitle(nextTrack);
+    setTrayLikeState(store.state.liked.songs.includes(nextTrack.id));
+    emitPlayerEvent(PLAYER_EVENTS.AUDIO_LOADED, {
+      source: this._currentAudioSource,
+      track: nextTrack,
+      autoplay: this._audio.playing(),
+      nativeTransition: true,
+    });
+    this._recordClientPlayback();
+    if (this._isPersonalFM) {
+      this._loadPersonalFMNextTrack();
+    } else {
+      this._cacheNextTrack();
+    }
+    return true;
   }
   _loadPersonalFMNextTrack() {
     if (this._personalFMNextLoading) {
@@ -1161,6 +1302,7 @@ export default class {
   appendTrack(trackID) {
     this._queue.addPlayNext(trackID);
     this._exportQueueState();
+    if (isCapacitor) this._cacheNextTrack();
   }
   playNextTrack() {
     // TODO: 切换歌曲时增加加载中的状态
@@ -1443,6 +1585,8 @@ export default class {
     this._exportQueueState();
     if (playNow) {
       this.playNextTrack();
+    } else if (isCapacitor) {
+      this._cacheNextTrack();
     }
   }
   playPersonalFM() {
@@ -1522,9 +1666,11 @@ export default class {
   clearPlayNextList() {
     this._queue.clearPlayNext();
     this._exportQueueState();
+    if (isCapacitor) this._cacheNextTrack();
   }
   removeTrackFromQueue(index) {
     this._queue.removePlayNext(index);
     this._exportQueueState();
+    if (isCapacitor) this._cacheNextTrack();
   }
 }

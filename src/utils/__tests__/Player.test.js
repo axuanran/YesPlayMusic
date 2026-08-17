@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getMP3: vi.fn(),
   getOuterAudioUrl: vi.fn(trackId => `outer:${trackId}`),
   getTrackSource: vi.fn(),
+  isCapacitor: false,
   isAccountLoggedIn: vi.fn(() => false),
   mediaSession: {
     metadata: null,
@@ -92,6 +93,30 @@ vi.mock('@/utils/AudioEngine', () => ({
   }),
 }));
 
+vi.mock('@/mobile/AndroidAudioEngine', () => ({
+  default: vi.fn().mockImplementation(function AndroidAudioEngine(handlers) {
+    const instance = {
+      cacheSource: vi.fn(() => Promise.resolve()),
+      clearNextSource: vi.fn(() => Promise.resolve()),
+      currentTime: vi.fn(() => 0),
+      fade: vi.fn(() => Promise.resolve()),
+      load: vi.fn(),
+      pause: vi.fn(),
+      play: vi.fn(() => Promise.resolve()),
+      playbackRate: vi.fn(),
+      playing: vi.fn(() => false),
+      queueNextSource: vi.fn(() => Promise.resolve()),
+      seek: vi.fn(),
+      setOutputDevice: vi.fn(),
+      stop: vi.fn(),
+      volume: vi.fn(),
+    };
+    mocks.audioHandlers.push(handlers);
+    mocks.audioInstances.push(instance);
+    return instance;
+  }),
+}));
+
 vi.mock('@/utils/auth', () => ({
   isAccountLoggedIn: mocks.isAccountLoggedIn,
 }));
@@ -106,6 +131,9 @@ vi.mock('@/utils/platform', () => ({
 }));
 
 vi.mock('@/utils/env', () => ({
+  get isCapacitor() {
+    return mocks.isCapacitor;
+  },
   isElectron: false,
 }));
 
@@ -176,6 +204,7 @@ describe('Player audio source flow', () => {
     mocks.getTrackSource.mockResolvedValue(null);
     mocks.getMP3.mockReset();
     mocks.getOuterAudioUrl.mockClear();
+    mocks.isCapacitor = false;
     mocks.isAccountLoggedIn.mockReturnValue(false);
     mocks.mediaSession.metadata = null;
     mocks.mediaSession.playbackState = 'none';
@@ -512,5 +541,41 @@ describe('Player audio source flow', () => {
     expect(player.progress).toBe(12);
     expect(mocks.store.commit).toHaveBeenCalledWith('bumpPlayerVersion');
     delete globalThis.yesplaymusicStore;
+  });
+
+  it('adopts an Android native queue transition without reloading audio', async () => {
+    mocks.isCapacitor = true;
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    const first = {
+      id: 1,
+      name: 'First',
+      ar: [{ name: 'Artist' }],
+      al: { name: 'Album', picUrl: '' },
+      dt: 180000,
+    };
+    const second = {
+      id: 2,
+      name: 'Second',
+      ar: [{ name: 'Artist' }],
+      al: { name: 'Album', picUrl: '' },
+      dt: 200000,
+    };
+    player.list = [1, 2];
+    player.current = 0;
+    player._setCurrentTrack(first);
+
+    await player._adoptNativeTrackTransition({
+      mediaId: '2',
+      reason: 'auto',
+      source: 'https://example.test/second.mp3',
+      track: second,
+    });
+
+    expect(player.currentTrack).toBe(second);
+    expect(player.current).toBe(1);
+    expect(player.currentAudioSource).toBe('https://example.test/second.mp3');
+    expect(audio.load).not.toHaveBeenCalled();
+    expect(audio.clearNextSource).toHaveBeenCalled();
   });
 });

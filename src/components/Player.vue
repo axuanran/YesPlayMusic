@@ -115,7 +115,10 @@
           >
             <svg-icon :icon-class="playing ? 'pause' : 'play'"
           /></button-icon>
-          <button-icon :title="$t('player.next')" @click="playNextTrack"
+          <button-icon
+            class="next-button"
+            :title="$t('player.next')"
+            @click="playNextTrack"
             ><svg-icon icon-class="next"
           /></button-icon>
         </div>
@@ -1001,6 +1004,117 @@ export default {
   }
   &:active {
     transform: unset;
+  }
+}
+
+@media (max-width: 768px) {
+  .player {
+    right: 10px;
+    bottom: calc(66px + env(safe-area-inset-bottom));
+    left: 10px;
+    height: 66px;
+    overflow: hidden;
+    border: 1px solid rgba(128, 128, 128, 0.14);
+    border-radius: 16px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+  }
+
+  .progress-bar {
+    position: absolute;
+    top: 0;
+    right: 8px;
+    left: 8px;
+    width: auto;
+    height: 10px;
+    margin: 0;
+  }
+
+  .progress-range {
+    height: 10px;
+  }
+
+  .progress-range::-webkit-slider-thumb {
+    width: 0;
+    height: 0;
+  }
+
+  .discord-status {
+    display: none;
+  }
+
+  .controls {
+    width: 100%;
+    height: 100%;
+    padding: 5px 8px 0;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+  }
+
+  .playing {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .playing > .blank,
+  .middle-control-buttons > .blank,
+  .right-control-buttons > .blank,
+  .track-action-buttons {
+    display: none;
+  }
+
+  .playing .container {
+    width: 100%;
+
+    img {
+      width: 46px;
+    }
+
+    .track-info {
+      margin-left: 10px;
+
+      .name {
+        margin-bottom: 2px;
+        font-size: 14px;
+      }
+    }
+  }
+
+  .middle-control-buttons,
+  .right-control-buttons {
+    flex: 0 0 auto;
+  }
+
+  .middle-control-buttons .container {
+    padding: 0;
+
+    .button-icon {
+      display: none;
+      margin: 0 1px;
+    }
+
+    .play,
+    .next-button {
+      display: grid;
+    }
+
+    .play {
+      width: 40px;
+      height: 40px;
+    }
+  }
+
+  .right-control-buttons .container {
+    > * {
+      display: none;
+    }
+
+    .lyrics-button {
+      width: 36px;
+      height: 36px;
+      margin-left: 0 !important;
+      display: grid;
+    }
   }
 }
 </style>

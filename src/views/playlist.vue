@@ -1162,4 +1162,70 @@ export default {
   justify-content: center;
   margin-top: 32px;
 }
+
+@media (max-width: 768px) {
+  .playlist {
+    margin-top: 8px;
+  }
+
+  .playlist-info {
+    margin-bottom: 36px;
+    flex-direction: column;
+    align-items: center;
+
+    :deep(.cover-container) {
+      width: min(58vw, 220px) !important;
+      height: min(58vw, 220px) !important;
+    }
+
+    .info {
+      width: 100%;
+      margin: 24px 0 0;
+      align-items: center;
+      text-align: center;
+
+      .title {
+        font-size: 28px;
+        line-height: 1.15;
+      }
+
+      .artist {
+        margin-top: 14px;
+        font-size: 15px;
+      }
+
+      .description {
+        margin-top: 14px;
+      }
+
+      .buttons {
+        margin-top: 22px;
+      }
+    }
+
+    .search-box {
+      position: static;
+      width: 100%;
+      margin-top: 22px;
+    }
+  }
+
+  .special-playlist {
+    margin: 64px 0;
+
+    .title {
+      font-size: 48px;
+    }
+  }
+
+  .locate-current-track-button {
+    right: 18px;
+    bottom: calc(144px + env(safe-area-inset-bottom));
+  }
+
+  .search-box-likepage {
+    position: static;
+    margin-bottom: 18px;
+  }
+}
 </style>

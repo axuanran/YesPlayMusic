@@ -382,4 +382,10 @@ nav.has-custom-titlebar {
     -webkit-app-region: no-drag;
   }
 }
+
+@media (max-width: 768px) {
+  nav {
+    display: none;
+  }
+}
 </style>

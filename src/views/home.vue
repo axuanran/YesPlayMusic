@@ -248,4 +248,27 @@ footer {
   gap: 18px;
   color: var(--color-text);
 }
+
+@media (max-width: 768px) {
+  .index-row,
+  .index-row.first-row {
+    min-height: 0;
+    margin-top: 34px;
+  }
+
+  .index-row.first-row {
+    margin-top: 12px;
+  }
+
+  .title {
+    margin-bottom: 16px;
+    font-size: 22px;
+  }
+
+  .for-you-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin-bottom: 38px;
+  }
+}
 </style>

@@ -9,15 +9,12 @@ import filters from '@/utils/filters';
 import './registerServiceWorker';
 import { dailyTask } from '@/utils/common';
 import { installDevErrorReporter } from '@/utils/devErrorReporter';
-import { getCookieString, hydrateCookiesToDocument } from '@/utils/auth';
-import {
-  isResolverEnabled,
-  syncCookieToResolverWithRetry,
-} from '@/api/audioResolver';
+import { hydrateCookiesToDocument } from '@/utils/auth';
 import { createPluginContext, installPlugins } from '@/plugins';
 import '@/assets/css/global.scss';
 import NProgress from 'nprogress';
 import '@/assets/css/nprogress.css';
+import { setupMobileShell } from '@/mobile/setupMobileShell';
 
 window.resetApp = () => {
   localStorage.clear();
@@ -39,52 +36,6 @@ NProgress.configure({ showSpinner: false, trickleSpeed: 100 });
 installDevErrorReporter();
 hydrateCookiesToDocument();
 
-let startupCookieTimer = null;
-const syncCookieFromStartup = async () => {
-  if (!isResolverEnabled()) {
-    if (startupCookieTimer) {
-      clearInterval(startupCookieTimer);
-      startupCookieTimer = null;
-    }
-    return;
-  }
-  const cookie = getCookieString();
-  if (!cookie) {
-    if (startupCookieTimer) {
-      clearInterval(startupCookieTimer);
-      startupCookieTimer = null;
-    }
-    return;
-  }
-
-  try {
-    await syncCookieToResolverWithRetry(cookie, {
-      timeoutMs: 8000,
-      intervalMs: 1000,
-    });
-    if (startupCookieTimer) {
-      clearInterval(startupCookieTimer);
-      startupCookieTimer = null;
-    }
-  } catch (error) {
-    console.warn(
-      '[resolver] Failed to sync cookie on startup:',
-      error?.message || error
-    );
-    store.dispatch(
-      'showToast',
-      '启动时同步网易云 Cookie 失败，请检查 resolver 面板'
-    );
-  }
-};
-
-if (isResolverEnabled()) {
-  startupCookieTimer = setInterval(() => {
-    syncCookieFromStartup();
-  }, 3000);
-  syncCookieFromStartup();
-}
-
 dailyTask();
 
 const app = createApp(App);
@@ -104,3 +55,8 @@ window.yesplaymusicPluginContext = pluginContext;
 installPlugins(pluginContext);
 
 app.mount('#app');
+
+router
+  .isReady()
+  .then(() => setupMobileShell(router))
+  .catch(error => console.error('[mobile] Failed to set up shell', error));

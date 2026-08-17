@@ -10,7 +10,8 @@ import {
   isResolverEnabled,
   syncCookieToResolverWithRetry,
 } from '@/api/audioResolver';
-import { env } from '@/utils/env';
+import { env, isCapacitor } from '@/utils/env';
+import { requestNeteaseOnAndroid } from '@/mobile/neteaseApi';
 import store from '@/store';
 import axios from 'axios';
 
@@ -199,4 +200,24 @@ service.interceptors.response.use(
   }
 );
 
-export default service;
+async function request(config) {
+  if (!isCapacitor) return service(config);
+
+  try {
+    const data = await requestNeteaseOnAndroid(config);
+    if (
+      data?.code === 301 &&
+      data?.msg === '需要登录' &&
+      config.url !== '/logout' &&
+      !config._retried
+    ) {
+      await runTokenRefresh();
+      return request(refreshRequestCookies({ ...config, _retried: true }));
+    }
+    return data;
+  } catch (error) {
+    return Promise.reject(error);
+  }
+}
+
+export default request;

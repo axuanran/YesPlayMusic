@@ -1,6 +1,7 @@
 import { registerResolverAudioProvider } from './resolverProvider';
 
 export {
+  clearAudioProviderCache,
   getAudioProviders,
   getAudioProviderStatus,
   registerAudioProvider,

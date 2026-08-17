@@ -5,18 +5,14 @@
         <button class="back" @click="$router.push({ name: 'settings' })">
           返回设置
         </button>
-        <h1>Resolver Admin</h1>
-        <p>音频解析服务管理入口</p>
+        <h1>内置音频解析</h1>
+        <p>桌面端与 Android 共用，无需部署后端服务</p>
       </div>
 
       <resolver-controls
         :use-audio-resolver="useAudioResolver"
-        :audio-resolver-url="audioResolverUrl"
         @update:use-audio-resolver="useAudioResolver = $event"
-        @update:audio-resolver-url="audioResolverUrl = $event"
-        @open-admin="openResolverAdminPanel"
-        @sync-cookie="syncFrontendCookieToResolver"
-        @clear-cache="clearResolverBackendCache"
+        @clear-cache="clearResolverUiCache"
       />
       <provider-status
         :providers="providerStatus"
@@ -36,11 +32,7 @@
 
 <script>
 import { mapActions, mapState } from 'vuex';
-import {
-  clearResolverCache,
-  syncCookieToResolverWithRetry,
-} from '@/api/audioResolver';
-import { getCookieString } from '@/utils/auth';
+import { clearResolverCache } from '@/api/audioResolver';
 import {
   getAudioProviderStatus,
   resolveTrackSourceWithProviders,
@@ -48,16 +40,6 @@ import {
 import ProviderStatus from './components/ProviderStatus.vue';
 import ResolverControls from './components/ResolverControls.vue';
 import ResolveTester from './components/ResolveTester.vue';
-
-const setting = (key, defaultValue) => ({
-  get() {
-    if (this.settings[key] === undefined) return defaultValue;
-    return this.settings[key];
-  },
-  set(value) {
-    this.$store.commit('updateSettings', { key, value });
-  },
-});
 
 const resolverEnabledSetting = {
   get() {
@@ -69,7 +51,7 @@ const resolverEnabledSetting = {
       key: 'useAudioResolver',
       value,
     });
-    if (value && !wasEnabled) this.syncFrontendCookieToResolver();
+    if (value && !wasEnabled) this.refreshProviderStatus();
   },
 };
 
@@ -91,32 +73,16 @@ export default {
   computed: {
     ...mapState(['settings']),
     useAudioResolver: resolverEnabledSetting,
-    audioResolverUrl: setting('audioResolverUrl', '/resolver-api'),
   },
   methods: {
     ...mapActions(['showToast']),
-    resolverAdminUrl() {
-      const base = (this.audioResolverUrl || '/resolver-api').replace(
-        /\/+$/,
-        ''
-      );
-      return `${base}/admin/#/`;
-    },
-    openResolverAdminPanel() {
-      const url = this.resolverAdminUrl();
-      if (window.electronAPI?.app?.openExternalUrl) {
-        window.electronAPI.app.openExternalUrl(url);
-        return;
-      }
-      window.open(url, '_blank', 'noopener');
-    },
-    async clearResolverBackendCache() {
+    async clearResolverUiCache() {
       try {
         await clearResolverCache();
         this.refreshProviderStatus();
-        this.showToast('已清除 resolver 后端缓存');
+        this.showToast('已清除内置解析缓存');
       } catch (error) {
-        this.showToast(`清除后端缓存失败：${error.message || error}`);
+        this.showToast(`清除解析缓存失败：${error.message || error}`);
       }
     },
     refreshProviderStatus() {
@@ -149,27 +115,6 @@ export default {
           durationMs: Date.now() - startedAt,
           error: error.message || String(error),
         };
-      }
-    },
-    async syncFrontendCookieToResolver() {
-      try {
-        if (!this.useAudioResolver) {
-          this.showToast('请先启用音频解析');
-          return;
-        }
-        const cookie = getCookieString();
-        if (!cookie) {
-          this.showToast('前端没有可同步的 Cookie');
-          return;
-        }
-        await syncCookieToResolverWithRetry(cookie, {
-          timeoutMs: 10000,
-          intervalMs: 1000,
-        });
-        this.refreshProviderStatus();
-        this.showToast('已从前端同步 Cookie 到 resolver');
-      } catch (error) {
-        this.showToast(`同步 Cookie 失败：${error.message || error}`);
       }
     },
   },

@@ -1,5 +1,4 @@
 import initLocalStorage from '@/store/initLocalStorage.js';
-import { isElectron } from '@/utils/env';
 import { normalizeShortcuts } from '@/utils/shortcuts';
 import { normalizeDesktopLyricsSettings } from '@/utils/desktopLyricsSettings';
 import { applyPluginSettingLinks } from '@/plugins/settings';
@@ -23,16 +22,7 @@ const updateSetting = () => {
     settings.enableDesktopLyrics
   );
 
-  // Older desktop builds pointed directly at the resolver port. The desktop
-  // renderer and resolver now share an origin and the same prefix as Docker.
-  if (
-    isElectron &&
-    /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\]):27232\/?$/i.test(
-      settings.audioResolverUrl || ''
-    )
-  ) {
-    settings.audioResolverUrl = initLocalStorage.settings.audioResolverUrl;
-  }
+  delete settings.audioResolverUrl;
 
   settings.shortcuts = normalizeShortcuts(settings.shortcuts);
 
