@@ -9,6 +9,7 @@
   >
     <Scrollbar v-show="!showLyrics" ref="scrollbar" />
     <Navbar v-show="showNavbar" ref="navbar" />
+    <MobileNavigation v-show="showNavbar && !showLyrics" />
     <main
       ref="main"
       :style="{ overflow: enableScrolling ? 'auto' : 'hidden' }"
@@ -41,6 +42,7 @@ import ModalDownloadTrack from './components/ModalDownloadTrack.vue';
 import ModalCachedTracks from './components/ModalCachedTracks.vue';
 import Scrollbar from './components/Scrollbar.vue';
 import Navbar from './components/Navbar.vue';
+import MobileNavigation from './components/MobileNavigation.vue';
 import Player from './components/Player.vue';
 import Toast from './components/Toast.vue';
 import { ipcRenderer } from './electron/ipcRenderer';
@@ -53,6 +55,7 @@ export default {
   name: 'App',
   components: {
     Navbar,
+    MobileNavigation,
     Player,
     Toast,
     ModalAddTrackToPlaylist,
@@ -190,6 +193,13 @@ main {
 @media (max-width: 1336px) {
   main {
     padding: 64px 5vw 96px 5vw;
+  }
+}
+
+@media (max-width: 768px) {
+  main {
+    padding: calc(72px + env(safe-area-inset-top)) 16px
+      calc(154px + env(safe-area-inset-bottom)) 16px;
   }
 }
 

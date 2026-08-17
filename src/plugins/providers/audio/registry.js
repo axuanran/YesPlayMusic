@@ -94,6 +94,10 @@ export function createAudioProviderRegistry({
     });
   }
 
+  function clearAudioProviderCache() {
+    sourceCache.clear();
+  }
+
   function getProviderStore() {
     return providerStore || getRuntimeStore();
   }
@@ -194,6 +198,7 @@ export function createAudioProviderRegistry({
   return {
     getAudioProviders,
     getAudioProviderStatus,
+    clearAudioProviderCache,
     registerAudioProvider,
     resolveTrackSourceWithProviders,
     unregisterAudioProvider,
@@ -203,6 +208,7 @@ export function createAudioProviderRegistry({
 const defaultAudioProviderRegistry = createAudioProviderRegistry();
 
 export const {
+  clearAudioProviderCache,
   getAudioProviders,
   getAudioProviderStatus,
   registerAudioProvider,

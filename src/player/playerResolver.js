@@ -1,6 +1,7 @@
 import { getMP3, getTrackDetail } from '@/api/track';
 import { isAccountLoggedIn } from '@/utils/auth';
 import { cacheTrackSource, getTrackSource } from '@/utils/db';
+import { isCapacitor } from '@/utils/env';
 import {
   getOuterAudioUrl,
   resolveTrackSource,
@@ -104,6 +105,10 @@ export default class PlayerResolver {
   }
 
   resolveCachedSource(id) {
+    // IndexedDB cache entries become WebView-only blob: URLs. Media3 runs in
+    // another Android component and cannot open those URLs, so Android resolves
+    // a fresh HTTPS source instead.
+    if (isCapacitor) return Promise.resolve(null);
     return getTrackSource(id).then(track => {
       if (!track || !this.createBlobUrl) return null;
       return this.createBlobUrl(track.source);
@@ -134,6 +139,7 @@ export default class PlayerResolver {
 
   cacheResolvedSource(track, source, bitRate, from) {
     if (
+      isCapacitor ||
       !getRuntimeStore()?.state?.settings?.automaticallyCacheSongs ||
       !Number.isFinite(Number(track?.id)) ||
       !isCacheableOnlineSource(source)

@@ -37,7 +37,12 @@
     "desktop:dev": "electron-vite dev",
     "desktop:build": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder",
     "desktop:preview": "electron-vite preview",
-    "electron:build-win-dir": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder -w --dir"
+    "electron:build-win-dir": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder -w --dir",
+    "mobile:build": "vite build --mode mobile",
+    "mobile:assets": "capacitor-assets generate --android --assetPath assets",
+    "mobile:sync": "yarn mobile:build && cap sync android",
+    "mobile:open": "cap open android",
+    "mobile:run": "yarn mobile:build && cap run android"
   },
   "main": "out/main/index.js",
   "bin": {
@@ -186,6 +191,10 @@
     "node": ">=22 <26"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@akabeko/music-metadata-editor": "^1.0.1",
     "@jellybrick/mpris-service": "^2.2.0",
     "@neteasecloudmusicapienhanced/api": "^4.36.1",
@@ -238,6 +247,9 @@
     "@babel/core": "^7.28.5",
     "@babel/eslint-parser": "^7.28.5",
     "@babel/helper-compilation-targets": "^7.29.7",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.0",
     "@vitejs/plugin-vue": "^6.0.7",

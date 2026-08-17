@@ -1,7 +1,7 @@
 import { register } from 'register-service-worker';
-import { env, isElectron } from '@/utils/env';
+import { env, isCapacitor, isElectron } from '@/utils/env';
 
-if (env.NODE_ENV === 'production' && !isElectron) {
+if (env.NODE_ENV === 'production' && !isElectron && !isCapacitor) {
   register(`${env.BASE_URL}service-worker.js`, {
     ready() {
       // console.log(

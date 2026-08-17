@@ -7,14 +7,14 @@ import axios from 'axios';
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url));
 
-function createProcessEnv(mode) {
+function createProcessEnv(mode, baseUrl) {
   const env = loadEnv(mode, rootDir, '');
 
   return {
     ...env,
-    BASE_URL: '/',
+    BASE_URL: baseUrl,
     IS_ELECTRON: false,
-    NODE_ENV: mode === 'production' ? 'production' : 'development',
+    NODE_ENV: mode === 'development' ? 'development' : 'production',
   };
 }
 
@@ -63,6 +63,7 @@ function audioProxyMiddleware(req, res, next) {
 }
 
 export default defineConfig(({ mode }) => ({
+  base: mode === 'mobile' ? './' : '/',
   plugins: [
     vue({
       template: {
@@ -85,7 +86,15 @@ export default defineConfig(({ mode }) => ({
     },
   },
   define: {
-    'process.env': JSON.stringify(createProcessEnv(mode)),
+    'process.env': JSON.stringify(
+      createProcessEnv(mode, mode === 'mobile' ? './' : '/')
+    ),
+    __APP_ENV__: JSON.stringify(
+      createProcessEnv(mode, mode === 'mobile' ? './' : '/')
+    ),
+    __APP_PLATFORM__: JSON.stringify(
+      mode === 'mobile' ? 'capacitor' : 'browser'
+    ),
     __IS_WEB_DEV__: mode === 'development',
   },
   server: {

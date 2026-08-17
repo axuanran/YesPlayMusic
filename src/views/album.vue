@@ -434,4 +434,52 @@ export default {
   overflow: hidden;
   white-space: pre-line;
 }
+
+@media (max-width: 768px) {
+  .album-page {
+    margin-top: 8px;
+  }
+
+  .playlist-info {
+    width: 100%;
+    margin-bottom: 36px;
+    flex-direction: column;
+    align-items: center;
+
+    :deep(.cover-container) {
+      width: min(58vw, 220px) !important;
+      height: min(58vw, 220px) !important;
+    }
+
+    .info {
+      width: 100%;
+      margin: 24px 0 0;
+      align-items: center;
+      text-align: center;
+
+      .title {
+        font-size: 30px;
+        line-height: 1.15;
+      }
+
+      .subtitle {
+        margin-top: 4px;
+        font-size: 18px;
+      }
+
+      .artist {
+        margin-top: 14px;
+        font-size: 15px;
+      }
+
+      .description {
+        margin-top: 14px;
+      }
+
+      .buttons {
+        margin-top: 22px !important;
+      }
+    }
+  }
+}
 </style>

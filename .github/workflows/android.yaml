@@ -1,0 +1,84 @@
+name: Android
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - dev
+      - feature/mobile-mvp
+    paths:
+      - '.github/workflows/android.yaml'
+      - 'android/**'
+      - 'assets/**'
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'vite.config.mjs'
+      - 'capacitor.config.json'
+      - 'index.html'
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - '.github/workflows/android.yaml'
+      - 'android/**'
+      - 'assets/**'
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'vite.config.mjs'
+      - 'capacitor.config.json'
+      - 'index.html'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build debug APK
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup
+        with:
+          install-package-deps: 'false'
+          install-native-deps: 'false'
+          verify-rollup: 'true'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        shell: bash
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Build and sync mobile UI
+        run: yarn mobile:sync
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: YesPlayMusic-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

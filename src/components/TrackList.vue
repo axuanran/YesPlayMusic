@@ -87,7 +87,7 @@
       >
     </ContextMenu>
 
-    <div :style="listStyles">
+    <div class="track-list-items" :style="listStyles">
       <TrackListItem
         v-for="(track, index) in tracks"
         :key="itemKey === 'id' ? track.id : `${track.id}${index}`"
@@ -99,6 +99,7 @@
         :right-clicked-track-id="rightClickedTrack.id"
         :album-object="albumObject"
         @dblclick="playThisList(track.id || track.songId)"
+        @click="playOnTouch($event, track)"
         @click.right="openMenu($event, track, index)"
         @play-track="playThisList"
         @like-track="likeATrack"
@@ -230,6 +231,11 @@ export default {
   methods: {
     ...mapMutations(['updateModal']),
     ...mapActions(['nextTrack', 'showToast', 'likeATrack']),
+    playOnTouch(event, track) {
+      if (!window.matchMedia('(pointer: coarse)').matches) return;
+      if (event.target.closest('a, button')) return;
+      this.playThisList(track.id || track.songId);
+    },
     openMenu(e, track, index = -1) {
       this.rightClickedTrack = track;
       this.rightClickedTrackIndex = index;
@@ -446,4 +452,11 @@ export default {
 };
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+@media (max-width: 768px) {
+  .track-list-items {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 2px !important;
+  }
+}
+</style>

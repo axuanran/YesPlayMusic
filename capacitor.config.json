@@ -1,0 +1,15 @@
+{
+  "appId": "com.axuanran.yesplaymusic",
+  "appName": "YesPlayMusic",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#335eea",
+      "showSpinner": false
+    }
+  }
+}

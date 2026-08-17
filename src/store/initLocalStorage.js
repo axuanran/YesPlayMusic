@@ -1,7 +1,6 @@
 import { playlistCategories } from '@/utils/staticData';
 import shortcuts from '@/utils/shortcuts';
 import { isElectron } from '@/utils/env';
-import { getCurrentPageResolverURL } from '@/api/audioResolver';
 import { DEFAULT_DESKTOP_LYRICS_SETTINGS } from '@/utils/desktopLyricsSettings';
 
 const enabledPlaylistCategories = playlistCategories
@@ -50,7 +49,6 @@ let localStorage = {
     enableRealIP: false,
     realIP: null,
     useAudioResolver: true,
-    audioResolverUrl: getCurrentPageResolverURL(),
     shortcuts: shortcuts,
   },
   data: {

@@ -154,8 +154,8 @@
         </div>
       </div>
 
-      <h3 v-if="isElectron">缓存</h3>
-      <div v-if="isElectron" class="item">
+      <h3 v-if="isElectron || isCapacitor">缓存</h3>
+      <div v-if="isElectron || isCapacitor" class="item">
         <div class="left">
           <div class="title">
             {{ $t('settings.automaticallyCacheSongs') }}
@@ -190,7 +190,7 @@
           </select>
         </div>
       </div>
-      <div v-if="isElectron" class="item">
+      <div v-if="isElectron || isCapacitor" class="item">
         <div class="left">
           <div class="title">
             {{
@@ -202,7 +202,11 @@
           >
         </div>
         <div class="right">
-          <button :disabled="clearingCache" @click="showCachedTracks">
+          <button
+            v-if="isElectron"
+            :disabled="clearingCache"
+            @click="showCachedTracks"
+          >
             {{ $t('settings.viewCachedTracks') }}
           </button>
           <button :disabled="clearingCache" @click="clearCache()">
@@ -1004,7 +1008,7 @@ import {
 } from '@/utils/db';
 import { getResolverConfig, updateResolverConfig } from '@/api/audioResolver';
 import pkg from '../../package.json';
-import { isElectron } from '@/utils/env';
+import { isCapacitor, isElectron } from '@/utils/env';
 import { isLinux, isMac } from '@/utils/platform';
 import { getBuiltinPlugins, setPluginEnabled, syncPlugins } from '@/plugins';
 import StreamingServerSettings from '@/components/StreamingServerSettings.vue';
@@ -1105,6 +1109,7 @@ export default {
       },
       clearingCache: false,
       removeTrackCacheListener: null,
+      nativeCacheListener: null,
       allOutputDevices: [
         {
           deviceId: 'default',
@@ -1124,6 +1129,9 @@ export default {
     ...mapState(['player', 'settings', 'data', 'lastfm']),
     isElectron() {
       return isElectron;
+    },
+    isCapacitor() {
+      return isCapacitor;
     },
     isMac() {
       return isMac;
@@ -1448,7 +1456,13 @@ export default {
     },
   },
   created() {
-    this.removeTrackCacheListener = onTrackCacheChanged(this.updateTracksCache);
+    if (isCapacitor) {
+      this.listenNativeCache();
+    } else {
+      this.removeTrackCacheListener = onTrackCacheChanged(
+        this.updateTracksCache
+      );
+    }
     this.countDBSize('tracks');
     if (isElectron) this.getAllOutputDevices();
   },
@@ -1458,6 +1472,7 @@ export default {
   },
   beforeUnmount() {
     this.removeTrackCacheListener?.();
+    this.nativeCacheListener?.remove();
   },
   methods: {
     ...mapActions(['showToast']),
@@ -1521,8 +1536,28 @@ export default {
         length: data?.length || 0,
       };
     },
+    async getNativeAudioPlugin() {
+      const { BackgroundAudio } = await import('@/mobile/AndroidAudioEngine');
+      return BackgroundAudio;
+    },
+    async listenNativeCache() {
+      try {
+        const plugin = await this.getNativeAudioPlugin();
+        this.nativeCacheListener = await plugin.addListener(
+          'cacheChanged',
+          this.updateTracksCache
+        );
+      } catch (error) {
+        console.error('[android-audio-cache] failed to listen', error);
+      }
+    },
     async countDBSize() {
       try {
+        if (isCapacitor) {
+          const plugin = await this.getNativeAudioPlugin();
+          this.updateTracksCache(await plugin.getCacheStatus());
+          return;
+        }
         this.updateTracksCache(await countDBSize());
       } catch (error) {
         console.error('[track-cache] failed to count cache', error);
@@ -1547,6 +1582,19 @@ export default {
       this.clearingCache = true;
 
       try {
+        if (isCapacitor) {
+          const plugin = await this.getNativeAudioPlugin();
+          const before = await plugin.getCacheStatus();
+          const after = await plugin.clearCache();
+          this.updateTracksCache(after);
+          this.showToast(
+            this.$t('settings.cacheClearSuccess', {
+              before: bytesToSize(before.bytes),
+              after: bytesToSize(after.bytes),
+            })
+          );
+          return;
+        }
         const before = await countDBSize();
         const diskCacheApi = window.electronAPI?.cache;
         const shouldClearDiskCache = Boolean(diskCacheApi?.clearDiskCache);
@@ -2094,5 +2142,79 @@ input[type='number'] {
 }
 .toggle input:checked + label:after {
   left: 26px;
+}
+
+@media (max-width: 768px) {
+  .settings-page {
+    margin-top: 8px;
+  }
+
+  .container {
+    width: 100%;
+    margin-top: 0;
+  }
+
+  h2 {
+    margin-top: 24px;
+    font-size: 30px;
+  }
+
+  h3 {
+    margin-top: 36px;
+    font-size: 22px;
+  }
+
+  .user {
+    padding: 14px;
+    margin-bottom: 32px;
+
+    img.avatar {
+      width: 50px;
+      height: 50px;
+    }
+
+    .left .info {
+      margin-left: 12px;
+    }
+
+    .right button {
+      margin: 0;
+      padding: 8px;
+      font-size: 0;
+    }
+  }
+
+  .item {
+    align-items: flex-start;
+    gap: 14px;
+
+    > :first-child {
+      min-width: 0;
+      flex: 1;
+    }
+  }
+
+  select {
+    min-width: 118px;
+    max-width: 46vw;
+  }
+
+  input.text-input {
+    width: 46vw;
+    margin-right: 0;
+    box-sizing: border-box;
+  }
+
+  #proxy-form,
+  #real-ip,
+  .desktop-lyrics-actions,
+  .desktop-lyrics-colors {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #shortcut-table {
+    overflow-x: auto;
+  }
 }
 </style>

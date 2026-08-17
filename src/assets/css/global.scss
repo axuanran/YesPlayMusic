@@ -94,6 +94,7 @@ input {
     microsoft uighur;
 }
 body {
+  margin: 0;
   background-color: var(--color-body-bg);
   color: var(--color-text);
 }
@@ -102,6 +103,28 @@ html {
   overflow-y: var(--html-overflow-y);
   min-width: 768px;
   overscroll-behavior: none;
+}
+
+@media (max-width: 768px) {
+  html {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  body {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  button,
+  a,
+  input {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
 }
 
 select,

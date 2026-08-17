@@ -798,4 +798,64 @@ button.playHistory-button--selected {
     transform: none;
   }
 }
+
+@media (max-width: 768px) {
+  h1 {
+    margin-top: 8px;
+    font-size: 28px;
+
+    .avatar {
+      width: 38px;
+      height: 38px;
+    }
+  }
+
+  .section-one {
+    flex-direction: column;
+
+    .songs {
+      margin: 16px 0 0;
+    }
+  }
+
+  .liked-songs {
+    min-height: 180px;
+  }
+
+  .section-two {
+    margin-top: 36px;
+  }
+
+  .tabs-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .tabs {
+    flex-wrap: nowrap;
+    margin: 0 -16px;
+    padding: 0 16px 5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tab {
+      flex: 0 0 auto;
+      margin-right: 6px;
+      font-size: 15px;
+    }
+  }
+
+  .tab-actions {
+    justify-content: flex-end;
+  }
+
+  button.tab-button {
+    min-height: 38px;
+  }
+}
 </style>

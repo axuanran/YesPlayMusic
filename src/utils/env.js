@@ -5,6 +5,7 @@ const appPlatform =
 export const env = appEnv;
 export const platform = appPlatform;
 export const isElectron = env.IS_ELECTRON === true;
+export const isCapacitor = platform === 'capacitor';
 export const isDevelopment = env.NODE_ENV === 'development';
 
 const DOWNLOAD_FEATURE_KEY = '__ypm_enable_download__';

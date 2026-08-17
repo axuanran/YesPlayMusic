@@ -264,6 +264,40 @@ Web 构建输出到 `dist`，桌面构建输出到 `dist_electron`。跨平台�
 
 </details>
 
+### Android 手机端（第五版开发中）
+
+手机端使用 Capacitor，共用现有 Vue 3 页面、账号、歌单与播放器逻辑。无需配置公网网易云 API 或 Audio Resolver 地址：Android 原生模块直接完成网易云 `weapi/eapi` 加密、Cookie 管理和 HTTPS 请求；音频地址由 Vue 内置 Provider 解析，桌面端和 Android 共用。
+
+执行：
+
+```bash
+yarn mobile:sync
+yarn mobile:open
+```
+
+`mobile:sync` 会生成 Web 资源并同步到 `android` 工程；`mobile:open` 会用 Android Studio 打开工程。第一版已内置登录、推荐、搜索、歌单、歌曲、歌词、专辑、歌手、MV 与用户资料所需接口；云盘文件上传暂不支持。
+
+Android 工程当前使用 `compileSdk 36`、`targetSdk 36`、`minSdk 24`，请在 Android Studio 中安装对应 SDK。
+
+第二版已将手机端实际解码与播放迁移到 Android Media3：原生
+`MediaSessionService` 负责后台播放、音频焦点、拔出耳机自动暂停、锁屏与通知栏媒体控件；Vue 播放器通过 Capacitor 插件同步进度、播放状态及上一首/下一首命令。音源解析仍内置在 UI Provider 中，不依赖任何线上自建服务。Desktop 保持 HTML Audio 播放引擎，同样使用 UI 内置解析。
+
+第三版增加本机播放状态持久化与 Media3 播放恢复：服务被系统回收后可通过耳机媒体键恢复最近曲目、进度、音量和倍速；WebView 重建时若原生服务仍在播放同一曲目，会接管现有会话而不清零进度。持久化内容位于应用私有目录，不包含登录 Cookie。
+
+第四版将 Android 音频缓存迁移到应用私有目录中的 Media3 原生缓存，使用 512MB LRU 上限；播放服务与“自动缓存歌曲”下载器共享稳定的歌曲缓存键，支持当前歌曲和下一首预取，不再依赖 WebView 的 `blob:` 生命周期。设置页可查看占用并清空原生缓存。Desktop 继续使用原有 UI 内置缓存逻辑。
+
+第五版把上一首、当前和下一首组成的滑动播放窗口同步到 Media3 原生队列：UI Provider 仍负责解析 HTTPS 音源，原生服务负责自动续播，以及通知栏和耳机媒体键切歌。切歌后 Vue 会按原生 `mediaId` 接管歌曲、进度和队列状态；WebView 或播放服务重建时会优先恢复原生会话及持久化队列，不覆盖正在播放的曲目。Desktop 播放流程不变。
+
+| 命令                 | 用途                              |
+| -------------------- | --------------------------------- |
+| `yarn mobile:build`  | 构建手机端 Web 资源               |
+| `yarn mobile:assets` | 重新生成 Android 图标资源         |
+| `yarn mobile:sync`   | 构建并同步 Android 工程           |
+| `yarn mobile:open`   | 在 Android Studio 中打开工程      |
+| `yarn mobile:run`    | 构建并运行到已连接的 Android 设备 |
+
+内置音频解析可在“设置 → 插件 → 内置音频解析”中启停、查看 Provider 状态、清理缓存和测试歌曲。它不依赖独立的 `server/resolver` 进程。
+
 ## 技术架构
 
 - 前端：Vue 3、Vue Router 4、Vuex 4、Vue I18n、Vite、Sass

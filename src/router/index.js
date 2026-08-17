@@ -4,7 +4,7 @@ import {
   createWebHistory,
 } from 'vue-router';
 import { isLooseLoggedIn, isAccountLoggedIn } from '@/utils/auth';
-import { isElectron } from '@/utils/env';
+import { isCapacitor, isElectron } from '@/utils/env';
 import { getPluginRoutes } from '@/plugins';
 
 const routes = [
@@ -174,7 +174,8 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: isElectron ? createWebHashHistory() : createWebHistory(),
+  history:
+    isElectron || isCapacitor ? createWebHashHistory() : createWebHistory(),
   routes,
 });
 
