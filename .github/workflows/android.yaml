@@ -11,7 +11,6 @@ on:
   push:
     branches:
       - dev
-      - feature/mobile-mvp
     paths:
       - '.github/workflows/android.yaml'
       - 'android/**'
@@ -41,7 +40,7 @@ on:
 
 jobs:
   build:
-    name: build debug APK
+    name: test, lint and build debug APK
     runs-on: ubuntu-22.04
 
     steps:
@@ -60,10 +59,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android SDK 36
         shell: bash
@@ -72,9 +73,20 @@ jobs:
       - name: Build and sync mobile UI
         run: yarn mobile:sync
 
-      - name: Build debug APK
+      - name: Test, lint and build debug APK
         working-directory: android
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace --no-daemon
+
+      - name: Upload Android reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: YesPlayMusic-android-reports
+          path: |
+            android/app/build/reports/tests/testDebugUnitTest/
+            android/app/build/reports/lint-results-debug.html
+            android/app/build/reports/lint-results-debug.xml
+          if-no-files-found: ignore
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
