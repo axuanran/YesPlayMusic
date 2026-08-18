@@ -29,7 +29,7 @@
 
 ---
 
-此README主要由AI编写
+此README主要由AI编写，由于dev不稳定。请尽量使用手动标注为latest的版本。目前docker版本的latest是dev版本，请手动指定版本
 
 
 ## 项目简介
