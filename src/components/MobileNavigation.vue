@@ -23,6 +23,16 @@
         >
           <svg-icon icon-class="search" />
         </button>
+        <button
+          v-if="showLoginAction"
+          class="topbar-button login-action"
+          type="button"
+          :aria-label="$t('login.login')"
+          @click="toLogin"
+        >
+          <svg-icon icon-class="login" />
+          <span>{{ $t('login.login') }}</span>
+        </button>
       </div>
     </header>
 
@@ -42,11 +52,22 @@
 </template>
 
 <script>
+import { mapState } from 'vuex';
+import { isLooseLoggedIn } from '@/utils/auth';
+import { isCapacitor } from '@/utils/env';
+
 const PRIMARY_ROUTES = ['home', 'explore', 'library', 'settings'];
+const LOGIN_ROUTES = ['login', 'loginUsername', 'loginAccount'];
 
 export default {
   name: 'MobileNavigation',
   computed: {
+    ...mapState(['data']),
+    showLoginAction() {
+      // loginMode makes this computed property update immediately after login/logout.
+      void this.data.loginMode;
+      return !isLooseLoggedIn() && !LOGIN_ROUTES.includes(this.$route.name);
+    },
     showBackButton() {
       return !PRIMARY_ROUTES.includes(this.$route.name);
     },
@@ -58,6 +79,9 @@ export default {
         settings: this.$t('library.userProfileMenu.settings'),
         search: this.$t('nav.search'),
         searchType: this.$t('nav.search'),
+        login: this.$t('login.login'),
+        loginUsername: this.$t('login.usernameLogin'),
+        loginAccount: this.$t('login.loginText'),
         playlist: this.$t('playlist.playlist'),
         album: this.$t('library.albums'),
         artist: this.$t('library.artists'),
@@ -94,6 +118,11 @@ export default {
       ];
     },
   },
+  methods: {
+    toLogin() {
+      this.$router.push({ name: isCapacitor ? 'loginAccount' : 'login' });
+    },
+  },
 };
 </script>
 
@@ -122,7 +151,7 @@ export default {
     height: 56px;
     padding: env(safe-area-inset-top) 16px 0;
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) 40px;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
     align-items: center;
     box-sizing: content-box;
     border-bottom: 1px solid rgba(128, 128, 128, 0.12);
@@ -152,6 +181,7 @@ export default {
 
   .topbar-actions {
     display: flex;
+    gap: 4px;
     justify-content: flex-end;
   }
 
@@ -173,6 +203,20 @@ export default {
     &:active {
       background: var(--color-secondary-bg-for-transparent);
       transform: scale(0.94);
+    }
+  }
+
+  .login-action {
+    width: auto;
+    padding: 0 10px;
+    gap: 5px;
+    color: var(--color-primary);
+    font-size: 13px;
+    font-weight: 700;
+
+    .svg-icon {
+      width: 18px;
+      height: 18px;
     }
   }
 
