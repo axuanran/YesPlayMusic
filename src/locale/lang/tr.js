@@ -167,8 +167,11 @@ export default {
     loginWithPhone: 'Phone ile giriş yap',
     webLogin: 'Web ile giriş yap',
     openWebLogin: 'NetEase web girişini aç',
+    openInAppWebLogin: 'NetEase oturumunu uygulamada aç',
     webLoginTip:
       'NetEase sayfasında giriş yaptıktan sonra sayfanın Cookie bilgisini kopyalayıp aşağıya yapıştır.',
+    androidWebLoginTip:
+      'Girişten sonra YesPlayMusic otomatik olarak geri döner ve Cookie bilgisini içe aktarır.',
     cookiePlaceholder:
       'MUSIC_U=...; __csrf=... gibi NetEase Cookie bilgisini yapıştır',
     cookieTip:

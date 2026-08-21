@@ -80,10 +80,18 @@
         </div>
         <div v-show="mode === 'cookie'" class="cookie-login">
           <button class="web-login-button" @click="loginWithWeb">
-            {{ $t('login.openWebLogin') }}
+            {{
+              isCapacitor
+                ? $t('login.openInAppWebLogin')
+                : $t('login.openWebLogin')
+            }}
           </button>
           <div class="cookie-tip">
-            {{ $t('login.webLoginTip') }}
+            {{
+              isCapacitor
+                ? $t('login.androidWebLoginTip')
+                : $t('login.webLoginTip')
+            }}
           </div>
           <textarea
             v-model="cookieText"
