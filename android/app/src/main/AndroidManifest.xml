@@ -20,6 +20,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".NeteaseLoginActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme.NoActionBar" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

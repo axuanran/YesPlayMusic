@@ -41,6 +41,11 @@ function normalizeBoolean(value) {
   return value === true || value === 'true' || value === 1 || value === '1';
 }
 
+export async function openNeteaseWebLoginOnAndroid() {
+  const result = await NeteaseApi.openWebLogin();
+  return result?.cookie || '';
+}
+
 function readConfigData(data) {
   if (!data) return {};
   if (data instanceof URLSearchParams)

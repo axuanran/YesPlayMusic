@@ -80,10 +80,18 @@
         </div>
         <div v-show="mode === 'cookie'" class="cookie-login">
           <button class="web-login-button" @click="loginWithWeb">
-            {{ $t('login.openWebLogin') }}
+            {{
+              isCapacitor
+                ? $t('login.openInAppWebLogin')
+                : $t('login.openWebLogin')
+            }}
           </button>
           <div class="cookie-tip">
-            {{ $t('login.webLoginTip') }}
+            {{
+              isCapacitor
+                ? $t('login.androidWebLoginTip')
+                : $t('login.webLoginTip')
+            }}
           </div>
           <textarea
             v-model="cookieText"
@@ -148,7 +156,8 @@ import {
 } from '@/utils/auth';
 import { userAccountWithCookie } from '@/api/user';
 import nativeAlert from '@/utils/nativeAlert';
-import { isElectron } from '@/utils/env';
+import { isCapacitor, isElectron } from '@/utils/env';
+import { openNeteaseWebLoginOnAndroid } from '@/mobile/neteaseApi';
 import {
   loginWithPhone,
   loginWithEmail,
@@ -184,6 +193,9 @@ export default {
   computed: {
     isElectron() {
       return isElectron;
+    },
+    isCapacitor() {
+      return isCapacitor;
     },
   },
   created() {
@@ -337,6 +349,26 @@ export default {
         });
     },
     loginWithWeb() {
+      if (this.isCapacitor) {
+        this.processing = true;
+        this.cookieError = '';
+        openNeteaseWebLoginOnAndroid()
+          .then(cookie => {
+            if (!cookie) {
+              this.processing = false;
+              return;
+            }
+
+            this.cookieText = cookie;
+            this.loginWithCookie();
+          })
+          .catch(error => {
+            this.processing = false;
+            this.cookieError = error.message ?? `网页登录失败：${error}`;
+          });
+        return;
+      }
+
       if (!this.isElectron || !window.electronAPI?.app?.openNeteaseWebLogin) {
         window.open('https://music.163.com/#/login', '_blank', 'noopener');
         return;

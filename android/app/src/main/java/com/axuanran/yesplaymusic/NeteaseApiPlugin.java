@@ -1,12 +1,17 @@
 package com.axuanran.yesplaymusic;
 
+import android.app.Activity;
+import android.content.Intent;
 import android.util.Base64;
+
+import androidx.activity.result.ActivityResult;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import org.json.JSONException;
@@ -53,6 +58,29 @@ public class NeteaseApiPlugin extends Plugin {
 
     private final SecureRandom secureRandom = new SecureRandom();
     private final ExecutorService executor = Executors.newCachedThreadPool();
+
+    @PluginMethod
+    public void openWebLogin(PluginCall call) {
+        Intent intent = new Intent(getContext(), NeteaseLoginActivity.class);
+        startActivityForResult(call, intent, "handleWebLoginResult");
+    }
+
+    @ActivityCallback
+    private void handleWebLoginResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+
+        JSObject response = new JSObject();
+        Intent data = result.getData();
+        if (result.getResultCode() == Activity.RESULT_OK && data != null) {
+            response.put(
+                "cookie",
+                data.getStringExtra(NeteaseLoginActivity.RESULT_COOKIE)
+            );
+        } else {
+            response.put("cookie", "");
+        }
+        call.resolve(response);
+    }
 
     @PluginMethod
     public void request(PluginCall call) {

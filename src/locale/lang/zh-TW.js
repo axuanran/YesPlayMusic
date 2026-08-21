@@ -158,8 +158,11 @@ export default {
     loginWithPhone: '手機號碼登入',
     webLogin: '網頁登入',
     openWebLogin: '打開網易雲網頁登入',
+    openInAppWebLogin: '在應用程式內登入網易雲',
     webLoginTip:
       '在打開的網易雲頁面完成登入後，複製該頁面的 Cookie 並貼到下方。',
+    androidWebLoginTip:
+      '登入完成後會自動返回 YesPlayMusic 並匯入 Cookie，無需手動複製。',
     cookiePlaceholder: '貼上 MUSIC_U=...; __csrf=... 等網易雲 Cookie',
     cookieTip: '至少需要 MUSIC_U。Cookie 只會保存在本機瀏覽器和 localStorage。',
     notice: `YesPlayMusic 承諾不會保存您的任何帳戶資訊到雲端。<br />
