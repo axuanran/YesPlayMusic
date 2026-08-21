@@ -21,6 +21,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class NeteaseLoginActivity extends AppCompatActivity {
@@ -49,6 +50,7 @@ public class NeteaseLoginActivity extends AppCompatActivity {
         setTitle("登录网易云账号");
         setContentView(createContentView());
         configureWebView();
+        configureBackNavigation();
         webView.loadUrl(LOGIN_URL);
         handler.post(cookieCheck);
     }
@@ -180,13 +182,20 @@ public class NeteaseLoginActivity extends AppCompatActivity {
         finish();
     }
 
-    @Override
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-            return;
-        }
-        cancelLogin();
+    private void configureBackNavigation() {
+        getOnBackPressedDispatcher().addCallback(
+            this,
+            new OnBackPressedCallback(true) {
+                @Override
+                public void handleOnBackPressed() {
+                    if (webView != null && webView.canGoBack()) {
+                        webView.goBack();
+                        return;
+                    }
+                    cancelLogin();
+                }
+            }
+        );
     }
 
     @Override
