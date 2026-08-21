@@ -168,10 +168,15 @@ export default {
     webLogin: 'Web ile giriş yap',
     openWebLogin: 'NetEase web girişini aç',
     openInAppWebLogin: 'NetEase oturumunu uygulamada aç',
+    useQrLogin: 'Bu sayfada QR ile giriş yap',
     webLoginTip:
       'NetEase sayfasında giriş yaptıktan sonra sayfanın Cookie bilgisini kopyalayıp aşağıya yapıştır.',
     androidWebLoginTip:
       'Girişten sonra YesPlayMusic otomatik olarak geri döner ve Cookie bilgisini içe aktarır.',
+    browserQrLoginTip:
+      'Tarayıcılar NetEase sayfasındaki siteler arası Cookie bilgisini okuyamaz. Oturumu otomatik aktarmak için QR kodunu burada tara.',
+    webLoginUnavailable:
+      'Web girişi bu ortamda kullanılamıyor. QR veya Cookie ile giriş yap.',
     cookiePlaceholder:
       'MUSIC_U=...; __csrf=... gibi NetEase Cookie bilgisini yapıştır',
     cookieTip:

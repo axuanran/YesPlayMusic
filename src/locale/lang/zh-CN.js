@@ -163,10 +163,15 @@ export default {
     webLogin: '网页登录',
     openWebLogin: '打开网易云网页登录',
     openInAppWebLogin: '在应用内登录网易云',
+    useQrLogin: '在此页面使用二维码登录',
     webLoginTip:
       '在打开的网易云页面完成登录后，复制该页面的 Cookie 并粘贴到下方。',
     androidWebLoginTip:
       '登录完成后会自动返回 YesPlayMusic 并导入 Cookie，无需手动复制。',
+    browserQrLoginTip:
+      '浏览器无法读取网易云页面的跨域 Cookie。请在此页面扫码登录，登录状态会自动导入。',
+    webLoginUnavailable:
+      '当前环境无法打开网页登录，请使用二维码或 Cookie 登录。',
     cookiePlaceholder: '粘贴 MUSIC_U=...; __csrf=... 等网易云 Cookie',
     cookieTip: '至少需要 MUSIC_U。Cookie 只会保存在本机浏览器和 localStorage。',
     notice: `YesPlayMusic 承诺不会保存你的任何账号信息到云端。<br />

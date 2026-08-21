@@ -83,14 +83,18 @@
             {{
               isCapacitor
                 ? $t('login.openInAppWebLogin')
-                : $t('login.openWebLogin')
+                : isElectron
+                  ? $t('login.openWebLogin')
+                  : $t('login.useQrLogin')
             }}
           </button>
           <div class="cookie-tip">
             {{
               isCapacitor
                 ? $t('login.androidWebLoginTip')
-                : $t('login.webLoginTip')
+                : isElectron
+                  ? $t('login.webLoginTip')
+                  : $t('login.browserQrLoginTip')
             }}
           </div>
           <textarea
@@ -369,8 +373,13 @@ export default {
         return;
       }
 
-      if (!this.isElectron || !window.electronAPI?.app?.openNeteaseWebLogin) {
-        window.open('https://music.163.com/#/login', '_blank', 'noopener');
+      if (!this.isElectron) {
+        this.changeMode('qrCode');
+        return;
+      }
+
+      if (!window.electronAPI?.app?.openNeteaseWebLogin) {
+        this.cookieError = this.$t('login.webLoginUnavailable');
         return;
       }
 

@@ -170,10 +170,15 @@ export default {
     webLogin: 'Web Login',
     openWebLogin: 'Open NetEase Web Login',
     openInAppWebLogin: 'Log in to NetEase in app',
+    useQrLogin: 'Use QR login on this page',
     webLoginTip:
       'After logging in on the NetEase page, copy that page Cookie and paste it below.',
     androidWebLoginTip:
       'After login, YesPlayMusic returns automatically and imports the Cookie. No manual copy is needed.',
+    browserQrLoginTip:
+      'Browsers cannot read cross-origin Cookies from the NetEase page. Scan the QR code here to import your login automatically.',
+    webLoginUnavailable:
+      'Web login is unavailable in this environment. Use QR or Cookie login instead.',
     cookiePlaceholder: 'Paste NetEase Cookie such as MUSIC_U=...; __csrf=...',
     cookieTip:
       'MUSIC_U is required. Cookies are only stored in this browser and localStorage.',
