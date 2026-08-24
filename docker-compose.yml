@@ -1,9 +1,9 @@
 services:
-  yesplaymusic:
-    image: ${YESPLAYMUSIC_IMAGE:-ghcr.io/axuanran/yesplaymusic:latest}
-    container_name: yesplaymusic
+  xump:
+    image: ${XUMP_IMAGE:-ghcr.io/axuanran/xump:latest}
+    container_name: xump
     volumes:
-      - yesplaymusic-data:/data
+      - xump-data:/data
     ports:
       - "80:80"
     restart: always
@@ -42,7 +42,7 @@ services:
     restart: always
 
 volumes:
-  yesplaymusic-data:
+  xump-data:
 
 networks:
   my_network:

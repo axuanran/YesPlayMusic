@@ -1,4 +1,4 @@
-name: Prepare Release
+name: Prepare XuMP Release
 
 permissions:
   contents: read
@@ -60,7 +60,7 @@ jobs:
             "$RELEASE_TAG" \
             --write-package
 
-          git config user.name "YesPlayMusic Release Bot"
+          git config user.name "XuMP Release Bot"
           git config user.email "release-bot@users.noreply.github.com"
           git add package.json
 
@@ -72,11 +72,11 @@ jobs:
           git commit -m "chore: release ${RELEASE_TAG} [release]"
           git push origin HEAD:dev
 
-          git tag -a "$RELEASE_TAG" -m "Release ${RELEASE_TAG}"
+          git tag -a "$RELEASE_TAG" -m "XuMP ${RELEASE_TAG}"
           git push origin "refs/tags/${RELEASE_TAG}"
 
           {
-            echo "## Release prepared"
+            echo "## XuMP release prepared"
             echo
             echo "- Tag: \`${RELEASE_TAG}\`"
             echo "- Commit: \`$(git rev-parse HEAD)\`"

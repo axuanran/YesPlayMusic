@@ -1,5 +1,5 @@
 {
-  "name": "yesplaymusic",
+  "name": "xump",
   "version": "0.1.1-alpha.11",
   "private": true,
   "description": "A third party music player for Netease Music",
@@ -48,12 +48,12 @@
   },
   "main": "out/main/index.js",
   "bin": {
-    "yesplaymusic-tui": "out/tui/yesplaymusic-tui.mjs"
+    "xump-tui": "out/tui/yesplaymusic-tui.mjs"
   },
   "build": {
-    "appId": "com.github.qier222.yesplaymusic",
-    "productName": "YesPlayMusic",
-    "copyright": "Copyright © YesPlayMusic",
+    "appId": "com.axuanran.xump",
+    "productName": "XuMP",
+    "copyright": "Copyright © XuMP",
     "asar": true,
     "files": [
       "out/**",
@@ -119,7 +119,7 @@
       ]
     },
     "linux": {
-      "executableName": "yesplaymusic",
+      "executableName": "xump",
       "artifactName": "${productName}-linux-${version}-${arch}.${ext}",
       "target": [
         {
@@ -186,7 +186,7 @@
       "deleteAppDataOnUninstall": true
     },
     "portable": {
-      "artifactName": "yesplaymusic.exe"
+      "artifactName": "XuMP.exe"
     }
   },
   "engines": {

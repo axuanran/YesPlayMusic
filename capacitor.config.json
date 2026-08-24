@@ -1,6 +1,6 @@
 {
-  "appId": "com.axuanran.yesplaymusic",
-  "appName": "YesPlayMusic",
+  "appId": "com.axuanran.xump",
+  "appName": "XuMP",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"

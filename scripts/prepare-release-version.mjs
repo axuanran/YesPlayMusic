@@ -32,8 +32,8 @@ const releaseVersion = inputVersion;
 const appVersion = inputVersion;
 const aurPkgver = inputVersion.replace('-', '_');
 const isPrerelease = inputVersion.includes('-');
-const pacmanAsset = `YesPlayMusic-${releaseVersion}.pacman`;
-const androidAsset = `YesPlayMusic-android-${releaseVersion}-debug.apk`;
+const pacmanAsset = `XuMP-${releaseVersion}.pacman`;
+const androidAsset = `XuMP-android-${releaseVersion}.apk`;
 
 if (writePackage) {
   const packagePath = path.resolve('package.json');

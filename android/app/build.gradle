@@ -3,11 +3,23 @@ apply plugin: 'com.android.application'
 def configuredVersionCode = (project.findProperty('releaseVersionCode') ?: '5').toString().toInteger()
 def configuredVersionName = (project.findProperty('releaseVersionName') ?: '0.1.1-alpha.15').toString()
 
+def releaseKeystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
+def releaseKeystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+def releaseKeyAlias = System.getenv('ANDROID_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('ANDROID_KEY_PASSWORD')
+def releaseSigningConfigured = [
+    releaseKeystorePath,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+].every { value -> value != null && !value.trim().isEmpty() }
+
 android {
+    // Keep the Java namespace stable; applicationId is the public Android package identifier.
     namespace = "com.axuanran.yesplaymusic"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.axuanran.yesplaymusic"
+        applicationId "com.axuanran.xump"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode configuredVersionCode
@@ -19,10 +31,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            release {
+                storeFile file(releaseKeystorePath)
+                storePassword releaseKeystorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

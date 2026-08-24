@@ -15,6 +15,15 @@ on:
         required: false
         default: false
         type: boolean
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
   pull_request:
     branches:
       - dev
@@ -33,7 +42,7 @@ on:
 
 jobs:
   build:
-    name: test, lint and build debug APK
+    name: test, lint and build Android APK
     runs-on: ubuntu-22.04
 
     steps:
@@ -79,10 +88,51 @@ jobs:
         shell: bash
         run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
 
+      - name: Validate Android release signing secrets
+        if: inputs.publish-artifact
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in \
+            ANDROID_KEYSTORE_BASE64 \
+            ANDROID_KEYSTORE_PASSWORD \
+            ANDROID_KEY_ALIAS \
+            ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing repository secret: ${name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Restore Android release keystore
+        if: inputs.publish-artifact
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          keystore_path="${RUNNER_TEMP}/xump-release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          chmod 600 "$keystore_path"
+          keytool -list \
+            -keystore "$keystore_path" \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$ANDROID_KEY_ALIAS" \
+            >/dev/null
+          echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
       - name: Build and sync mobile UI
         run: yarn mobile:sync
 
       - name: Test, lint and build debug APK
+        if: ${{ !inputs.publish-artifact }}
         working-directory: android
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
@@ -93,6 +143,32 @@ jobs:
             "-PreleaseVersionCode=${RELEASE_VERSION_CODE}" \
             --stacktrace \
             --no-daemon
+
+      - name: Test, lint and build signed release APK
+        if: inputs.publish-artifact
+        working-directory: android
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
+          RELEASE_VERSION_CODE: ${{ github.run_number }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          ./gradlew testDebugUnitTest lintDebug assembleRelease \
+            "-PreleaseVersionName=${RELEASE_VERSION}" \
+            "-PreleaseVersionCode=${RELEASE_VERSION_CODE}" \
+            --stacktrace \
+            --no-daemon
+
+      - name: Verify signed release APK
+        if: inputs.publish-artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify \
+            --verbose \
+            --print-certs \
+            android/app/build/outputs/apk/release/app-release.apk
 
       - name: Upload Android reports
         if: always()
@@ -114,7 +190,7 @@ jobs:
           set -euo pipefail
           mkdir -p release_android
           install -m 644 \
-            android/app/build/outputs/apk/debug/app-debug.apk \
+            android/app/build/outputs/apk/release/app-release.apk \
             "release_android/${ANDROID_ASSET}"
           test -f "release_android/${ANDROID_ASSET}"
 
@@ -122,6 +198,11 @@ jobs:
         if: inputs.publish-artifact
         uses: actions/upload-artifact@v4
         with:
-          name: YesPlayMusic-android
+          name: XuMP-android
           path: release_android/*
           if-no-files-found: error
+
+      - name: Remove Android release keystore
+        if: always() && inputs.publish-artifact
+        shell: bash
+        run: rm -f "${RUNNER_TEMP}/xump-release.jks"

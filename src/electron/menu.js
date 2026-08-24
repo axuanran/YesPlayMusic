@@ -158,7 +158,7 @@ export function createMenu(win, store, desktopLyrics) {
               {
                 role: 'window',
                 id: 'window',
-                label: 'YesPlayMusic',
+                label: 'XuMP',
                 type: 'checkbox',
                 checked: true,
                 click: () => {

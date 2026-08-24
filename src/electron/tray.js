@@ -315,7 +315,7 @@ export function createTray(win, eventEmitter, store, desktopLyrics) {
     });
 
   let tray = new Tray(icon);
-  tray.setToolTip('YesPlayMusic');
+  tray.setToolTip('XuMP');
 
   return isLinux
     ? new YPMTrayLinuxImpl(tray, win, eventEmitter, store, desktopLyrics)
