@@ -41,11 +41,15 @@ function normalizePlaybackError(error = {}, source = '', token = 0) {
   const nativeCode = Number.isFinite(Number(error.nativeCode))
     ? Number(error.nativeCode)
     : undefined;
+  const httpStatus = Number.isFinite(Number(error.httpStatus))
+    ? Number(error.httpStatus)
+    : undefined;
   return {
     ...error,
     token: error.token ?? token,
     code: error.code || undefined,
     nativeCode,
+    httpStatus,
     kind: error.kind || 'unknown',
     message:
       error.message ||
@@ -61,9 +65,17 @@ function formatPlaybackError(error) {
     (error.nativeCode && ANDROID_MEDIA_ERROR_MESSAGES[error.nativeCode]) ||
     error.message ||
     'Android 音频播放失败';
+  const httpStatus = error.httpStatus ? `HTTP ${error.httpStatus}` : '';
   const code = error.nativeCode ? `Media3 ${error.nativeCode}` : '';
   const source = error.sourceHost || '';
-  return [`播放失败：${reason}`, code, source].filter(Boolean).join(' · ');
+  return [
+    `播放失败：${reason}`,
+    httpStatus,
+    code,
+    source,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 function rememberPlaybackError(error) {
@@ -72,8 +84,11 @@ function rememberPlaybackError(error) {
     token: error.token,
     code: error.code,
     nativeCode: error.nativeCode,
+    httpStatus: error.httpStatus,
     kind: error.kind,
     message: error.message,
+    cause: error.cause,
+    detail: error.detail,
     phase: error.phase,
     sourceHost: error.sourceHost,
   };
