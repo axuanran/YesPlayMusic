@@ -72,6 +72,7 @@ vi.mock('@/utils/env', () => ({
     NODE_ENV: 'development',
     VUE_APP_NETEASE_API_URL: '/api',
   },
+  isCapacitor: false,
 }));
 
 async function loadRequestInterceptors() {
@@ -131,6 +132,29 @@ describe('request service', () => {
       realIP: '1.2.3.4',
       proxy: 'HTTP://127.0.0.1:7890',
     });
+  });
+
+  it('uses the configured Serverless API immediately', async () => {
+    localStorage.setItem(
+      'settings',
+      JSON.stringify({ neteaseApiUrl: 'https://ncm.example.com/' })
+    );
+    mocks.getCookieString.mockReturnValue('MUSIC_U=session');
+    const { request } = await loadRequestInterceptors();
+
+    const config = request({ url: '/playlist/detail' });
+
+    expect(config.baseURL).toBe('https://ncm.example.com');
+    expect(config.withCredentials).toBe(false);
+    expect(config.params.cookie).toBe('MUSIC_U=session');
+
+    localStorage.setItem(
+      'settings',
+      JSON.stringify({ neteaseApiUrl: 'https://ncm-2.example.com' })
+    );
+    expect(request({ url: '/toplist' }).baseURL).toBe(
+      'https://ncm-2.example.com'
+    );
   });
 
   it('keeps failed http responses rejected', async () => {

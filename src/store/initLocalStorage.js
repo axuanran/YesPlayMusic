@@ -41,6 +41,7 @@ let localStorage = {
     linuxEnableCustomTitlebar: false,
     trayIconTheme: 'auto',
     enabledPlaylistCategories,
+    neteaseApiUrl: '',
     proxyConfig: {
       protocol: 'noProxy',
       server: '',

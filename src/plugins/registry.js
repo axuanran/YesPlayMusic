@@ -1,4 +1,5 @@
 import resolverAdminPlugin from './builtin/resolver-admin/manifest';
+import neteaseApiPlugin from './builtin/netease-api/manifest';
 import { normalizePluginManifest, validatePluginManifest } from './manifest';
 import { getPluginSettings, getPluginState } from './settings';
 import {
@@ -9,7 +10,7 @@ import {
 } from './runtime';
 import { collectPluginRoutes } from './routes';
 
-const builtinPlugins = [resolverAdminPlugin];
+const builtinPlugins = [resolverAdminPlugin, neteaseApiPlugin];
 
 export { getPluginSettings };
 

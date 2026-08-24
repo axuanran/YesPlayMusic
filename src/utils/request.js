@@ -30,6 +30,19 @@ function readSettings() {
   }
 }
 
+function normalizeNeteaseApiUrl(value) {
+  if (typeof value !== 'string') return '';
+  const url = value.trim();
+  if (!url) return '';
+  if (url.startsWith('/')) return url.replace(/\/+$/, '') || '/';
+  if (!/^https?:\/\//i.test(url)) return '';
+  return url.replace(/\/+$/, '');
+}
+
+function getCustomNeteaseApiUrl(settings = readSettings()) {
+  return normalizeNeteaseApiUrl(settings.neteaseApiUrl);
+}
+
 function refreshRequestCookies(config) {
   if (!config.params) config.params = {};
   if (!getRequestUrl(config).includes('/login')) {
@@ -93,21 +106,21 @@ function runTokenRefresh() {
   return refreshPromise;
 }
 
-let baseURL = '';
+let defaultBaseURL = '';
 // Web 和 Electron 跑在不同端口避免同时启动时冲突
 if (env.IS_ELECTRON) {
   if (env.NODE_ENV === 'production') {
-    baseURL = env.VUE_APP_ELECTRON_API_URL;
+    defaultBaseURL = env.VUE_APP_ELECTRON_API_URL;
   } else {
-    baseURL = env.VUE_APP_ELECTRON_API_URL_DEV;
+    defaultBaseURL = env.VUE_APP_ELECTRON_API_URL_DEV;
   }
 } else {
-  baseURL = env.VUE_APP_NETEASE_API_URL;
+  defaultBaseURL = env.VUE_APP_NETEASE_API_URL;
 }
-baseURL = baseURL || '/api';
+defaultBaseURL = defaultBaseURL || '/api';
 
 const service = axios.create({
-  baseURL,
+  baseURL: defaultBaseURL,
   withCredentials: true,
   timeout: 15000,
 });
@@ -116,9 +129,22 @@ service.interceptors.request.use(function (config) {
   if (!config.params) config.params = {};
   const requestUrl = getRequestUrl(config);
   const settings = readSettings();
+  const customBaseURL = getCustomNeteaseApiUrl(settings);
+  const requestBaseURL = customBaseURL || defaultBaseURL;
 
-  if (baseURL.length) {
-    if (!env.IS_ELECTRON && !requestUrl.includes('/login')) {
+  // Resolve the API base URL for every request so changing the setting takes
+  // effect immediately without reloading the app.
+  config.baseURL = requestBaseURL;
+  // A Serverless deployment commonly exposes CORS with Allow-Origin: *.
+  // Avoid credentialed cross-origin requests; auth cookies are sent explicitly
+  // through the API's cookie parameter below instead.
+  if (/^https?:\/\//i.test(customBaseURL)) {
+    config.withCredentials = false;
+  }
+
+  if (requestBaseURL.length) {
+    const shouldAttachCookieParam = !env.IS_ELECTRON || Boolean(customBaseURL);
+    if (shouldAttachCookieParam && !requestUrl.includes('/login')) {
       const cookie = getCookieString();
       if (cookie && !config.params.cookie) config.params.cookie = cookie;
     }
@@ -201,7 +227,10 @@ service.interceptors.response.use(
 );
 
 async function request(config) {
-  if (!isCapacitor) return service(config);
+  // Android keeps using its native direct implementation by default. When a
+  // custom API is configured, route through the same Axios service as Web and
+  // Electron so Serverless/self-hosted deployments work on Android as well.
+  if (!isCapacitor || getCustomNeteaseApiUrl()) return service(config);
 
   try {
     const data = await requestNeteaseOnAndroid(config);
