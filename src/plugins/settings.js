@@ -6,16 +6,14 @@ function readSettingsFromStorage() {
   }
 }
 
-const RESOLVER_ADMIN_PLUGIN_ID = 'resolver-admin';
+export const RESOLVER_ADMIN_PLUGIN_ID = 'resolver-admin';
 
 export function applyPluginSettingLinks(settings = {}) {
-  if (settings.plugins?.[RESOLVER_ADMIN_PLUGIN_ID]?.enabled !== false) {
-    return settings;
-  }
-  return {
-    ...settings,
-    useAudioResolver: false,
-  };
+  // resolver-admin is the settings surface for a built-in capability, not an
+  // optional runtime plugin. Older builds could persist enabled=false here;
+  // keep the management page available and let useAudioResolver be the single
+  // switch that controls whether audio resolution itself is active.
+  return settings;
 }
 
 export function getSetting(store, key, fallbackValue) {
@@ -32,6 +30,7 @@ export function getPluginSettings(settings = readSettingsFromStorage()) {
 }
 
 export function getPluginEnabled(plugin, settings) {
+  if (plugin.id === RESOLVER_ADMIN_PLUGIN_ID) return true;
   const plugins = getPluginSettings(settings);
   const saved = plugins[plugin.id];
   return saved?.enabled ?? plugin.enabledByDefault === true;
@@ -44,6 +43,11 @@ export function getPluginState(plugin, settings) {
 }
 
 export function setPluginEnabled(store, pluginId, enabled) {
+  if (pluginId === RESOLVER_ADMIN_PLUGIN_ID) {
+    setSetting(store, 'useAudioResolver', enabled);
+    return store?.state?.settings?.plugins || {};
+  }
+
   const settings = store?.state?.settings || {};
   const plugins = {
     ...(settings.plugins || {}),
@@ -53,9 +57,6 @@ export function setPluginEnabled(store, pluginId, enabled) {
     },
   };
 
-  if (pluginId === RESOLVER_ADMIN_PLUGIN_ID && enabled === false) {
-    setSetting(store, 'useAudioResolver', false);
-  }
   setSetting(store, 'plugins', plugins);
   return plugins;
 }
