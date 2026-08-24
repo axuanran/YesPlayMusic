@@ -49,6 +49,15 @@
             </div>
           </div>
         </div>
+        <button
+          v-if="!isLooseLoggedIn"
+          class="compact-login-button"
+          type="button"
+          @click="toLogin"
+        >
+          <svg-icon icon-class="login" />
+          <span>{{ $t('login.login') }}</span>
+        </button>
         <img
           class="avatar"
           :src="avatarUrl"
@@ -257,11 +266,6 @@ nav.has-custom-titlebar {
     -webkit-app-region: no-drag;
   }
 }
-@media (max-width: 970px) {
-  .navigation-buttons {
-    flex: unset;
-  }
-}
 
 .navigation-links {
   flex: 1;
@@ -359,6 +363,27 @@ nav.has-custom-titlebar {
   }
 }
 
+.compact-login-button {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 700;
+  -webkit-app-region: no-drag;
+
+  .svg-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    background: var(--color-primary-bg-for-transparent);
+  }
+}
+
 .right-part {
   flex: 1;
   display: flex;
@@ -380,6 +405,35 @@ nav.has-custom-titlebar {
   .search-button {
     display: none;
     -webkit-app-region: no-drag;
+  }
+}
+
+@media (max-width: 970px) {
+  nav {
+    padding: 0 24px;
+  }
+
+  .navigation-buttons,
+  .right-part {
+    flex: unset;
+  }
+
+  .navigation-links {
+    a {
+      margin-right: 4px;
+      margin-left: 4px;
+      padding-right: 8px;
+      padding-left: 8px;
+      font-size: 16px;
+    }
+  }
+
+  .search-box {
+    display: none;
+  }
+
+  .compact-login-button {
+    display: flex;
   }
 }
 
