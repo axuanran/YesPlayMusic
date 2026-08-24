@@ -68,12 +68,7 @@ function formatPlaybackError(error) {
   const httpStatus = error.httpStatus ? `HTTP ${error.httpStatus}` : '';
   const code = error.nativeCode ? `Media3 ${error.nativeCode}` : '';
   const source = error.sourceHost || '';
-  return [
-    `播放失败：${reason}`,
-    httpStatus,
-    code,
-    source,
-  ]
+  return [`播放失败：${reason}`, httpStatus, code, source]
     .filter(Boolean)
     .join(' · ');
 }
