@@ -1,10 +1,38 @@
+import cloneDeep from 'lodash/cloneDeep';
+
+const scheduleAfterPaint = callback => {
+  if (
+    typeof requestAnimationFrame === 'function' &&
+    typeof document !== 'undefined' &&
+    document.visibilityState !== 'hidden'
+  ) {
+    requestAnimationFrame(() => setTimeout(callback, 0));
+    return;
+  }
+  setTimeout(callback, 0);
+};
+
 export function getSendSettingsPlugin() {
   return store => {
-    store.subscribe(mutation => {
+    let latestSettings = null;
+    let flushScheduled = false;
+
+    const flush = () => {
+      flushScheduled = false;
+      const settings = latestSettings;
+      latestSettings = null;
+      const updateSettings = window.electronAPI?.settings?.updateSettings;
+      if (typeof updateSettings === 'function' && settings) {
+        updateSettings(cloneDeep(settings));
+      }
+    };
+
+    store.subscribe((mutation, state) => {
       if (mutation.type !== 'updateSettings') return;
-      const { key, value } = mutation.payload || {};
-      if (typeof key !== 'string' || key.length === 0) return;
-      window.electronAPI?.settings?.updateSetting?.({ key, value });
+      latestSettings = state.settings;
+      if (flushScheduled) return;
+      flushScheduled = true;
+      scheduleAfterPaint(flush);
     });
   };
 }
