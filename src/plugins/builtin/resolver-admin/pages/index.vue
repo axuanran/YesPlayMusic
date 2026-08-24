@@ -304,7 +304,7 @@ export default {
     display: block;
     box-shadow:
       0 0 0 1px hsla(0, 0%, 0%, 0.02),
-      0 4px 0px 0 hsla(0, 0%, 0%, 0.01),
+      0 4px 0 0 hsla(0, 0%, 0%, 0.01),
       0 4px 9px 0 hsla(0, 0%, 0%, 0.08),
       0 3px 3px 0 hsla(0, 0%, 0%, 0.03);
     transition: 0.35s cubic-bezier(0.54, 1.6, 0.5, 1);
@@ -318,7 +318,7 @@ export default {
 
   .toggle input:checked + label:before {
     background: var(--color-primary-gradient);
-    transition: width 0.2s cubic-bezier(0, 0%, 0, 0.1);
+    transition: width 0.2s cubic-bezier(0, 0, 0, 0.1);
   }
 
   .toggle input:checked + label:after {
