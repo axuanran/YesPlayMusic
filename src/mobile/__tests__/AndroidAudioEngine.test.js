@@ -34,6 +34,16 @@ describe('AndroidAudioEngine', () => {
   beforeEach(() => {
     mocks.listeners.clear();
     vi.clearAllMocks();
+    mocks.plugin.getState.mockResolvedValue({ token: 0, playing: false });
+    mocks.plugin.load.mockResolvedValue({ token: 7, playing: false });
+    mocks.plugin.play.mockResolvedValue({ token: 7, playing: true });
+    globalThis.yesplaymusicStore = undefined;
+    globalThis.__yesplaymusicLastPlaybackError__ = undefined;
+    try {
+      localStorage.removeItem('android-last-playback-error');
+    } catch {
+      // Some non-browser test environments do not expose localStorage.
+    }
   });
 
   it('loads metadata before starting native playback', async () => {
@@ -143,6 +153,74 @@ describe('AndroidAudioEngine', () => {
         kind: 'unsupported',
       }),
       7
+    );
+  });
+
+  it('shows actionable diagnostics for native network failures', async () => {
+    const onError = vi.fn();
+    const dispatch = vi.fn();
+    globalThis.yesplaymusicStore = { dispatch };
+    const engine = new AndroidAudioEngine({ onError });
+    engine.load('https://m1.music.126.net/song.mp3?token=secret', 7);
+    await engine._ready;
+
+    mocks.listeners.get('error')({
+      token: 7,
+      code: 2,
+      nativeCode: 2004,
+      httpStatus: 403,
+      kind: 'network',
+      message: 'Source error',
+      cause: 'InvalidResponseCodeException',
+      detail: 'Response code: 403',
+      source: 'https://m1.music.126.net/song.mp3?token=secret',
+    });
+
+    expect(dispatch).toHaveBeenCalledWith(
+      'showToast',
+      expect.stringContaining('HTTP 403')
+    );
+    expect(dispatch).toHaveBeenCalledWith(
+      'showToast',
+      expect.stringContaining('Media3 2004')
+    );
+    expect(dispatch).toHaveBeenCalledWith(
+      'showToast',
+      expect.stringContaining('https://m1.music.126.net')
+    );
+    expect(globalThis.__yesplaymusicLastPlaybackError__).toEqual(
+      expect.objectContaining({
+        nativeCode: 2004,
+        httpStatus: 403,
+        kind: 'network',
+        cause: 'InvalidResponseCodeException',
+        sourceHost: 'https://m1.music.126.net',
+      })
+    );
+    expect(onError).toHaveBeenCalledOnce();
+  });
+
+  it('reports bridge load failures and does not call native play afterward', async () => {
+    const dispatch = vi.fn();
+    globalThis.yesplaymusicStore = { dispatch };
+    mocks.plugin.load.mockRejectedValueOnce(
+      new Error('controller unavailable')
+    );
+    const engine = new AndroidAudioEngine();
+
+    engine.load('https://example.test/song.mp3', 7, { id: '42' });
+    await engine.play();
+
+    expect(mocks.plugin.play).not.toHaveBeenCalled();
+    expect(dispatch).toHaveBeenCalledWith(
+      'showToast',
+      expect.stringContaining('controller unavailable')
+    );
+    expect(globalThis.__yesplaymusicLastPlaybackError__).toEqual(
+      expect.objectContaining({
+        kind: 'bridge',
+        phase: 'load',
+      })
     );
   });
 

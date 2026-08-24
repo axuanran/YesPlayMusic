@@ -17,13 +17,18 @@ import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor;
 import androidx.media3.datasource.cache.SimpleCache;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /** Process-wide Media3 cache shared by playback and UI-triggered prefetches. */
 @OptIn(markerClass = UnstableApi.class)
 final class NativeAudioCache {
     static final long MAX_CACHE_BYTES = 512L * 1024L * 1024L;
+    private static final String NETEASE_REFERER = "https://music.163.com/";
+    private static final String MEDIA_USER_AGENT =
+        "NeteaseMusic 9.0.90/5038 (iPhone; iOS 16.2; zh_CN)";
     private static volatile NativeAudioCache instance;
 
     static NativeAudioCache getInstance(Context context) {
@@ -55,10 +60,16 @@ final class NativeAudioCache {
                 new LeastRecentlyUsedCacheEvictor(MAX_CACHE_BYTES),
                 databaseProvider
             );
+        Map<String, String> requestHeaders = new HashMap<>();
+        requestHeaders.put("Referer", NETEASE_REFERER);
+        requestHeaders.put("Accept", "*/*");
         DefaultHttpDataSource.Factory httpFactory =
             new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true)
-                .setUserAgent("YesPlayMusic/Android");
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(20000)
+                .setDefaultRequestProperties(requestHeaders)
+                .setUserAgent(MEDIA_USER_AGENT);
         DataSource.Factory upstreamFactory =
             new DefaultDataSource.Factory(context, httpFactory);
         dataSourceFactory =
