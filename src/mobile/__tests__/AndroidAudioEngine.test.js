@@ -194,7 +194,9 @@ describe('AndroidAudioEngine', () => {
   it('reports bridge load failures and does not call native play afterward', async () => {
     const dispatch = vi.fn();
     globalThis.yesplaymusicStore = { dispatch };
-    mocks.plugin.load.mockRejectedValueOnce(new Error('controller unavailable'));
+    mocks.plugin.load.mockRejectedValueOnce(
+      new Error('controller unavailable')
+    );
     const engine = new AndroidAudioEngine();
 
     engine.load('https://example.test/song.mp3', 7, { id: '42' });
