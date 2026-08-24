@@ -12,7 +12,7 @@
       :src="imgUrl"
       loading="lazy"
       :class="{ hover: focus }"
-      @click="goToAlbum"
+      @click.stop="goToAlbum"
     />
     <div v-if="showOrderNumber" class="no">
       <button v-show="focus && playable && !isPlaying" @click="playTrack">
@@ -241,8 +241,9 @@ export default {
 
   methods: {
     goToAlbum() {
-      if (this.track.al.id === 0) return;
-      this.$router.push({ path: '/album/' + this.track.al.id });
+      const albumId = this.track?.al?.id || this.track?.album?.id;
+      if (!albumId) return;
+      this.$router.push({ path: '/album/' + albumId });
     },
     playTrack() {
       this.$emit('play-track', this.track.id);
