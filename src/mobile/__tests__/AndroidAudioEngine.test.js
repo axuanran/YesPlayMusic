@@ -168,11 +168,18 @@ describe('AndroidAudioEngine', () => {
       token: 7,
       code: 2,
       nativeCode: 2004,
+      httpStatus: 403,
       kind: 'network',
       message: 'Source error',
+      cause: 'InvalidResponseCodeException',
+      detail: 'Response code: 403',
       source: 'https://m1.music.126.net/song.mp3?token=secret',
     });
 
+    expect(dispatch).toHaveBeenCalledWith(
+      'showToast',
+      expect.stringContaining('HTTP 403')
+    );
     expect(dispatch).toHaveBeenCalledWith(
       'showToast',
       expect.stringContaining('Media3 2004')
@@ -184,7 +191,9 @@ describe('AndroidAudioEngine', () => {
     expect(globalThis.__yesplaymusicLastPlaybackError__).toEqual(
       expect.objectContaining({
         nativeCode: 2004,
+        httpStatus: 403,
         kind: 'network',
+        cause: 'InvalidResponseCodeException',
         sourceHost: 'https://m1.music.126.net',
       })
     );
