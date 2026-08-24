@@ -1,5 +1,4 @@
 import { spawnSync } from 'node:child_process';
-import path from 'node:path';
 
 if (process.env.WORKERS_CI === '1') {
   console.log(
@@ -8,12 +7,7 @@ if (process.env.WORKERS_CI === '1') {
   process.exit(0);
 }
 
-const executable = path.resolve(
-  'node_modules',
-  '.bin',
-  process.platform === 'win32' ? 'electron-builder.cmd' : 'electron-builder'
-);
-const result = spawnSync(executable, ['install-app-deps'], {
+const result = spawnSync('electron-builder', ['install-app-deps'], {
   stdio: 'inherit',
   shell: process.platform === 'win32',
 });
