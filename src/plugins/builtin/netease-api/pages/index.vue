@@ -31,9 +31,7 @@
           <button @click="saveApiUrl">保存</button>
           <button @click="resetApiUrl">恢复默认</button>
         </div>
-        <div class="status">
-          当前：{{ neteaseApiUrl || '默认 API' }}
-        </div>
+        <div class="status"> 当前：{{ neteaseApiUrl || '默认 API' }} </div>
       </div>
     </div>
   </div>
