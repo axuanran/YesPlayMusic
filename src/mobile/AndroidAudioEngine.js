@@ -2,6 +2,91 @@ import { registerPlugin } from '@capacitor/core';
 import { normalizePlaybackRate } from '@/utils/playbackRate';
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+const ERROR_TOAST_DEDUP_MS = 5000;
+const LAST_PLAYBACK_ERROR_KEY = 'android-last-playback-error';
+
+const ANDROID_MEDIA_ERROR_MESSAGES = {
+  2000: '音频源发生未知 I/O 错误',
+  2001: '网络连接失败',
+  2002: '网络连接超时',
+  2003: '音频服务器返回了错误的内容类型',
+  2004: '音频服务器拒绝请求或返回异常 HTTP 状态',
+  2005: '音频地址不存在',
+  2006: '没有权限读取音频地址',
+  2007: 'Android 禁止访问明文 HTTP 音频',
+  2008: '音频服务器不支持当前 Range 请求',
+  3001: '音频容器格式无法识别',
+  3002: '音频容器格式不受支持',
+  3003: '音频解析过程发生错误',
+  4001: '音频解码器初始化失败',
+  4002: '音频解码器查询失败',
+  4003: '音频格式超出设备解码能力',
+  4004: '设备不支持该音频格式',
+  4005: '音频解码失败',
+};
+
+function sourceSummary(source) {
+  if (!source || typeof source !== 'string') return '';
+  try {
+    const parsed = new URL(source);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return source.split('?')[0].slice(0, 120);
+  }
+}
+
+function normalizePlaybackError(error = {}, source = '', token = 0) {
+  const nativeCode = Number.isFinite(Number(error.nativeCode))
+    ? Number(error.nativeCode)
+    : undefined;
+  return {
+    ...error,
+    token: error.token ?? token,
+    code: error.code || undefined,
+    nativeCode,
+    kind: error.kind || 'unknown',
+    message:
+      error.message ||
+      (nativeCode ? ANDROID_MEDIA_ERROR_MESSAGES[nativeCode] : '') ||
+      'Android 音频播放失败',
+    sourceHost: sourceSummary(error.source || source),
+    at: new Date().toISOString(),
+  };
+}
+
+function formatPlaybackError(error) {
+  const reason =
+    (error.nativeCode && ANDROID_MEDIA_ERROR_MESSAGES[error.nativeCode]) ||
+    error.message ||
+    'Android 音频播放失败';
+  const code = error.nativeCode ? `Media3 ${error.nativeCode}` : '';
+  const source = error.sourceHost || '';
+  return [`播放失败：${reason}`, code, source].filter(Boolean).join(' · ');
+}
+
+function rememberPlaybackError(error) {
+  const diagnostic = {
+    at: error.at,
+    token: error.token,
+    code: error.code,
+    nativeCode: error.nativeCode,
+    kind: error.kind,
+    message: error.message,
+    phase: error.phase,
+    sourceHost: error.sourceHost,
+  };
+  globalThis.__yesplaymusicLastPlaybackError__ = diagnostic;
+  if (globalThis.yesplaymusic) {
+    globalThis.yesplaymusic.lastPlaybackError = diagnostic;
+  }
+  try {
+    localStorage.setItem(LAST_PLAYBACK_ERROR_KEY, JSON.stringify(diagnostic));
+  } catch {
+    // Diagnostics must never interfere with playback.
+  }
+  console.error('[android-audio] playback failed', diagnostic);
+  return diagnostic;
+}
 
 function toNativeTrack(track = {}) {
   const artists = (track.ar || track.artists || [])
@@ -58,6 +143,9 @@ export default class AndroidAudioEngine {
     this._tracks = new Map();
     this._onTrackTransition = onTrackTransition;
     this._preserveNativePositionOnce = false;
+    this._loadFailed = false;
+    this._lastErrorToastKey = '';
+    this._lastErrorToastAt = 0;
     this._loadPromise = Promise.resolve();
     this._ready = Promise.all([
       BackgroundAudio.addListener('ready', state => {
@@ -83,13 +171,14 @@ export default class AndroidAudioEngine {
       }),
       BackgroundAudio.addListener('error', error => {
         if (!this._acceptState(error)) return;
-        onError?.(
-          {
-            ...error,
-            code: error.code || undefined,
-          },
+        const normalizedError = normalizePlaybackError(
+          error,
+          this._currentSource,
           this.token
         );
+        rememberPlaybackError(normalizedError);
+        this._showPlaybackError(normalizedError);
+        onError?.(normalizedError, this.token);
       }),
       BackgroundAudio.addListener('command', command => {
         if (!this._acceptState(command)) return;
@@ -122,7 +211,10 @@ export default class AndroidAudioEngine {
           }
           return state;
         })
-        .catch(() => null)
+        .catch(error => {
+          this._reportBridgeFailure(error, 'getState');
+          return null;
+        })
     );
   }
 
@@ -134,6 +226,8 @@ export default class AndroidAudioEngine {
     this._playing = false;
     this._position = 0;
     this._duration = Number(track.duration) || 0;
+    this._currentSource = source || '';
+    this._loadFailed = false;
     if (track?.id) this._tracks.set(String(track.id), track);
     this._loadPromise = this._ready
       .then(() =>
@@ -167,15 +261,28 @@ export default class AndroidAudioEngine {
           }
         }
         return state;
+      })
+      .catch(error => {
+        this._loadFailed = true;
+        this._reportBridgeFailure(error, 'load');
+        return null;
       });
     return this._loadPromise;
   }
 
   play() {
     return this._loadPromise
-      .then(() => BackgroundAudio.play())
+      .then(() => {
+        if (this._loadFailed) return null;
+        return BackgroundAudio.play();
+      })
       .then(state => {
         if (this._acceptState(state)) this._applyState(state);
+        return state;
+      })
+      .catch(error => {
+        this._reportBridgeFailure(error, 'play');
+        return null;
       });
   }
 
@@ -302,6 +409,37 @@ export default class AndroidAudioEngine {
 
   setOutputDevice() {
     // Android routes audio through the system-selected output device.
+  }
+
+  _showPlaybackError(error) {
+    // Player.js already shows a dedicated unsupported-format message.
+    if (error.code === 4) return;
+    const message = formatPlaybackError(error);
+    const key = `${error.token}:${error.nativeCode || error.kind}:${error.sourceHost}`;
+    const now = Date.now();
+    if (
+      key === this._lastErrorToastKey &&
+      now - this._lastErrorToastAt < ERROR_TOAST_DEDUP_MS
+    ) {
+      return;
+    }
+    this._lastErrorToastKey = key;
+    this._lastErrorToastAt = now;
+    globalThis?.yesplaymusicStore?.dispatch?.('showToast', message);
+  }
+
+  _reportBridgeFailure(error, phase) {
+    const normalizedError = normalizePlaybackError(
+      {
+        kind: 'bridge',
+        phase,
+        message: error?.message || String(error || 'Unknown Android bridge error'),
+      },
+      this._currentSource,
+      this.token
+    );
+    rememberPlaybackError(normalizedError);
+    this._showPlaybackError(normalizedError);
   }
 
   _acceptState(state) {
