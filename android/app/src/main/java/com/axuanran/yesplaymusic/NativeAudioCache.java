@@ -28,7 +28,7 @@ final class NativeAudioCache {
     static final long MAX_CACHE_BYTES = 512L * 1024L * 1024L;
     private static final String NETEASE_REFERER = "https://music.163.com/";
     private static final String MEDIA_USER_AGENT =
-        "NeteaseMusic/9.5.61.260802021928 (Android; YesPlayMusic)";
+        "NeteaseMusic 9.0.90/5038 (iPhone; iOS 16.2; zh_CN)";
     private static volatile NativeAudioCache instance;
 
     static NativeAudioCache getInstance(Context context) {
