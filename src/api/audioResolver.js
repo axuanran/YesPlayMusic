@@ -11,7 +11,9 @@ export function getCurrentPageResolverURL() {
 
 function getResolverClient() {
   if (isCapacitor) {
-    throw new Error('Android 使用 UI 内置音频 Provider，不提供 Resolver HTTP 接口');
+    throw new Error(
+      'Android 使用 UI 内置音频 Provider，不提供 Resolver HTTP 接口'
+    );
   }
   if (!resolverAxios) {
     resolverAxios = axios.create({
@@ -197,6 +199,9 @@ export async function clearResolverCache() {
     // Static web builds can run without the Node resolver. Keep their UI cache
     // clear operation usable while still surfacing a real desktop regression.
     if (isElectron) throw error;
-    console.warn('[resolver] Bundled resolver cache unavailable:', error.message);
+    console.warn(
+      '[resolver] Bundled resolver cache unavailable:',
+      error.message
+    );
   }
 }
