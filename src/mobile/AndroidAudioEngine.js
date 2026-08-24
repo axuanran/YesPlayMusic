@@ -435,7 +435,8 @@ export default class AndroidAudioEngine {
       {
         kind: 'bridge',
         phase,
-        message: error?.message || String(error || 'Unknown Android bridge error'),
+        message:
+          error?.message || String(error || 'Unknown Android bridge error'),
       },
       this._currentSource,
       this.token
