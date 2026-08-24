@@ -6,14 +6,30 @@
           返回设置
         </button>
         <h1>内置音频解析</h1>
-        <p>桌面端与 Android 共用，无需部署后端服务</p>
+        <p v-if="isCapacitor">
+          Android 使用 UI 内置 Provider，无需填写 Resolver 地址
+        </p>
+        <p v-else>
+          完整 Resolver 已随应用内置，可直接配置 Netease、Unblock、LX 等音源
+        </p>
       </div>
 
       <resolver-controls
         :use-audio-resolver="useAudioResolver"
+        :is-capacitor="isCapacitor"
         @update:use-audio-resolver="useAudioResolver = $event"
         @clear-cache="clearResolverUiCache"
       />
+      <resolver-configuration
+        v-if="!isCapacitor"
+        @saved="refreshProviderStatus"
+      />
+      <div v-else class="mobile-config-note">
+        <div class="title">Android 解析模式</div>
+        <div class="description">
+          Android 使用 UI/原生兼容的内置解析链；音质跟随全局“音乐音质”设置。
+        </div>
+      </div>
       <provider-status
         :providers="providerStatus"
         @refresh="refreshProviderStatus"
@@ -33,11 +49,13 @@
 <script>
 import { mapActions, mapState } from 'vuex';
 import { clearResolverCache } from '@/api/audioResolver';
+import { isCapacitor } from '@/utils/env';
 import {
   getAudioProviderStatus,
   resolveTrackSourceWithProviders,
 } from '@/plugins/providers/audio';
 import ProviderStatus from './components/ProviderStatus.vue';
+import ResolverConfiguration from './components/ResolverConfiguration.vue';
 import ResolverControls from './components/ResolverControls.vue';
 import ResolveTester from './components/ResolveTester.vue';
 
@@ -59,11 +77,13 @@ export default {
   name: 'ResolverAdminPlugin',
   components: {
     ProviderStatus,
+    ResolverConfiguration,
     ResolverControls,
     ResolveTester,
   },
   data() {
     return {
+      isCapacitor,
       testTrackId: '',
       testQuality: 'standard',
       testResult: null,
@@ -80,7 +100,7 @@ export default {
       try {
         await clearResolverCache();
         this.refreshProviderStatus();
-        this.showToast('已清除内置解析缓存');
+        this.showToast('已清除音频解析缓存');
       } catch (error) {
         this.showToast(`清除解析缓存失败：${error.message || error}`);
       }
@@ -130,7 +150,8 @@ export default {
 
 .container {
   margin-top: 24px;
-  width: 720px;
+  width: 820px;
+  max-width: calc(100vw - 48px);
 }
 
 .header {
@@ -146,6 +167,14 @@ export default {
     margin: 0;
     opacity: 0.68;
   }
+}
+
+.mobile-config-note {
+  margin: 28px 0;
+  padding: 16px;
+  border-radius: 10px;
+  color: var(--color-text);
+  background: var(--color-secondary-bg);
 }
 </style>
 
@@ -275,9 +304,9 @@ export default {
     display: block;
     box-shadow:
       0 0 0 1px hsla(0, 0%, 0%, 0.02),
-      0 4px 0px 0 hsla(0, 0%, 0%, 0.01),
-      0 4px 9px hsla(0, 0%, 0%, 0.08),
-      0 3px 3px hsla(0, 0%, 0%, 0.03);
+      0 4px 0 0 hsla(0, 0%, 0%, 0.01),
+      0 4px 9px 0 hsla(0, 0%, 0%, 0.08),
+      0 3px 3px 0 hsla(0, 0%, 0%, 0.03);
     transition: 0.35s cubic-bezier(0.54, 1.6, 0.5, 1);
     background: #fff;
     height: 20px;
