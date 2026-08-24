@@ -232,6 +232,168 @@
     line-height: 1.5;
   }
 
+  .artist-page {
+    margin-top: 8px !important;
+  }
+
+  .artist-page .artist-info {
+    align-items: center !important;
+    flex-direction: column !important;
+    margin-bottom: 20px !important;
+    text-align: center;
+  }
+
+  .artist-page .artist-info img {
+    width: min(52vw, 190px) !important;
+    height: min(52vw, 190px) !important;
+    margin-right: 0 !important;
+  }
+
+  .artist-page .artist-info .name {
+    margin-top: 20px;
+    font-size: 32px !important;
+    line-height: 1.12;
+  }
+
+  .artist-page .artist-info .artist {
+    margin-top: 12px !important;
+    font-size: 15px !important;
+  }
+
+  .artist-page .artist-info .description {
+    margin-top: 14px !important;
+  }
+
+  .artist-page .artist-info .buttons {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px !important;
+  }
+
+  .artist-page .section-title {
+    padding-top: 32px !important;
+    font-size: 20px !important;
+  }
+
+  .artist-page .latest-release img {
+    width: 88px !important;
+    height: 88px !important;
+    object-fit: cover;
+  }
+
+  .artist-page .latest-release .info {
+    min-width: 0;
+    margin-left: 14px !important;
+  }
+
+  .artist-page .latest-release .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .podcast-page {
+    padding-top: 8px !important;
+  }
+
+  .podcast-page > h1 {
+    font-size: 34px !important;
+    line-height: 1.12;
+  }
+
+  .podcast-page .page-description {
+    margin-bottom: 24px !important;
+    font-size: 15px !important;
+  }
+
+  .podcast-page .podcast-info {
+    width: 100% !important;
+    align-items: center;
+    flex-direction: column !important;
+    margin-bottom: 36px !important;
+  }
+
+  .podcast-page .podcast-info .cover-container {
+    width: min(58vw, 220px) !important;
+    height: min(58vw, 220px) !important;
+  }
+
+  .podcast-page .podcast-info .info {
+    width: 100%;
+    align-items: center;
+    margin: 24px 0 0 !important;
+    text-align: center;
+  }
+
+  .podcast-page .podcast-info h1 {
+    font-size: 30px !important;
+    line-height: 1.15;
+  }
+
+  .podcast-page .podcast-info .creator {
+    margin-top: 10px !important;
+    font-size: 15px !important;
+  }
+
+  .podcast-page .podcast-info .description {
+    margin: 16px 0 22px !important;
+  }
+
+  .podcast-page h2 {
+    font-size: 24px !important;
+  }
+
+  .streaming {
+    padding-top: 8px !important;
+  }
+
+  .streaming .header {
+    align-items: stretch !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    margin-bottom: 22px !important;
+  }
+
+  .streaming .header h1 {
+    margin-bottom: 6px !important;
+    font-size: 30px !important;
+    line-height: 1.12;
+  }
+
+  .streaming .connection-form {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+    padding: 14px !important;
+  }
+
+  .streaming .connection-form .form-actions,
+  .streaming .connection-form .error {
+    grid-column: 1 !important;
+  }
+
+  .streaming .server-row,
+  .streaming .toolbar {
+    align-items: stretch !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .streaming .server-row label,
+  .streaming .toolbar .search {
+    width: 100%;
+    max-width: none !important;
+  }
+
+  .streaming .form-actions {
+    justify-content: flex-end !important;
+    flex-wrap: wrap;
+  }
+
+  .mv-row {
+    padding: 0 !important;
+  }
+
   .shade {
     box-sizing: border-box;
     align-items: flex-end !important;
@@ -262,6 +424,21 @@
   .shade .modal .footer {
     margin-right: 18px !important;
     margin-left: 18px !important;
+  }
+
+  .context-menu-layer .menu {
+    min-width: min(220px, calc(100vw - 24px));
+  }
+
+  .context-menu-layer .menu .item {
+    box-sizing: border-box;
+    min-height: 44px;
+  }
+
+  .track .mobile-more-button {
+    flex-basis: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
   }
 
   .login .input-box .container,
