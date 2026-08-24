@@ -12,6 +12,7 @@ import { installDevErrorReporter } from '@/utils/devErrorReporter';
 import { hydrateCookiesToDocument } from '@/utils/auth';
 import { createPluginContext, installPlugins } from '@/plugins';
 import '@/assets/css/global.scss';
+import '@/assets/css/mobile.scss';
 import NProgress from 'nprogress';
 import '@/assets/css/nprogress.css';
 import { setupMobileShell } from '@/mobile/setupMobileShell';

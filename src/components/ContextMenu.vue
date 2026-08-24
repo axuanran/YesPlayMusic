@@ -62,23 +62,26 @@ export default {
       const viewportWidth = visualViewport?.width || window.innerWidth;
       const viewportHeight = visualViewport?.height || window.innerHeight;
       const viewportBottom = viewportTop + viewportHeight;
-      const navbar = document.querySelector('nav');
-      const player = document.querySelector('.player');
-      const navbarRect = navbar?.getClientRects().length
-        ? navbar.getBoundingClientRect()
-        : null;
-      const playerRect = player?.getClientRects().length
-        ? player.getBoundingClientRect()
-        : null;
+      const getVisibleRect = selector => {
+        const element = document.querySelector(selector);
+        return element?.getClientRects().length
+          ? element.getBoundingClientRect()
+          : null;
+      };
+      const navbarRect = getVisibleRect('nav:not(.mobile-tabbar)');
+      const mobileTopbarRect = getVisibleRect('.mobile-topbar');
+      const mobileTabbarRect = getVisibleRect('.mobile-tabbar');
+      const playerRect = getVisibleRect('.player');
+      const topRect = mobileTopbarRect || navbarRect;
+      const bottomInsets = [playerRect, mobileTabbarRect]
+        .filter(rect => rect && rect.top < viewportBottom)
+        .map(rect => viewportBottom - rect.top);
 
       return {
-        bottomInset:
-          playerRect && playerRect.top < viewportBottom
-            ? viewportBottom - playerRect.top
-            : 0,
+        bottomInset: bottomInsets.length > 0 ? Math.max(...bottomInsets) : 0,
         topInset:
-          navbarRect && navbarRect.bottom > viewportTop
-            ? navbarRect.bottom - viewportTop
+          topRect && topRect.bottom > viewportTop
+            ? topRect.bottom - viewportTop
             : 0,
         viewportHeight,
         viewportLeft,
