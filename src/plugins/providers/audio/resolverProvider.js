@@ -1,8 +1,5 @@
 import { getMP3 } from '@/api/track';
-import {
-  isResolverEnabled,
-  resolveAudioByBackend,
-} from '@/api/audioResolver';
+import { isResolverEnabled, resolveAudioByBackend } from '@/api/audioResolver';
 import { isAccountLoggedIn } from '@/utils/auth';
 import { isCapacitor } from '@/utils/env';
 import { registerAudioProvider } from './registry';
