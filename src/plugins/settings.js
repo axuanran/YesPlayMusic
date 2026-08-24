@@ -11,7 +11,8 @@ export const RESOLVER_ADMIN_PLUGIN_ID = 'resolver-admin';
 export function applyPluginSettingLinks(settings = {}) {
   const savedResolverPlugin = settings.plugins?.[RESOLVER_ADMIN_PLUGIN_ID];
   const enabled =
-    settings.useAudioResolver !== false && savedResolverPlugin?.enabled !== false;
+    settings.useAudioResolver !== false &&
+    savedResolverPlugin?.enabled !== false;
 
   return {
     ...settings,
