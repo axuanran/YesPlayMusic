@@ -465,7 +465,7 @@ class Background {
             thickFrame: true,
           }
         : {}),
-      title: 'YesPlayMusic',
+      title: 'XuMP',
       show: false,
       ...(isLinux
         ? {
@@ -566,7 +566,7 @@ class Background {
         .then(result => {
           if (result.response === 0) {
             shell.openExternal(
-              'https://github.com/qier222/YesPlayMusic/releases'
+              'https://github.com/axuanran/YesPlayMusic/releases'
             );
           }
         });
@@ -635,7 +635,7 @@ class Background {
           width: 800,
           height: 600,
           titleBarStyle: 'default',
-          title: 'YesPlayMusic',
+          title: 'XuMP',
           webPreferences: {
             webSecurity: true,
             nodeIntegration: false,
