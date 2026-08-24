@@ -1,0 +1,54 @@
+@media (hover: none) and (pointer: coarse) {
+  body.mobile-shell .cover .play-button {
+    opacity: 0.88 !important;
+    transform: scale(1) !important;
+  }
+
+  body.mobile-shell .track .mobile-more-button {
+    display: flex !important;
+    flex: 0 0 40px !important;
+    width: 40px !important;
+    height: 40px !important;
+    margin-left: 4px !important;
+    padding: 10px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 12px !important;
+    color: var(--color-text) !important;
+  }
+
+  body.mobile-shell .track .mobile-more-button .svg-icon {
+    width: 18px !important;
+    height: 18px !important;
+    color: var(--color-text) !important;
+    opacity: 0.58 !important;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) and (pointer: coarse) {
+  body.mobile-shell .shade {
+    box-sizing: border-box;
+    align-items: center !important;
+    padding-top: calc(8px + env(safe-area-inset-top)) !important;
+    padding-right: max(12px, env(safe-area-inset-right)) !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+    padding-left: max(12px, env(safe-area-inset-left)) !important;
+  }
+
+  body.mobile-shell .shade .modal {
+    box-sizing: border-box;
+    width: min(560px, 100%) !important;
+    min-width: 0 !important;
+    max-height: calc(
+      100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px
+    ) !important;
+    margin: 0 !important;
+    border-radius: 16px !important;
+  }
+
+  body.mobile-shell .context-menu-layer .menu {
+    max-height: calc(
+      100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px
+    ) !important;
+  }
+}
