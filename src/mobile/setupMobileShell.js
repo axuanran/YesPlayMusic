@@ -3,12 +3,31 @@ import { BackgroundAudio } from '@/mobile/AndroidAudioEngine';
 import store from '@/store';
 
 const PRIMARY_ROUTE_NAMES = new Set(['home', 'explore', 'library', 'settings']);
+const PLAYER_HIDDEN_ROUTE_NAMES = new Set([
+  'mv',
+  'loginUsername',
+  'login',
+  'loginAccount',
+  'lastfmCallback',
+]);
+const NAVBAR_HIDDEN_ROUTE_NAMES = new Set(['lastfmCallback']);
 const KEYBOARD_THRESHOLD = 120;
 
 function isEditableElement(element) {
   return (
     element instanceof HTMLElement &&
     (element.matches('input, textarea, select') || element.isContentEditable)
+  );
+}
+
+function syncRouteShellState(route) {
+  document.body.classList.toggle(
+    'mobile-player-hidden',
+    PLAYER_HIDDEN_ROUTE_NAMES.has(route?.name)
+  );
+  document.body.classList.toggle(
+    'mobile-navbar-hidden',
+    NAVBAR_HIDDEN_ROUTE_NAMES.has(route?.name)
   );
 }
 
@@ -119,6 +138,8 @@ export async function setupMobileShell(router) {
   if (!isCapacitor) return;
 
   setupMobileViewportState();
+  syncRouteShellState(router.currentRoute.value);
+  router.afterEach(to => syncRouteShellState(to));
 
   const [{ App }, { SplashScreen }, { StatusBar, Style }] = await Promise.all([
     import('@capacitor/app'),
