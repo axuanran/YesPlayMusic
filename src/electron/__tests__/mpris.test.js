@@ -98,9 +98,9 @@ describe('MPRIS service', () => {
     const player = mocks.players[0];
 
     expect(player.options).toMatchObject({
-      name: 'yesplaymusic',
-      identity: 'YesPlayMusic',
-      desktopEntry: 'yesplaymusic',
+      name: 'xump',
+      identity: 'XuMP',
+      desktopEntry: 'xump',
       supportedInterfaces: ['player'],
     });
 

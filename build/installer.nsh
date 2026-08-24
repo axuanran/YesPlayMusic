@@ -14,10 +14,10 @@ Function AddToPathPage
     Abort
   ${EndIf}
 
-  ${NSD_CreateLabel} 0 0 100% 24u "Choose whether Setup should add YesPlayMusic to the system PATH."
+  ${NSD_CreateLabel} 0 0 100% 24u "Choose whether Setup should add XuMP to the system PATH."
   Pop $0
 
-  ${NSD_CreateCheckbox} 0 30u 100% 12u "Add YesPlayMusic to PATH"
+  ${NSD_CreateCheckbox} 0 30u 100% 12u "Add XuMP to PATH"
   Pop $AddToPathCheckbox
   ${If} $AddToPathState == ""
     StrCpy $AddToPathState ${BST_CHECKED}

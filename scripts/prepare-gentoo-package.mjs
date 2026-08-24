@@ -28,10 +28,10 @@ const gentooVersion = releaseVersion.replace(
 );
 const amd64Asset =
   optionValue('amd64-asset') ||
-  `YesPlayMusic-linux-${releaseVersion}-x64.tar.gz`;
+  `XuMP-linux-${releaseVersion}-x64.tar.gz`;
 const arm64Asset =
   optionValue('arm64-asset') ||
-  `YesPlayMusic-linux-${releaseVersion}-arm64.tar.gz`;
+  `XuMP-linux-${releaseVersion}-arm64.tar.gz`;
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 const templateRoot = path.join(repositoryRoot, '.github', 'gentoo');
 const packageRoot = path.resolve(overlayArg, 'media-sound', 'yesplaymusic-bin');

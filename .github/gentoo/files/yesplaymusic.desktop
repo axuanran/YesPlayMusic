@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=YesPlayMusic
+Name=XuMP
 Comment=A third-party Netease Cloud Music player
-Exec=yesplaymusic %U
+Exec=xump %U
 Terminal=false
 Type=Application
-Icon=yesplaymusic
+Icon=xump
 Categories=AudioVideo;Audio;Music;Player;
-StartupWMClass=YesPlayMusic
+StartupWMClass=XuMP

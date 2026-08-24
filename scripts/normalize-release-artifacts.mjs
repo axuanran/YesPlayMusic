@@ -91,7 +91,7 @@ if (pacmanFiles.length > 0) {
 
   const expectedPacmanPath = path.join(
     path.dirname(pacmanFiles[0]),
-    `YesPlayMusic-${releaseVersion}.pacman`
+    `XuMP-${releaseVersion}.pacman`
   );
 
   if (pacmanFiles[0] !== expectedPacmanPath) {

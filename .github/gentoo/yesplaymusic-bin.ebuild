@@ -3,7 +3,7 @@
 
 EAPI=8
 
-DESCRIPTION="A third-party Netease Cloud Music player"
+DESCRIPTION="XuMP - a third-party Netease Cloud Music player"
 HOMEPAGE="https://github.com/axuanran/YesPlayMusic"
 
 MY_PV="@RELEASE_VERSION@"
@@ -43,16 +43,16 @@ RDEPEND="
 	x11-libs/pango
 "
 
-QA_PREBUILT="opt/YesPlayMusic/**"
+QA_PREBUILT="opt/XuMP/**"
 
 src_install() {
-	insinto /opt/YesPlayMusic
+	insinto /opt/XuMP
 	doins -r .
 
-	fperms +x /opt/YesPlayMusic/yesplaymusic
-	fperms 4755 /opt/YesPlayMusic/chrome-sandbox
-	dosym ../../opt/YesPlayMusic/yesplaymusic /usr/bin/yesplaymusic
+	fperms +x /opt/XuMP/xump
+	fperms 4755 /opt/XuMP/chrome-sandbox
+	dosym ../../opt/XuMP/xump /usr/bin/xump
 
-	newicon "${FILESDIR}/yesplaymusic.png" yesplaymusic.png
+	newicon "${FILESDIR}/yesplaymusic.png" xump.png
 	domenu "${FILESDIR}/yesplaymusic.desktop"
 }

@@ -52,9 +52,9 @@ export class MprisService {
     this.playerHandlers = [];
 
     this.player = new Player({
-      name: 'yesplaymusic',
-      identity: 'YesPlayMusic',
-      desktopEntry: 'yesplaymusic',
+      name: 'xump',
+      identity: 'XuMP',
+      desktopEntry: 'xump',
       supportedInterfaces: ['player'],
       supportedMimeTypes: [],
       supportedUriSchemes: [],

@@ -185,7 +185,7 @@ jobs:
         if: runner.os == 'Windows' && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/'))
         uses: actions/upload-artifact@v4
         with:
-          name: YesPlayMusic-win
+          name: XuMP-win
           path: release_windows/*
           if-no-files-found: error
 
@@ -193,7 +193,7 @@ jobs:
         if: runner.os == 'Linux' && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/'))
         uses: actions/upload-artifact@v4
         with:
-          name: YesPlayMusic-linux
+          name: XuMP-linux
           path: release_linux/*
           if-no-files-found: error
 
@@ -201,7 +201,7 @@ jobs:
         if: runner.os == 'macOS' && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/'))
         uses: actions/upload-artifact@v4
         with:
-          name: YesPlayMusic-mac
+          name: XuMP-mac
           path: |
             dist_electron/*.dmg
             dist_electron/*.zip
@@ -214,6 +214,7 @@ jobs:
     uses: ./.github/workflows/android.yaml
     with:
       publish-artifact: true
+    secrets: inherit
 
   publish:
     name: publish release
@@ -237,7 +238,7 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: YesPlayMusic-*
+          pattern: XuMP-*
           merge-multiple: true
           path: artifacts
 
@@ -385,7 +386,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: YesPlayMusic ${{ steps.version.outputs.release_version }}
+          name: XuMP ${{ steps.version.outputs.release_version }}
           body: |
             Version: ${{ steps.version.outputs.release_version }}
             Source ref: ${{ github.ref_name }}
@@ -456,7 +457,7 @@ jobs:
               >/dev/null
           }
 
-          header="YesPlayMusic ${RELEASE_TAG} 已上传至 R2"
+          header="XuMP ${RELEASE_TAG} 已上传至 R2"
           message="$header"
           while IFS= read -r link; do
             candidate="${message}"$'\n'"${link}"
@@ -622,13 +623,13 @@ jobs:
 
           amd64_asset="$(
             resolve_asset \
-              "YesPlayMusic-linux-${RELEASE_VERSION}-x64.tar.gz" \
-              "yesplaymusic-${RELEASE_VERSION}.tar.gz"
+              "XuMP-linux-${RELEASE_VERSION}-x64.tar.gz" \
+              "YesPlayMusic-linux-${RELEASE_VERSION}-x64.tar.gz"
           )"
           arm64_asset="$(
             resolve_asset \
-              "YesPlayMusic-linux-${RELEASE_VERSION}-arm64.tar.gz" \
-              "yesplaymusic-${RELEASE_VERSION}-arm64.tar.gz"
+              "XuMP-linux-${RELEASE_VERSION}-arm64.tar.gz" \
+              "YesPlayMusic-linux-${RELEASE_VERSION}-arm64.tar.gz"
           )"
 
           echo "amd64=$amd64_asset" >> "$GITHUB_OUTPUT"

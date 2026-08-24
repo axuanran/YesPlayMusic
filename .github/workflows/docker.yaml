@@ -1,4 +1,4 @@
-name: Docker Image
+name: XuMP Docker Image
 
 permissions:
   contents: read
@@ -29,7 +29,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/yesplaymusic
+  IMAGE_NAME: ${{ github.repository_owner }}/xump
 
 jobs:
   build-and-push:
