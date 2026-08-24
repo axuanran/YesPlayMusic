@@ -82,6 +82,15 @@
     <div v-if="showTrackTime" class="time">
       {{ formatTime(track.dt) }}
     </div>
+    <button
+      class="mobile-more-button"
+      type="button"
+      title="更多操作"
+      aria-label="More actions"
+      @click.stop="openMobileMenu"
+    >
+      <svg-icon icon-class="more" />
+    </button>
 
     <div v-if="track.playCount" class="count"> {{ track.playCount }}</div>
   </div>
@@ -240,6 +249,19 @@ export default {
     },
     likeThisSong() {
       this.$emit('like-track', this.track.id);
+    },
+    openMobileMenu(event) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      this.$el.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          button: 2,
+          clientX: Math.min(window.innerWidth - 16, rect.left + rect.width / 2),
+          clientY: rect.top + rect.height / 2,
+        })
+      );
     },
   },
 };
@@ -444,6 +466,10 @@ button {
   justify-content: flex-end;
 }
 
+.mobile-more-button {
+  display: none;
+}
+
 .track.playing {
   background: var(--color-primary-bg);
   color: var(--color-primary);
@@ -491,6 +517,28 @@ button {
     .actions,
     .time {
       display: none;
+    }
+  }
+
+  .mobile-more-button {
+    display: flex;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    margin-left: 4px;
+    padding: 10px;
+    border-radius: 12px;
+    color: var(--color-text);
+
+    .svg-icon {
+      width: 18px;
+      height: 18px;
+      color: var(--color-text);
+      opacity: 0.58;
+    }
+
+    &:active {
+      background: var(--color-secondary-bg-for-transparent);
     }
   }
 
