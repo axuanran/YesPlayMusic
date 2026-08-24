@@ -1,0 +1,403 @@
+body.mobile-keyboard-open {
+  .mobile-tabbar,
+  .player {
+    display: none !important;
+  }
+
+  #app > main {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .shade {
+    top: var(--mobile-visual-top, 0) !important;
+    bottom: auto !important;
+    height: var(--mobile-visual-height, 100dvh) !important;
+  }
+
+  .shade .modal {
+    max-height: calc(
+      var(--mobile-visual-height, 100dvh) - env(safe-area-inset-top) - 16px
+    ) !important;
+  }
+}
+
+@media (max-width: 360px) {
+  #app > main {
+    padding-right: 12px !important;
+    padding-left: 12px !important;
+  }
+
+  .mobile-topbar {
+    padding-right: 10px !important;
+    padding-left: 10px !important;
+  }
+
+  .mobile-page-title {
+    font-size: 16px !important;
+  }
+
+  .login-action {
+    width: 40px !important;
+    padding: 0 !important;
+  }
+
+  .login-action span {
+    display: none !important;
+  }
+
+  .search-page h1,
+  .search h1 {
+    overflow-wrap: anywhere;
+    font-size: 26px !important;
+    line-height: 1.15;
+  }
+
+  .special-playlist > .title {
+    font-size: 36px !important;
+  }
+
+  .settings-page .item {
+    gap: 10px !important;
+  }
+
+  .settings-page .select,
+  .settings-page .text-input {
+    width: min(52vw, 180px) !important;
+  }
+
+  .lyrics-page .right-side .lyrics-container {
+    padding-right: 12px !important;
+    padding-left: 12px !important;
+  }
+
+  .lyrics-page .left-side {
+    padding-right: 10px !important;
+    padding-left: 10px !important;
+  }
+
+  .lyrics-page .left-side .controls .track-info .title {
+    font-size: 14px !important;
+  }
+
+  .lyrics-page .left-side .controls .media-controls .middle button {
+    margin-right: 1px !important;
+    margin-left: 1px !important;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) and (pointer: coarse) {
+  body.mobile-shell #scrollbar,
+  body.mobile-shell #app > div > nav:not(.mobile-tabbar) {
+    display: none !important;
+  }
+
+  body.mobile-shell .mobile-topbar {
+    height: 46px !important;
+    padding-right: max(12px, env(safe-area-inset-right)) !important;
+    padding-left: max(12px, env(safe-area-inset-left)) !important;
+  }
+
+  body.mobile-shell .mobile-topbar .topbar-button {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  body.mobile-shell .mobile-topbar .brand-mark {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 9px !important;
+    font-size: 16px !important;
+  }
+
+  body.mobile-shell .mobile-topbar .mobile-page-title {
+    font-size: 16px !important;
+  }
+
+  body.mobile-shell .mobile-tabbar {
+    height: 48px !important;
+  }
+
+  body.mobile-shell .mobile-tab {
+    gap: 0 !important;
+  }
+
+  body.mobile-shell .mobile-tab span {
+    display: none !important;
+  }
+
+  body.mobile-shell .mobile-tab .svg-icon {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  body.mobile-shell #app > main {
+    padding-top: calc(46px + env(safe-area-inset-top) + 8px) !important;
+    padding-right: max(16px, env(safe-area-inset-right)) !important;
+    padding-bottom: calc(122px + env(safe-area-inset-bottom)) !important;
+    padding-left: max(16px, env(safe-area-inset-left)) !important;
+  }
+
+  body.mobile-shell .player {
+    right: max(10px, env(safe-area-inset-right)) !important;
+    bottom: calc(56px + env(safe-area-inset-bottom)) !important;
+    left: max(10px, env(safe-area-inset-left)) !important;
+    height: 58px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(128, 128, 128, 0.14) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14) !important;
+  }
+
+  body.mobile-shell .player .progress-bar {
+    position: absolute !important;
+    top: 0 !important;
+    right: 8px !important;
+    left: 8px !important;
+    width: auto !important;
+    height: 9px !important;
+    margin: 0 !important;
+  }
+
+  body.mobile-shell .player .progress-range {
+    height: 9px !important;
+  }
+
+  body.mobile-shell .player .progress-range::-webkit-slider-thumb {
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  body.mobile-shell .player .discord-status,
+  body.mobile-shell .player .playing > .blank,
+  body.mobile-shell .player .middle-control-buttons > .blank,
+  body.mobile-shell .player .right-control-buttons > .blank,
+  body.mobile-shell .player .track-action-buttons {
+    display: none !important;
+  }
+
+  body.mobile-shell .player .controls {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 4px 8px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  body.mobile-shell .player .playing {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  body.mobile-shell .player .playing .container {
+    width: 100% !important;
+  }
+
+  body.mobile-shell .player .playing .container img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  body.mobile-shell .player .playing .track-info {
+    height: 40px !important;
+    margin-left: 8px !important;
+  }
+
+  body.mobile-shell .player .playing .track-info .name {
+    margin-bottom: 1px !important;
+    font-size: 13px !important;
+  }
+
+  body.mobile-shell .player .middle-control-buttons,
+  body.mobile-shell .player .right-control-buttons {
+    flex: 0 0 auto !important;
+  }
+
+  body.mobile-shell .player .middle-control-buttons .container {
+    padding: 0 !important;
+  }
+
+  body.mobile-shell .player .middle-control-buttons .button-icon {
+    display: none !important;
+    margin: 0 1px !important;
+  }
+
+  body.mobile-shell .player .middle-control-buttons .play,
+  body.mobile-shell .player .middle-control-buttons .next-button {
+    display: grid !important;
+  }
+
+  body.mobile-shell .player .middle-control-buttons .play {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  body.mobile-shell .player .right-control-buttons .container > * {
+    display: none !important;
+  }
+
+  body.mobile-shell .player .right-control-buttons .lyrics-button {
+    width: 34px !important;
+    height: 34px !important;
+    margin-left: 0 !important;
+    display: grid !important;
+  }
+
+  body.mobile-shell .lyrics-page {
+    box-sizing: border-box;
+    min-height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  body.mobile-shell .lyrics-page .right-side {
+    position: absolute !important;
+    top: calc(env(safe-area-inset-top) + 44px) !important;
+    right: env(safe-area-inset-right) !important;
+    bottom: calc(env(safe-area-inset-bottom) + 102px) !important;
+    left: env(safe-area-inset-left) !important;
+    margin: 0 !important;
+    z-index: 1 !important;
+  }
+
+  body.mobile-shell .lyrics-page .right-side .lyrics-container {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    padding: 0 18px !important;
+  }
+
+  body.mobile-shell .lyrics-page .right-side .line {
+    margin: 0 !important;
+    padding: 6px 4px !important;
+  }
+
+  body.mobile-shell .lyrics-page .left-side {
+    position: absolute !important;
+    right: env(safe-area-inset-right) !important;
+    bottom: env(safe-area-inset-bottom) !important;
+    left: env(safe-area-inset-left) !important;
+    display: block !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 4px 12px 5px !important;
+    transform: none !important;
+    z-index: 12 !important;
+    background: var(--color-navbar-bg);
+    border-top: 1px solid rgba(128, 128, 128, 0.12);
+    backdrop-filter: saturate(180%) blur(22px);
+  }
+
+  body.mobile-shell .lyrics-page .left-side > div,
+  body.mobile-shell .lyrics-page .left-side .controls {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  body.mobile-shell .lyrics-page .left-side .date,
+  body.mobile-shell .lyrics-page .left-side .cover,
+  body.mobile-shell .lyrics-page .left-side .volume-control,
+  body.mobile-shell .lyrics-page .left-side .track-info {
+    display: none !important;
+  }
+
+  body.mobile-shell .lyrics-page .left-side .controls .top-part {
+    display: flex !important;
+    min-height: 30px !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+  }
+
+  body.mobile-shell .lyrics-page .left-side .controls .top-part > .top-right,
+  body.mobile-shell
+    .lyrics-page
+    .left-side
+    .controls
+    .top-part
+    > .top-right
+    .buttons {
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  body.mobile-shell
+    .lyrics-page
+    .left-side
+    .controls
+    .top-part
+    > .top-right
+    .buttons
+    button {
+    width: 32px !important;
+    height: 32px !important;
+    margin: 0 !important;
+  }
+
+  body.mobile-shell .lyrics-page .left-side .controls .progress-bar {
+    margin-top: 0 !important;
+  }
+
+  body.mobile-shell .lyrics-page .left-side .controls .progress-bar span {
+    min-width: 28px !important;
+    font-size: 10px !important;
+  }
+
+  body.mobile-shell .lyrics-page .left-side .controls .media-controls {
+    min-height: 34px !important;
+    margin-top: 0 !important;
+    justify-content: space-between !important;
+  }
+
+  body.mobile-shell .lyrics-page .left-side .controls .media-controls .middle {
+    flex: 1 1 auto !important;
+    justify-content: center !important;
+    padding: 0 2px !important;
+  }
+
+  body.mobile-shell .lyrics-page .left-side .controls .media-controls button {
+    width: 34px !important;
+    height: 34px !important;
+    margin: 0 1px !important;
+  }
+
+  body.mobile-shell
+    .lyrics-page
+    .left-side
+    .controls
+    .media-controls
+    .middle
+    button#play {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  body.mobile-shell .lyrics-page .left-side .lyric-behavior-menu {
+    margin-left: 0 !important;
+  }
+
+  body.mobile-shell
+    .lyrics-page
+    .left-side
+    .lyric-behavior-menu
+    .lyric-behavior-actions {
+    top: auto !important;
+    right: 0 !important;
+    bottom: calc(100% + 6px) !important;
+    left: auto !important;
+  }
+
+  body.mobile-shell .lyrics-page > .close-button {
+    top: calc(env(safe-area-inset-top) + 4px) !important;
+    right: calc(env(safe-area-inset-right) + 8px) !important;
+    width: 36px !important;
+    height: 36px !important;
+    opacity: 0.78 !important;
+  }
+
+  body.mobile-shell .lyrics-page > .close-button:last-child {
+    display: none !important;
+  }
+}
