@@ -1,11 +1,10 @@
-import cloneDeep from 'lodash/cloneDeep';
-
 export function getSendSettingsPlugin() {
   return store => {
-    store.subscribe((mutation, state) => {
-      // console.log(mutation);
+    store.subscribe(mutation => {
       if (mutation.type !== 'updateSettings') return;
-      window.electronAPI?.settings?.updateSettings?.(cloneDeep(state.settings));
+      const { key, value } = mutation.payload || {};
+      if (typeof key !== 'string' || key.length === 0) return;
+      window.electronAPI?.settings?.updateSetting?.({ key, value });
     });
   };
 }
