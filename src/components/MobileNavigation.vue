@@ -83,7 +83,7 @@ export default {
         loginUsername: this.$t('login.usernameLogin'),
         loginAccount: this.$t('login.loginText'),
         playlist: this.$t('playlist.playlist'),
-        likedSongs: '我喜欢的音乐',
+        likedSongs: this.$t('library.likedSongs'),
         album: this.$t('library.albums'),
         artist: this.$t('library.artists'),
         artistMV: 'MV',
@@ -91,7 +91,7 @@ export default {
         next: this.$t('player.nextUp'),
         newAlbum: this.$t('home.newAlbum'),
         podcast: this.$t('podcast.title'),
-        localPlaylist: '本地歌单',
+        localPlaylist: this.$t('localMusic.folderPlaylist'),
         streaming: this.$t('nav.streaming'),
         dailySongs: '每日推荐',
         lastfmCallback: 'Last.fm',
@@ -260,6 +260,31 @@ export default {
     &.active {
       color: var(--color-primary);
     }
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-topbar {
+    grid-template-columns: 84px minmax(0, 1fr) 84px;
+  }
+
+  .brand-mark,
+  .topbar-button:first-child {
+    justify-self: start;
+  }
+
+  .topbar-actions {
+    width: 84px;
+    justify-self: end;
+  }
+
+  .login-action {
+    width: 40px;
+    padding: 0;
+  }
+
+  .login-action span {
+    display: none;
   }
 }
 </style>
