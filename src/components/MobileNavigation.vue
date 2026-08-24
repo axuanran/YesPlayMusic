@@ -10,7 +10,7 @@
       >
         <svg-icon icon-class="arrow-left" />
       </button>
-      <div v-else class="brand-mark" aria-hidden="true">Y</div>
+      <div v-else class="brand-mark" aria-hidden="true">X</div>
 
       <div class="mobile-page-title">{{ pageTitle }}</div>
 
@@ -73,7 +73,7 @@ export default {
     },
     pageTitle() {
       const titles = {
-        home: 'YesPlayMusic',
+        home: 'XuMP',
         explore: this.$t('nav.explore'),
         library: this.$t('nav.library'),
         settings: this.$t('library.userProfileMenu.settings'),
@@ -83,11 +83,20 @@ export default {
         loginUsername: this.$t('login.usernameLogin'),
         loginAccount: this.$t('login.loginText'),
         playlist: this.$t('playlist.playlist'),
+        likedSongs: '我喜欢的音乐',
         album: this.$t('library.albums'),
         artist: this.$t('library.artists'),
+        artistMV: 'MV',
+        mv: 'MV',
         next: this.$t('player.nextUp'),
+        newAlbum: this.$t('home.newAlbum'),
+        podcast: this.$t('podcast.title'),
+        localPlaylist: '本地歌单',
+        streaming: 'Streaming',
+        dailySongs: '每日推荐',
+        lastfmCallback: 'Last.fm',
       };
-      return titles[this.$route.name] || 'YesPlayMusic';
+      return titles[this.$route.name] || 'XuMP';
     },
     tabs() {
       return [
