@@ -1,19 +1,83 @@
+import axios from 'axios';
 import { clearAudioProviderCache } from '@/plugins/providers/audio/registry';
+import { isCapacitor, isElectron } from '@/utils/env';
+
+const RESOLVER_BASE_URL = '/resolver-api';
+let resolverAxios = null;
 
 export function getCurrentPageResolverURL() {
-  return 'embedded://audio-resolver';
+  return isCapacitor ? 'embedded://audio-resolver' : RESOLVER_BASE_URL;
+}
+
+function getResolverClient() {
+  if (isCapacitor) {
+    throw new Error('Android 使用 UI 内置音频 Provider，不提供 Resolver HTTP 接口');
+  }
+  if (!resolverAxios) {
+    resolverAxios = axios.create({
+      baseURL: RESOLVER_BASE_URL,
+      timeout: 10000,
+    });
+  }
+  return resolverAxios;
+}
+
+function getEmbeddedResolverConfig() {
+  try {
+    const settings = JSON.parse(localStorage.getItem('settings')) || {};
+    return settings.embeddedResolverConfig || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveEmbeddedResolverConfig(config) {
+  const settings = JSON.parse(localStorage.getItem('settings')) || {};
+  settings.embeddedResolverConfig = config || {};
+  localStorage.setItem('settings', JSON.stringify(settings));
 }
 
 /**
- * Resolve audio source via backend resolver service.
- * POST {baseURL}/api/audio/resolve
+ * Resolve audio source via the resolver bundled with YesPlayMusic.
+ * Desktop and Docker expose it on the same-origin /resolver-api prefix.
+ * Android uses the UI provider directly instead of this HTTP API.
  *
  * @param {number} trackId
  * @param {string} [quality='standard']
+ * @param {object} [options]
  * @returns {Promise<{ok: boolean, trackId: number, playUrl: string, mode: string, source: string, quality: string, expiresAt: number}>}
  */
-export async function resolveAudioByBackend() {
-  throw new Error('独立音频解析后端已停用，请使用内置音频 Provider');
+export async function resolveAudioByBackend(
+  trackId,
+  quality = 'standard',
+  options = {}
+) {
+  const client = getResolverClient();
+  const { data } = await client.post(
+    '/api/audio/resolve',
+    {
+      trackId,
+      quality,
+      bypassCache: options.bypassCache === true,
+      track: options.track,
+    },
+    {
+      signal: options.signal,
+    }
+  );
+
+  if (!data.ok) {
+    const error = new Error(data.message || '音频解析失败');
+    error.code = data.code;
+    error.tried = data.tried;
+    throw error;
+  }
+
+  if (data.playUrl && data.playUrl.startsWith('/')) {
+    data.playUrl = `${RESOLVER_BASE_URL}${data.playUrl}`;
+  }
+
+  return data;
 }
 
 export function isResolverEnabled() {
@@ -26,57 +90,113 @@ export function isResolverEnabled() {
 }
 
 export async function getResolverConfig() {
-  try {
-    const settings = JSON.parse(localStorage.getItem('settings')) || {};
-    return { config: settings.embeddedResolverConfig || {} };
-  } catch {
-    return { config: {} };
+  if (isCapacitor) {
+    return { ok: true, config: getEmbeddedResolverConfig(), embedded: true };
   }
+  const client = getResolverClient();
+  const { data } = await client.get('/api/admin/config');
+  return data;
 }
 
 export async function updateResolverConfig(config) {
-  const settings = JSON.parse(localStorage.getItem('settings')) || {};
-  settings.embeddedResolverConfig = config || {};
-  localStorage.setItem('settings', JSON.stringify(settings));
-  return { ok: true, config };
+  if (isCapacitor) {
+    saveEmbeddedResolverConfig(config);
+    return { ok: true, config, embedded: true };
+  }
+  const client = getResolverClient();
+  const { data } = await client.post('/api/admin/config', config || {});
+  return data;
 }
 
 /**
- * Sync cookie to resolver backend for persistence.
- * Called after successful login so resolver can use the cookie for API requests.
- * @param {string} cookie - The cookie string to sync
- * @returns {Promise<boolean>} Whether the cookie was synced
+ * Sync cookie to the bundled resolver for persistence.
+ * Android already shares the app login state with its native API layer, so no
+ * separate resolver cookie store is required there.
+ *
+ * @param {string} cookie
+ * @returns {Promise<boolean>} Whether the cookie was synced or already shared
  */
 export async function syncCookieToResolver(cookie) {
-  return Boolean(cookie && isResolverEnabled());
+  if (!cookie || !isResolverEnabled()) return false;
+  if (isCapacitor) return true;
+
+  const client = getResolverClient();
+  await client.post('/api/admin/cookie', { cookie });
+  console.log('[resolver] Cookie synced to bundled resolver');
+  return true;
 }
 
 /**
- * Wait until resolver backend is reachable, then sync cookie once.
- * Useful when the backend starts slower than the renderer.
+ * Wait until the bundled resolver is reachable, then sync cookie once.
+ *
  * @param {string} cookie
  * @param {{ timeoutMs?: number, intervalMs?: number, onAttempt?: (attempt:number, error?:Error) => void }} [options]
- * @returns {Promise<boolean>} Whether the cookie was synced
+ * @returns {Promise<boolean>}
  */
 export async function syncCookieToResolverWithRetry(cookie, options = {}) {
-  options.onAttempt?.(1);
-  return syncCookieToResolver(cookie);
+  if (!cookie || !isResolverEnabled()) return false;
+  if (isCapacitor) {
+    options.onAttempt?.(1);
+    return true;
+  }
+
+  const timeoutMs = options.timeoutMs ?? 30000;
+  const intervalMs = options.intervalMs ?? 1000;
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+  let lastError;
+
+  while (Date.now() <= deadline) {
+    attempt += 1;
+    try {
+      const client = getResolverClient();
+      await client.get('/api/admin/cookie');
+      return await syncCookieToResolver(cookie);
+    } catch (error) {
+      lastError = error;
+      options.onAttempt?.(attempt, error);
+      if (Date.now() > deadline) break;
+      await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  throw lastError || new Error('内置音频解析服务未就绪');
 }
 
 /**
- * Clear cookie from resolver backend.
- * Called on logout.
+ * Clear cookie from the bundled resolver.
  * @returns {Promise<void>}
  */
 export async function clearCookieFromResolver() {
-  return undefined;
+  if (isCapacitor) return;
+  try {
+    const client = getResolverClient();
+    await client.delete('/api/admin/cookie');
+    console.log('[resolver] Cookie cleared from bundled resolver');
+  } catch (error) {
+    console.warn(
+      '[resolver] Failed to clear bundled resolver cookie:',
+      error.message
+    );
+  }
 }
 
 /**
- * Clear resolver backend cache.
- * Called from the front-end settings page when you want to invalidate stale audio sources.
+ * Clear both UI-provider cache and bundled resolver cache.
  * @returns {Promise<void>}
  */
 export async function clearResolverCache() {
   clearAudioProviderCache();
+  if (isCapacitor) return;
+
+  try {
+    const client = getResolverClient();
+    await client.post('/api/admin/cache/clear');
+    console.log('[resolver] Bundled resolver cache cleared');
+  } catch (error) {
+    // Static web builds can run without the Node resolver. Keep their UI cache
+    // clear operation usable while still surfacing a real desktop regression.
+    if (isElectron) throw error;
+    console.warn('[resolver] Bundled resolver cache unavailable:', error.message);
+  }
 }
