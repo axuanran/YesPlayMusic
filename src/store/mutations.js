@@ -33,6 +33,15 @@ export default {
   },
   updateSettings(state, { key, value }) {
     state.settings[key] = value;
+    if (key === 'useAudioResolver') {
+      state.settings.plugins = {
+        ...(state.settings.plugins || {}),
+        'resolver-admin': {
+          ...(state.settings.plugins?.['resolver-admin'] || {}),
+          enabled: value === true,
+        },
+      };
+    }
   },
   updateData(state, { key, value }) {
     state.data[key] = value;
