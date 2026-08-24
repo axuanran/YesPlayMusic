@@ -1,42 +1,26 @@
 <template>
   <section class="resolver-configuration">
     <h3>解析配置</h3>
-    <div class="description section-description">
-      桌面端与 Docker 使用应用自带的完整 Resolver。配置保存后会直接影响
-      Netease、Unblock、LX 和 fallback Provider，无需填写 Resolver 地址。
-    </div>
+    <p class="section-description">
+      这些设置直接写入应用内置 Resolver，无需填写解析服务地址。
+    </p>
 
     <div v-if="loading" class="config-message">正在读取解析配置…</div>
-    <div v-else-if="loadError" class="config-message error">
-      <div>{{ loadError }}</div>
+    <div v-else-if="loadError" class="config-message error-message">
+      <span>{{ loadError }}</span>
       <button @click="loadConfig">重试</button>
     </div>
 
     <template v-else>
       <h4>基础设置</h4>
-      <div class="item">
-        <div class="left">
-          <div class="title">代理播放流</div>
-          <div class="description">
-            通过内置 Resolver 转发播放流，可在源地址失效时自动尝试下一个 Provider。
-          </div>
-        </div>
-        <div class="right toggle">
-          <input
-            id="resolver-proxy-stream"
-            v-model="config.audio.proxyStream"
-            type="checkbox"
-          />
-          <label for="resolver-proxy-stream"></label>
-        </div>
-      </div>
+      <div class="config-grid">
+        <label class="field checkbox-field">
+          <span>代理播放流</span>
+          <input v-model="config.audio.proxyStream" type="checkbox" />
+        </label>
 
-      <div class="item">
-        <div class="left">
-          <div class="title">默认解析音质</div>
-          <div class="description">播放器未指定音质时使用的默认等级。</div>
-        </div>
-        <div class="right">
+        <label class="field">
+          <span>默认解析音质</span>
           <select v-model="config.audio.defaultQuality">
             <option value="standard">标准</option>
             <option value="exhigh">极高</option>
@@ -46,163 +30,115 @@
             <option value="sky">沉浸环绕声</option>
             <option value="jymaster">超清母带</option>
           </select>
-        </div>
-      </div>
+        </label>
 
-      <div class="item">
-        <div class="left">
-          <div class="title">解析缓存时间</div>
-          <div class="description">Resolver 播放地址缓存的有效时间，单位为秒。</div>
-        </div>
-        <div class="right">
+        <label class="field">
+          <span>解析缓存时间（秒）</span>
           <input
             v-model.number="config.audio.cacheTtl"
-            class="number-input"
             type="number"
-            min="0"
+            min="1"
             step="60"
           />
-        </div>
+        </label>
+
+        <label class="field">
+          <span>缓存目录</span>
+          <input
+            v-model.trim="config.audio.cacheDir"
+            type="text"
+            placeholder="留空使用应用默认目录"
+          />
+        </label>
       </div>
 
-      <div class="item vertical">
-        <div class="left">
-          <div class="title">Provider 顺序</div>
-          <div class="description">
-            按从左到右的顺序尝试。支持 netease、lx、unblock、fallback。
-          </div>
-        </div>
+      <label class="field full-width-field">
+        <span>Provider 顺序</span>
         <input
           v-model="providerOrderText"
-          class="wide-input"
+          type="text"
           placeholder="netease, lx, unblock, fallback"
         />
-      </div>
+        <small>按从左到右的顺序尝试，多个 Provider 用英文逗号分隔。</small>
+      </label>
 
       <h4>UnblockNeteaseMusic</h4>
-      <div class="item">
-        <div class="left">
-          <div class="title">启用 Unblock Provider</div>
-          <div class="description">
-            使用应用内置的 @unblockneteasemusic/rust-napi 搜索替代音源。
-          </div>
-        </div>
-        <div class="right toggle">
-          <input
-            id="resolver-unblock-enabled"
-            v-model="config.audio.unblock.enabled"
-            type="checkbox"
-          />
-          <label for="resolver-unblock-enabled"></label>
-        </div>
-      </div>
+      <div class="config-grid">
+        <label class="field checkbox-field">
+          <span>启用 Unblock Provider</span>
+          <input v-model="config.audio.unblock.enabled" type="checkbox" />
+        </label>
 
-      <div class="item vertical">
-        <div class="left">
-          <div class="title">Unblock 音源</div>
-          <div class="description">多个音源用英文逗号分隔。</div>
-        </div>
-        <input
-          v-model="config.audio.unblock.source"
-          class="wide-input"
-          placeholder="ytdl, bilibili, pyncm, kugou"
-        />
-      </div>
+        <label class="field checkbox-field">
+          <span>允许 FLAC</span>
+          <input v-model="config.audio.unblock.enableFlac" type="checkbox" />
+        </label>
 
-      <div class="item">
-        <div class="left">
-          <div class="title">允许 FLAC</div>
-        </div>
-        <div class="right toggle">
-          <input
-            id="resolver-unblock-flac"
-            v-model="config.audio.unblock.enableFlac"
-            type="checkbox"
-          />
-          <label for="resolver-unblock-flac"></label>
-        </div>
-      </div>
-
-      <div class="item">
-        <div class="left">
-          <div class="title">搜索模式</div>
-        </div>
-        <div class="right">
+        <label class="field">
+          <span>搜索模式</span>
           <select v-model="config.audio.unblock.searchMode">
             <option value="fast-first">速度优先</option>
             <option value="order-first">音源顺序优先</option>
           </select>
-        </div>
+        </label>
+
+        <label class="field">
+          <span>yt-dlp 路径</span>
+          <input
+            v-model.trim="config.audio.unblock.ytDlExe"
+            type="text"
+            placeholder="yt-dlp"
+          />
+        </label>
       </div>
 
-      <div class="item vertical">
-        <div class="left">
-          <div class="title">Unblock 代理</div>
-          <div class="description">留空表示不为 Unblock 单独设置代理。</div>
-        </div>
+      <label class="field full-width-field">
+        <span>Unblock 音源</span>
         <input
-          v-model="config.audio.unblock.proxyUri"
-          class="wide-input"
+          v-model="config.audio.unblock.source"
+          type="text"
+          placeholder="ytdl, bilibili, pyncm, kugou"
+        />
+        <small>多个音源用英文逗号分隔。</small>
+      </label>
+
+      <label class="field full-width-field">
+        <span>Unblock 代理</span>
+        <input
+          v-model.trim="config.audio.unblock.proxyUri"
+          type="text"
           placeholder="http://127.0.0.1:7890"
         />
-      </div>
+      </label>
 
-      <div class="item vertical">
-        <div class="left">
-          <div class="title">JOOX Cookie</div>
-        </div>
-        <input
-          v-model="config.audio.unblock.jooxCookie"
-          class="wide-input"
-          type="password"
-          autocomplete="off"
-          placeholder="wmid=...; session_key=..."
-        />
-      </div>
+      <div class="config-grid">
+        <label class="field">
+          <span>JOOX Cookie</span>
+          <input
+            v-model="config.audio.unblock.jooxCookie"
+            type="password"
+            autocomplete="off"
+          />
+        </label>
 
-      <div class="item vertical">
-        <div class="left">
-          <div class="title">QQ Cookie</div>
-        </div>
-        <input
-          v-model="config.audio.unblock.qqCookie"
-          class="wide-input"
-          type="password"
-          autocomplete="off"
-          placeholder="uin=...; qm_keyst=..."
-        />
-      </div>
-
-      <div class="item vertical">
-        <div class="left">
-          <div class="title">yt-dlp 路径</div>
-          <div class="description">需要 ytdl 音源时可指定 yt-dlp 可执行文件。</div>
-        </div>
-        <input
-          v-model="config.audio.unblock.ytDlExe"
-          class="wide-input"
-          placeholder="yt-dlp"
-        />
+        <label class="field">
+          <span>QQ Cookie</span>
+          <input
+            v-model="config.audio.unblock.qqCookie"
+            type="password"
+            autocomplete="off"
+          />
+        </label>
       </div>
 
       <h4>洛雪音源</h4>
-      <div class="item">
-        <div class="left">
-          <div class="title">启用 LX Provider</div>
-          <div class="description">按下方顺序尝试已启用的洛雪自定义音源。</div>
-        </div>
-        <div class="right toggle">
-          <input
-            id="resolver-lx-enabled"
-            v-model="config.audio.lx.enabled"
-            type="checkbox"
-          />
-          <label for="resolver-lx-enabled"></label>
-        </div>
-      </div>
+      <div class="config-grid">
+        <label class="field checkbox-field">
+          <span>启用 LX Provider</span>
+          <input v-model="config.audio.lx.enabled" type="checkbox" />
+        </label>
 
-      <div class="item lx-runtime-row">
-        <label>
+        <label class="field">
           <span>请求超时（ms）</span>
           <input
             v-model.number="config.audio.lx.timeoutMs"
@@ -211,7 +147,8 @@
             step="1000"
           />
         </label>
-        <label>
+
+        <label class="field">
           <span>脚本缓存（ms）</span>
           <input
             v-model.number="config.audio.lx.cacheMs"
@@ -222,51 +159,57 @@
         </label>
       </div>
 
-      <div
-        v-for="(source, index) in config.audio.lx.sources"
-        :key="`lx-${index}`"
-        class="lx-source"
-      >
-        <div class="lx-source-header">
-          <strong>{{ source.name || `LX Source ${index + 1}` }}</strong>
-          <div class="toggle">
-            <input
-              :id="`resolver-lx-source-${index}`"
-              v-model="source.enabled"
-              type="checkbox"
-            />
-            <label :for="`resolver-lx-source-${index}`"></label>
+      <div class="source-list">
+        <div
+          v-for="(source, index) in config.audio.lx.sources"
+          :key="`lx-source-${index}`"
+          class="source-card"
+        >
+          <div class="source-card-header">
+            <strong>{{ source.name || `LX Source ${index + 1}` }}</strong>
+            <label class="source-enabled">
+              <span>启用</span>
+              <input v-model="source.enabled" type="checkbox" />
+            </label>
           </div>
-        </div>
-        <div class="lx-source-grid">
-          <label>
-            <span>名称</span>
-            <input v-model="source.name" placeholder="LX Source" />
+
+          <div class="config-grid">
+            <label class="field">
+              <span>名称</span>
+              <input v-model.trim="source.name" type="text" />
+            </label>
+
+            <label class="field">
+              <span>Source ID</span>
+              <input
+                v-model.trim="source.source"
+                type="text"
+                placeholder="kw"
+              />
+            </label>
+          </div>
+
+          <label class="field full-width-field">
+            <span>脚本 URL / 本地路径</span>
+            <input
+              v-model.trim="source.scriptUrl"
+              type="text"
+              placeholder="https://example.com/lx-source.js"
+            />
           </label>
-          <label>
-            <span>Source ID</span>
-            <input v-model="source.source" placeholder="kw" />
-          </label>
-        </div>
-        <label class="lx-script-url">
-          <span>脚本 URL / 本地路径</span>
-          <input
-            v-model="source.scriptUrl"
-            class="wide-input"
-            placeholder="https://example.com/lx-source.js"
-          />
-        </label>
-        <div class="source-actions">
-          <button :disabled="index === 0" @click="moveLxSource(index, -1)">
-            上移
-          </button>
-          <button
-            :disabled="index === config.audio.lx.sources.length - 1"
-            @click="moveLxSource(index, 1)"
-          >
-            下移
-          </button>
-          <button @click="removeLxSource(index)">删除</button>
+
+          <div class="source-actions">
+            <button :disabled="index === 0" @click="moveLxSource(index, -1)">
+              上移
+            </button>
+            <button
+              :disabled="index === config.audio.lx.sources.length - 1"
+              @click="moveLxSource(index, 1)"
+            >
+              下移
+            </button>
+            <button @click="removeLxSource(index)">删除</button>
+          </div>
         </div>
       </div>
 
@@ -286,7 +229,8 @@
 import { mapActions } from 'vuex';
 import { getResolverConfig, updateResolverConfig } from '@/api/audioResolver';
 
-const DEFAULT_UNBLOCK_CONFIG = {
+const DEFAULT_PROVIDER_ORDER = ['netease', 'lx', 'unblock', 'fallback'];
+const DEFAULT_UNBLOCK = {
   enabled: true,
   source: 'ytdl, bilibili, pyncm, kugou',
   enableFlac: false,
@@ -296,8 +240,7 @@ const DEFAULT_UNBLOCK_CONFIG = {
   qqCookie: '',
   ytDlExe: '',
 };
-
-const DEFAULT_LX_CONFIG = {
+const DEFAULT_LX = {
   enabled: false,
   source: 'kw',
   scriptUrl: '',
@@ -306,55 +249,58 @@ const DEFAULT_LX_CONFIG = {
   sources: [],
 };
 
-function createDefaultConfig() {
+function defaultConfig() {
   return {
     audio: {
       proxyStream: true,
       defaultQuality: 'standard',
       cacheTtl: 1800,
       cacheDir: '',
-      providerOrder: ['netease', 'lx', 'unblock', 'fallback'],
+      providerOrder: [...DEFAULT_PROVIDER_ORDER],
       fallbackToLegacy: true,
-      unblock: { ...DEFAULT_UNBLOCK_CONFIG },
-      lx: { ...DEFAULT_LX_CONFIG },
+      unblock: { ...DEFAULT_UNBLOCK },
+      lx: { ...DEFAULT_LX },
     },
   };
 }
 
-function normalizeConfig(config) {
-  const defaults = createDefaultConfig();
-  const audio = config?.audio || {};
+function normalizeLxSources(lx) {
+  const sources = Array.isArray(lx.sources) ? lx.sources : [];
+  if (sources.length > 0) return sources;
+  if (!lx.scriptUrl) return [];
+  return [
+    {
+      enabled: true,
+      name: lx.source || 'kw',
+      source: lx.source || 'kw',
+      scriptUrl: lx.scriptUrl,
+    },
+  ];
+}
+
+function normalizeConfig(value) {
+  const defaults = defaultConfig();
+  const config = value || {};
+  const audio = config.audio || {};
   const lx = audio.lx || {};
-  const configuredSources = Array.isArray(lx.sources) ? lx.sources : [];
-  const migratedSources =
-    configuredSources.length === 0 && lx.scriptUrl
-      ? [
-          {
-            enabled: true,
-            name: lx.source || 'kw',
-            source: lx.source || 'kw',
-            scriptUrl: lx.scriptUrl,
-          },
-        ]
-      : configuredSources;
 
   return {
     ...defaults,
-    ...(config || {}),
+    ...config,
     audio: {
       ...defaults.audio,
       ...audio,
       providerOrder: Array.isArray(audio.providerOrder)
         ? [...audio.providerOrder]
-        : [...defaults.audio.providerOrder],
+        : [...DEFAULT_PROVIDER_ORDER],
       unblock: {
-        ...DEFAULT_UNBLOCK_CONFIG,
+        ...DEFAULT_UNBLOCK,
         ...(audio.unblock || {}),
       },
       lx: {
-        ...DEFAULT_LX_CONFIG,
+        ...DEFAULT_LX,
         ...lx,
-        sources: migratedSources.map((source, index) => ({
+        sources: normalizeLxSources(lx).map((source, index) => ({
           enabled: source?.enabled !== false,
           name: source?.name || `LX Source ${index + 1}`,
           source: source?.source || lx.source || 'kw',
@@ -368,7 +314,7 @@ function normalizeConfig(config) {
 function parseProviderOrder(value) {
   const providers = String(value || '')
     .split(',')
-    .map(item => item.trim().toLowerCase())
+    .map(provider => provider.trim().toLowerCase())
     .filter(Boolean);
   return Array.from(new Set(providers));
 }
@@ -378,8 +324,8 @@ export default {
   emits: ['saved'],
   data() {
     return {
-      config: createDefaultConfig(),
-      providerOrderText: 'netease, lx, unblock, fallback',
+      config: defaultConfig(),
+      providerOrderText: DEFAULT_PROVIDER_ORDER.join(', '),
       loading: true,
       saving: false,
       loadError: '',
@@ -395,7 +341,7 @@ export default {
       this.loadError = '';
       try {
         const data = await getResolverConfig();
-        this.config = normalizeConfig(data?.config || {});
+        this.config = normalizeConfig(data?.config);
         this.providerOrderText = this.config.audio.providerOrder.join(', ');
       } catch (error) {
         this.loadError = `无法读取内置 Resolver 配置：${
@@ -417,8 +363,8 @@ export default {
         const nextConfig = normalizeConfig(this.config);
         nextConfig.audio.providerOrder = providerOrder;
         nextConfig.audio.cacheTtl = Math.max(
-          0,
-          Number(nextConfig.audio.cacheTtl) || 0
+          1,
+          Number(nextConfig.audio.cacheTtl) || 1800
         );
         nextConfig.audio.lx.timeoutMs = Math.max(
           1000,
@@ -428,6 +374,7 @@ export default {
           0,
           Number(nextConfig.audio.lx.cacheMs) || 0
         );
+
         const data = await updateResolverConfig(nextConfig);
         this.config = normalizeConfig(data?.config || nextConfig);
         this.providerOrderText = this.config.audio.providerOrder.join(', ');
@@ -463,107 +410,105 @@ export default {
 <style lang="scss" scoped>
 .resolver-configuration {
   margin-top: 36px;
-
-  h3 {
-    margin-bottom: 8px;
-  }
-
-  h4 {
-    margin: 32px 0 8px;
-    color: var(--color-text);
-    font-size: 18px;
-  }
+  color: var(--color-text);
 }
 
-.section-description {
-  color: var(--color-text);
-  line-height: 1.6;
+h3 {
+  margin-bottom: 8px;
+}
+
+h4 {
+  margin: 32px 0 12px;
+  font-size: 18px;
+}
+
+.section-description,
+.field small {
+  opacity: 0.68;
 }
 
 .config-message {
-  margin: 20px 0;
-  padding: 16px;
-  border-radius: 10px;
-  color: var(--color-text);
-  background: var(--color-secondary-bg);
-
-  &.error {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    justify-content: space-between;
-  }
-}
-
-.wide-input {
-  box-sizing: border-box;
-  width: 100%;
-}
-
-.number-input {
-  width: 120px;
-}
-
-.lx-runtime-row {
-  gap: 16px;
-
-  label {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 8px;
-    color: var(--color-text);
-  }
-}
-
-.lx-source {
-  margin: 16px 0;
-  padding: 16px;
-  border-radius: 10px;
-  color: var(--color-text);
-  background: var(--color-secondary-bg);
-}
-
-.lx-source-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
-}
-
-.lx-source-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 12px;
-
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
+  margin: 20px 0;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--color-secondary-bg);
 }
 
-.lx-script-url {
+.error-message {
+  color: #e04f5f;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.field {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+
+  input,
+  select {
+    box-sizing: border-box;
+    width: 100%;
+  }
+}
+
+.checkbox-field {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+
+  input {
+    width: auto;
+  }
+}
+
+.full-width-field {
+  margin-top: 14px;
+}
+
+.source-list {
+  margin-top: 16px;
+}
+
+.source-card {
   margin-top: 12px;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--color-secondary-bg);
+}
+
+.source-card-header,
+.source-enabled,
+.source-actions,
+.config-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.source-card-header {
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 
 .source-actions,
 .config-actions {
-  display: flex;
   flex-wrap: wrap;
-  gap: 8px;
   margin-top: 14px;
 }
 
 .add-source {
-  margin-top: 4px;
-}
-
-.config-actions {
-  margin-top: 28px;
+  margin-top: 14px;
 }
 
 button:disabled {
@@ -573,12 +518,8 @@ button:disabled {
 }
 
 @media (max-width: 720px) {
-  .lx-source-grid {
+  .config-grid {
     grid-template-columns: 1fr;
-  }
-
-  .lx-runtime-row {
-    flex-direction: column;
   }
 }
 </style>
