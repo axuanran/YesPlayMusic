@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const resolverClient = {
-  get: vi.fn(),
-  post: vi.fn(),
-  delete: vi.fn(),
-};
+const mocks = vi.hoisted(() => ({
+  resolverClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    delete: vi.fn(),
+  },
+}));
 
 vi.mock('axios', () => ({
   default: {
-    create: vi.fn(() => resolverClient),
+    create: vi.fn(() => mocks.resolverClient),
   },
 }));
 
@@ -19,6 +21,8 @@ import {
   syncCookieToResolver,
   syncCookieToResolverWithRetry,
 } from '../audioResolver.js';
+
+const { resolverClient } = mocks;
 
 describe('bundled audio resolver API', () => {
   beforeEach(() => {
