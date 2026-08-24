@@ -92,7 +92,7 @@ export default {
         newAlbum: this.$t('home.newAlbum'),
         podcast: this.$t('podcast.title'),
         localPlaylist: '本地歌单',
-        streaming: 'Streaming',
+        streaming: this.$t('nav.streaming'),
         dailySongs: '每日推荐',
         lastfmCallback: 'Last.fm',
       };
@@ -116,7 +116,7 @@ export default {
           routeName: 'library',
           icon: 'library',
           label: this.$t('nav.library'),
-          activeRoutes: ['library', 'likedSongs', 'localPlaylist'],
+          activeRoutes: ['library', 'likedSongs', 'localPlaylist', 'streaming'],
         },
         {
           routeName: 'settings',
@@ -140,7 +140,8 @@ export default {
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px),
+  (max-height: 500px) and (orientation: landscape) and (pointer: coarse) {
   .mobile-navigation {
     display: block;
   }
