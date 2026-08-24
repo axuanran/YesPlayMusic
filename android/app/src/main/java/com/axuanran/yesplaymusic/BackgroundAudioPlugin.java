@@ -14,6 +14,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.datasource.cache.CacheWriter;
 import androidx.media3.session.MediaController;
 import androidx.media3.session.SessionToken;
@@ -92,6 +93,7 @@ public final class BackgroundAudioPlugin extends Plugin {
                 data.put("code", mediaErrorCode(error.errorCode));
                 data.put("kind", errorKind(error.errorCode));
                 data.put("message", error.getMessage());
+                appendNativeErrorDetails(data, error);
                 notifyListeners("error", data, true);
             }
 
@@ -614,6 +616,24 @@ public final class BackgroundAudioPlugin extends Plugin {
         if (mediaCode == 3) return "decode";
         if (mediaCode == 2) return "network";
         return "unknown";
+    }
+
+    private void appendNativeErrorDetails(JSObject data, Throwable error) {
+        Throwable cause = error;
+        Throwable rootCause = error;
+        while (cause != null) {
+            rootCause = cause;
+            if (cause instanceof HttpDataSource.InvalidResponseCodeException) {
+                HttpDataSource.InvalidResponseCodeException responseError =
+                    (HttpDataSource.InvalidResponseCodeException) cause;
+                data.put("httpStatus", responseError.responseCode);
+            }
+            cause = cause.getCause();
+        }
+        data.put("cause", rootCause.getClass().getSimpleName());
+        if (rootCause.getMessage() != null) {
+            data.put("detail", rootCause.getMessage());
+        }
     }
 
     private String text(CharSequence value) {
