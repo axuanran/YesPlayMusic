@@ -183,4 +183,106 @@
   .lyrics-page.no-lyric .left-side {
     transform: none !important;
   }
+
+  .search-page > .row {
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    gap: 32px;
+    margin-top: 16px !important;
+  }
+
+  .search-page > .row .artists,
+  .search-page > .row .albums {
+    flex: none !important;
+    width: 100%;
+  }
+
+  .search-page > .row .artists {
+    margin-right: 0 !important;
+  }
+
+  .search-page .tracks,
+  .search-page .music-videos,
+  .search-page .playlists,
+  .search-page .podcasts {
+    margin-top: 34px !important;
+  }
+
+  .explore-page h1,
+  .newAlbum h1 {
+    margin-top: 14px;
+    font-size: 34px !important;
+    line-height: 1.12;
+  }
+
+  .special-playlist {
+    margin-top: 48px !important;
+    margin-bottom: 48px !important;
+  }
+
+  .special-playlist > .title {
+    font-size: 42px !important;
+    line-height: 1.08 !important;
+    letter-spacing: 1px !important;
+  }
+
+  .special-playlist > .subtitle {
+    margin: 16px 0 28px !important;
+    font-size: 14px !important;
+    line-height: 1.5;
+  }
+
+  .shade {
+    box-sizing: border-box;
+    align-items: flex-end !important;
+    padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .shade .modal {
+    box-sizing: border-box;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 560px;
+    max-height: calc(
+      100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px
+    ) !important;
+    margin: 0 !important;
+    padding: 18px 0 !important;
+    border-radius: 18px !important;
+  }
+
+  .shade .modal .header {
+    margin: 0 18px 18px !important;
+  }
+
+  .shade .modal .content {
+    padding: 0 18px !important;
+  }
+
+  .shade .modal .footer {
+    margin-right: 18px !important;
+    margin-left: 18px !important;
+  }
+
+  .login .input-box .container,
+  .login .confirm button,
+  .login .notice,
+  .login .cookie-login {
+    box-sizing: border-box;
+    width: min(300px, calc(100vw - 48px)) !important;
+  }
+
+  .login .other-login {
+    box-sizing: border-box;
+    max-width: calc(100vw - 32px);
+    text-align: center;
+    line-height: 28px;
+  }
+}
+
+@media (max-width: 768px) and (hover: none) and (pointer: coarse) {
+  .cover .play-button {
+    opacity: 0.88 !important;
+    transform: scale(1) !important;
+  }
 }
