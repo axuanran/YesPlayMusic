@@ -9,12 +9,22 @@ function readSettingsFromStorage() {
 export const RESOLVER_ADMIN_PLUGIN_ID = 'resolver-admin';
 
 export function applyPluginSettingLinks(settings = {}) {
-  if (settings.plugins?.[RESOLVER_ADMIN_PLUGIN_ID]?.enabled !== false) {
-    return settings;
-  }
+  const savedResolverPlugin = settings.plugins?.[RESOLVER_ADMIN_PLUGIN_ID];
+  const enabled =
+    settings.useAudioResolver === undefined
+      ? savedResolverPlugin?.enabled !== false
+      : settings.useAudioResolver === true;
+
   return {
     ...settings,
-    useAudioResolver: false,
+    useAudioResolver: enabled,
+    plugins: {
+      ...(settings.plugins || {}),
+      [RESOLVER_ADMIN_PLUGIN_ID]: {
+        ...(savedResolverPlugin || {}),
+        enabled,
+      },
+    },
   };
 }
 
