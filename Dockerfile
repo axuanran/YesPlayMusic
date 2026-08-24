@@ -3,7 +3,8 @@ ENV VUE_APP_NETEASE_API_URL=/api
 WORKDIR /app
 RUN apk add --no-cache python3 make g++ git
 COPY package.json yarn.lock ./
-RUN corepack enable && yarn install --frozen-lockfile --ignore-engines
+COPY scripts/postinstall.mjs ./scripts/postinstall.mjs
+RUN corepack enable && WORKERS_CI=1 yarn install --frozen-lockfile --ignore-engines
 COPY . .
 RUN yarn build
 
