@@ -42,13 +42,23 @@ export default {
   },
   computed: {
     ...mapState(['dailyTracks']),
-    coverUrl() {
-      if (this.failedCover) return sample(defaultCovers);
-      const song = this.dailyTracks[0];
+    fallbackCoverUrl() {
       return createSizedCoverUrl(
-        song?.al?.picUrl || song?.album?.picUrl || sample(defaultCovers),
+        sample(defaultCovers),
         DAILY_CARD_COVER_SIZE
       );
+    },
+    coverUrl() {
+      if (this.failedCover) return this.fallbackCoverUrl;
+      return (
+        createSizedCoverUrl(this.dailyTracks[0], DAILY_CARD_COVER_SIZE) ||
+        this.fallbackCoverUrl
+      );
+    },
+  },
+  watch: {
+    dailyTracks() {
+      this.failedCover = false;
     },
   },
   created() {
@@ -62,9 +72,11 @@ export default {
     },
     loadDailyTracks() {
       if (!isAccountLoggedIn()) return;
-      dailyRecommendTracks().then(result => {
-        this.updateDailyTracks(result.data.dailySongs || []);
-      }).catch(() => {});
+      dailyRecommendTracks()
+        .then(result => {
+          this.updateDailyTracks(result.data.dailySongs || []);
+        })
+        .catch(() => {});
     },
     goToDailyTracks() {
       this.$router.push({ name: 'dailySongs' });
@@ -72,6 +84,10 @@ export default {
     playDailyTracks() {
       if (!isAccountLoggedIn()) {
         this.showToast(locale.global.t('toast.needToLogin'));
+        return;
+      }
+      if (this.dailyTracks.length === 0) {
+        this.loadDailyTracks();
         return;
       }
       this.$store.state.player.replacePlaylist(
@@ -105,7 +121,7 @@ img {
   width: 50%;
   display: flex;
   align-items: center;
-  background: linear-gradient(to left, transparent, rgba(0,0,0,.28));
+  background: linear-gradient(to left, transparent, rgba(0, 0, 0, 0.28));
 }
 .title-box {
   margin-left: 25px;
