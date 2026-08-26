@@ -67,7 +67,7 @@ function formatPlaybackError(error) {
     'Android 音频播放失败';
   const httpStatus = error.httpStatus ? `HTTP ${error.httpStatus}` : '';
   const code = error.nativeCode ? `Media3 ${error.nativeCode}` : '';
-  const source = error.sourceHost || '';
+  const source = error.kind === 'bridge' ? '' : error.sourceHost || '';
   return [`播放失败：${reason}`, httpStatus, code, source]
     .filter(Boolean)
     .join(' · ');
