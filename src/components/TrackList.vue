@@ -17,7 +17,7 @@
         $t('contextMenu.addToQueue')
       }}</div>
       <div
-        v-if="isDownloadEnabled && type !== 'cloudDisk' && !isExternalMusic"
+        v-if="isTrackDownloadEnabled && type !== 'cloudDisk' && !isExternalMusic"
         class="item"
         @click="openDownloadModal"
       >
@@ -117,7 +117,7 @@ import { isAccountLoggedIn } from '@/utils/auth';
 import TrackListItem from '@/components/TrackListItem.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
 import locale from '@/locale';
-import { isDownloadEnabled } from '@/utils/env';
+import { isDownloadEnabled, isTrackDownloadEnabled } from '@/utils/env';
 
 export default {
   name: 'TrackList',
@@ -189,6 +189,7 @@ export default {
       rightClickedTrackIndex: -1,
       listStyles: {},
       isDownloadEnabled,
+      isTrackDownloadEnabled,
     };
   },
   computed: {
