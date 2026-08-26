@@ -1,5 +1,6 @@
 import request from '@/utils/request';
 import { mapTrackPlayableStatus } from '@/utils/common';
+import { resolveCoverImageUrl } from '@/utils/coverImageUrl';
 
 const PLAYLIST_SUBSCRIPTION_OVERRIDE_TTL = 15000;
 const playlistSubscriptionOverrides = new Map();
@@ -22,6 +23,30 @@ function applyPlaylistSubscriptionOverride(id, playlist) {
   }
   playlist.subscribed = override.subscribed;
   return playlist;
+}
+
+function normalizeRecommendedTrack(track) {
+  if (!track || typeof track !== 'object') return track;
+
+  const sourceAlbum = track.al || track.album || track.simpleSong?.al || {};
+  const coverUrl = resolveCoverImageUrl(track);
+  const album = {
+    ...sourceAlbum,
+    ...(coverUrl ? { picUrl: coverUrl } : {}),
+  };
+  const artists =
+    Array.isArray(track.ar) && track.ar.length > 0
+      ? track.ar
+      : track.artists || track.simpleSong?.ar || [];
+
+  return {
+    ...track,
+    al: album,
+    album: track.album || album,
+    ar: artists,
+    artists: track.artists || artists,
+    dt: track.dt ?? track.duration,
+  };
 }
 
 function reportPlaylistSubscriptionResult(params, result, error) {
@@ -173,7 +198,7 @@ export function toplists() {
 
 /**
  * 收藏/取消收藏歌单
- * 说明 : 调用此接口, 传入类型和歌单 id 可收藏歌单或者取消收藏歌单
+ * 说明 : 调用此接口 , 传入类型和歌单 id 可收藏歌单或者取消收藏歌单
  * - t : 类型,1:收藏,2:取消收藏
  * - id : 歌单 id
  * @param {Object} params
@@ -281,10 +306,16 @@ export function dailyRecommendTracks() {
     method: 'get',
     params: { timestamp: new Date().getTime() },
   }).then(result => {
+    const dailySongs = Array.isArray(result?.data?.dailySongs)
+      ? result.data.dailySongs
+      : [];
+    const privileges = Array.isArray(result?.data?.privileges)
+      ? result.data.privileges
+      : [];
     result.data.dailySongs = mapTrackPlayableStatus(
-      result.data.dailySongs,
-      result.data.privileges
-    );
+      dailySongs,
+      privileges
+    ).map(normalizeRecommendedTrack);
     return result;
   });
 }
