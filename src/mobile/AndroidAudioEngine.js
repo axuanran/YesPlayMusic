@@ -126,7 +126,9 @@ function normalizeCacheQuality(value) {
   ) {
     return 'standard';
   }
-  const quality = String(value || 'exhigh').trim().toLowerCase();
+  const quality = String(value || 'exhigh')
+    .trim()
+    .toLowerCase();
   if (
     [
       'standard',
@@ -377,9 +379,14 @@ export default class AndroidAudioEngine {
 
   setCacheEnabled(enabled) {
     return this._ready
-      .then(() => BackgroundAudio.setCacheEnabled({ enabled: Boolean(enabled) }))
+      .then(() =>
+        BackgroundAudio.setCacheEnabled({ enabled: Boolean(enabled) })
+      )
       .catch(error => {
-        console.debug('[android-audio-cache] failed to update cache policy', error);
+        console.debug(
+          '[android-audio-cache] failed to update cache policy',
+          error
+        );
         return null;
       });
   }
@@ -394,7 +401,10 @@ export default class AndroidAudioEngine {
     ) {
       // Playback itself writes this source into Media3's cache. Starting a
       // CacheWriter here would download the current song a second time.
-      return Promise.resolve({ writeThrough: true, cacheKey: nativeTrack.cacheKey });
+      return Promise.resolve({
+        writeThrough: true,
+        cacheKey: nativeTrack.cacheKey,
+      });
     }
     return this._ready
       .then(() =>
