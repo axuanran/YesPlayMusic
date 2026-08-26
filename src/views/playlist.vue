@@ -76,29 +76,14 @@
           </ButtonTwoTone>
         </div>
       </div>
-      <div v-if="displaySearchInPlaylist" class="search-box">
-        <div class="container" :class="{ active: inputFocus }">
-          <svg-icon icon-class="search" />
-          <div class="input">
-            <input
-              v-model.trim="inputSearchKeyWords"
-              v-focus
-              :placeholder="inputFocus ? '' : $t('playlist.search')"
-              @input="inputDebounce()"
-              @focus="inputFocus = true"
-              @blur="inputFocus = false"
-            />
-          </div>
-        </div>
-      </div>
     </div>
+
     <div v-if="specialPlaylistInfo !== undefined" class="special-playlist">
       <div
         class="title"
         :class="specialPlaylistInfo.gradient"
         @click.right="openMenu"
       >
-        <!-- <img :src="resizeImage(playlist.coverImgUrl)" /> -->
         {{ specialPlaylistInfo.name }}
       </div>
       <div class="subtitle"
@@ -135,6 +120,25 @@
           @click="openMenu"
         >
         </ButtonTwoTone>
+      </div>
+    </div>
+
+    <div
+      v-if="displaySearchInPlaylist && !isLikeSongsPage"
+      class="search-box playlist-search-box"
+    >
+      <div class="container" :class="{ active: inputFocus }">
+        <svg-icon icon-class="search" />
+        <div class="input">
+          <input
+            v-model.trim="inputSearchKeyWords"
+            v-focus
+            :placeholder="inputFocus ? '' : $t('playlist.search')"
+            @input="inputDebounce()"
+            @focus="inputFocus = true"
+            @blur="inputFocus = false"
+          />
+        </div>
       </div>
     </div>
 
@@ -209,7 +213,6 @@
     >
 
     <ContextMenu ref="playlistMenu">
-      <!-- <div class="item">{{ $t('contextMenu.addToQueue') }}</div> -->
       <div class="item" @click="likePlaylist(true)">{{
         playlist.subscribed
           ? $t('contextMenu.removeFromLibrary')
@@ -262,108 +265,36 @@ import Cover from '@/components/Cover.vue';
 import Modal from '@/components/Modal.vue';
 
 const specialPlaylist = {
-  2829816518: {
-    name: '欧美私人订制',
-    gradient: 'gradient-pink-purple-blue',
-  },
-  2890490211: {
-    name: '助眠鸟鸣声',
-    gradient: 'gradient-green',
-  },
-  5089855855: {
-    name: '夜的胡思乱想',
-    gradient: 'gradient-moonstone-blue',
-  },
-  2888212971: {
-    name: '全球百大DJ',
-    gradient: 'gradient-orange-red',
-  },
-  2829733864: {
-    name: '睡眠伴侣',
-    gradient: 'gradient-midnight-blue',
-  },
-  2829844572: {
-    name: '洗澡时听的歌',
-    gradient: 'gradient-yellow',
-  },
-  2920647537: {
-    name: '还是会想你',
-    gradient: 'gradient-dark-blue-midnight-blue',
-  },
-  2890501416: {
-    name: '助眠白噪声',
-    gradient: 'gradient-sky-blue',
-  },
-  5217150082: {
-    name: '摇滚唱片行',
-    gradient: 'gradient-yellow-red',
-  },
-  2829961453: {
-    name: '古风音乐大赏',
-    gradient: 'gradient-fog',
-  },
-  4923261701: {
-    name: 'Trance',
-    gradient: 'gradient-light-red-light-blue ',
-  },
-  5212729721: {
-    name: '欧美点唱机',
-    gradient: 'gradient-indigo-pink-yellow',
-  },
-  3103434282: {
-    name: '甜蜜少女心',
-    gradient: 'gradient-pink',
-  },
-  2829896389: {
-    name: '日系私人订制',
-    gradient: 'gradient-yellow-pink',
-  },
-  2829779628: {
-    name: '运动随身听',
-    gradient: 'gradient-orange-red',
-  },
-  2860654884: {
-    name: '独立女声精选',
-    gradient: 'gradient-sharp-blue',
-  },
-  898150: {
-    name: '浪漫婚礼专用',
-    gradient: 'gradient-pink',
-  },
-  2638104052: {
-    name: '牛奶泡泡浴',
-    gradient: 'gradient-fog',
-  },
-  5317236517: {
-    name: '后朋克精选',
-    gradient: 'gradient-pink-purple-blue',
-  },
-  2821115454: {
-    name: '一周原创发现',
-    gradient: 'gradient-blue-purple',
-  },
-  2829883282: {
-    name: '华语私人雷达',
-    gradient: 'gradient-yellow-red',
-  },
-  3136952023: {
-    name: '私人雷达',
-    gradient: 'gradient-radar',
-  },
+  2829816518: { name: '欧美私人订制', gradient: 'gradient-pink-purple-blue' },
+  2890490211: { name: '助眠鸟鸣声', gradient: 'gradient-green' },
+  5089855855: { name: '夜的胡思乱想', gradient: 'gradient-moonstone-blue' },
+  2888212971: { name: '全球百大DJ', gradient: 'gradient-orange-red' },
+  2829733864: { name: '睡眠伴侣', gradient: 'gradient-midnight-blue' },
+  2829844572: { name: '洗澡时听的歌', gradient: 'gradient-yellow' },
+  2920647537: { name: '还是会想你', gradient: 'gradient-dark-blue-midnight-blue' },
+  2890501416: { name: '助眠白噪声', gradient: 'gradient-sky-blue' },
+  5217150082: { name: '摇滚唱片行', gradient: 'gradient-yellow-red' },
+  2829961453: { name: '古风音乐大赏', gradient: 'gradient-fog' },
+  4923261701: { name: 'Trance', gradient: 'gradient-light-red-light-blue ' },
+  5212729721: { name: '欧美点唱机', gradient: 'gradient-indigo-pink-yellow' },
+  3103434282: { name: '甜蜜少女心', gradient: 'gradient-pink' },
+  2829896389: { name: '日系私人订制', gradient: 'gradient-yellow-pink' },
+  2829779628: { name: '运动随身听', gradient: 'gradient-orange-red' },
+  2860654884: { name: '独立女声精选', gradient: 'gradient-sharp-blue' },
+  898150: { name: '浪漫婚礼专用', gradient: 'gradient-pink' },
+  2638104052: { name: '牛奶泡泡浴', gradient: 'gradient-fog' },
+  5317236517: { name: '后朋克精选', gradient: 'gradient-pink-purple-blue' },
+  2821115454: { name: '一周原创发现', gradient: 'gradient-blue-purple' },
+  2829883282: { name: '华语私人雷达', gradient: 'gradient-yellow-red' },
+  3136952023: { name: '私人雷达', gradient: 'gradient-radar' },
 };
 
 export default {
   name: 'Playlist',
-  components: {
-    Cover,
-    ButtonTwoTone,
-    TrackList,
-    Modal,
-    ContextMenu,
-  },
+  components: { Cover, ButtonTwoTone, TrackList, Modal, ContextMenu },
   directives: {
     focus: {
-      inserted: function (el) {
+      mounted(el) {
         el.focus();
       },
     },
@@ -374,9 +305,7 @@ export default {
       playlist: {
         id: 0,
         coverImgUrl: '',
-        creator: {
-          userId: '',
-        },
+        creator: { userId: '' },
         trackIds: [],
       },
       showFullDescription: false,
@@ -384,12 +313,12 @@ export default {
       loadingMore: false,
       hasMore: false,
       lastLoadedTrackIndex: 9,
-      displaySearchInPlaylist: false, // 是否显示搜索框
-      searchKeyWords: '', // 搜索使用的关键字
-      inputSearchKeyWords: '', // 搜索框中正在输入的关键字
+      displaySearchInPlaylist: false,
+      searchKeyWords: '',
+      inputSearchKeyWords: '',
       inputFocus: false,
       debounceTimeout: null,
-      searchInputWidth: '0px', // 搜索框宽度
+      searchInputWidth: '0px',
       loadMorePromise: null,
       locatingCurrentTrack: false,
       currentTrackVisible: false,
@@ -433,22 +362,13 @@ export default {
       return this.currentTrackIndex >= 0 && !this.currentTrackVisible;
     },
     filteredTracks() {
+      const keyword = this.searchKeyWords.toLowerCase();
       return this.tracks.filter(
         track =>
-          (track.name &&
-            track.name
-              .toLowerCase()
-              .includes(this.searchKeyWords.toLowerCase())) ||
-          (track.al.name &&
-            track.al.name
-              .toLowerCase()
-              .includes(this.searchKeyWords.toLowerCase())) ||
-          track.ar.find(
-            artist =>
-              artist.name &&
-              artist.name
-                .toLowerCase()
-                .includes(this.searchKeyWords.toLowerCase())
+          (track.name && track.name.toLowerCase().includes(keyword)) ||
+          (track.al?.name && track.al.name.toLowerCase().includes(keyword)) ||
+          track.ar?.some(
+            artist => artist.name && artist.name.toLowerCase().includes(keyword)
           )
       );
     },
@@ -479,21 +399,19 @@ export default {
   },
   beforeUnmount() {
     this.currentTrackVisibilityObserver?.disconnect();
+    if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
   },
   methods: {
     ...mapMutations(['appendTrackToPlayerList', 'updateModal']),
     ...mapActions(['playFirstTrackOnList', 'playTrackOnListByID', 'showToast']),
     playPlaylistByID(trackID = 'first') {
-      let trackIDs = this.playlist.trackIds.map(t => t.id);
+      const trackIDs = this.playlist.trackIds.map(t => t.id);
       this.$store.state.player.replacePlaylist(
         trackIDs,
         this.playlist.id,
         'playlist',
         trackID,
-        {
-          name: this.playlist.name,
-          coverImgUrl: this.playlist.coverImgUrl,
-        }
+        { name: this.playlist.name, coverImgUrl: this.playlist.coverImgUrl }
       );
     },
     likePlaylist(toast = false) {
@@ -507,10 +425,11 @@ export default {
       }).then(data => {
         if (data.code === 200) {
           this.playlist.subscribed = !this.playlist.subscribed;
-          if (toast === true)
+          if (toast === true) {
             this.showToast(
               this.playlist.subscribed ? '已保存到音乐库' : '已从音乐库删除'
             );
+          }
         }
         getPlaylistDetail(this.id, true).then(data => {
           this.playlist = data.playlist;
@@ -538,14 +457,11 @@ export default {
     },
     loadMore(loadNum = 100) {
       if (this.loadMorePromise) return this.loadMorePromise;
-
       let trackIDs = this.playlist.trackIds.filter((t, index) => {
-        if (
+        return (
           index > this.lastLoadedTrackIndex &&
           index <= this.lastLoadedTrackIndex + loadNum
-        ) {
-          return t;
-        }
+        );
       });
       trackIDs = trackIDs.map(t => t.id);
       if (trackIDs.length === 0) return Promise.resolve();
@@ -567,7 +483,6 @@ export default {
     async scrollToCurrentTrack() {
       const targetIndex = this.currentTrackIndex;
       if (targetIndex < 0 || this.locatingCurrentTrack) return;
-
       this.locatingCurrentTrack = true;
       try {
         if (this.searchKeyWords || this.inputSearchKeyWords) {
@@ -589,15 +504,10 @@ export default {
       this.currentTrackVisibilityObserver = null;
       this.currentTrackVisible = false;
       if (this.currentTrackIndex < 0) return;
-
       this.$nextTick(() => {
         const observedTrackID = String(this.currentTrackID);
-        const trackElement =
-          this.$refs.trackList?.getTrackElement(observedTrackID);
-        if (!trackElement || typeof IntersectionObserver === 'undefined') {
-          return;
-        }
-
+        const trackElement = this.$refs.trackList?.getTrackElement(observedTrackID);
+        if (!trackElement || typeof IntersectionObserver === 'undefined') return;
         const scrollContainer = document.querySelector('main');
         this.currentTrackVisibilityObserver = new IntersectionObserver(
           entries => {
@@ -630,7 +540,6 @@ export default {
           await this.loadMore(100);
           if (this.lastLoadedTrackIndex === previousIndex) break;
         }
-
         const tracksById = new Map(
           this.tracks.map(track => [String(track.id), track])
         );
@@ -677,7 +586,7 @@ export default {
         this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
-      let confirmation = confirm(`确定要删除歌单 ${this.playlist.name}？`);
+      const confirmation = confirm(`确定要删除歌单 ${this.playlist.name}？`);
       if (confirmation === true) {
         deletePlaylist(this.playlist.id).then(data => {
           if (data.code === 200) {
@@ -692,15 +601,27 @@ export default {
     editPlaylist() {
       nativeAlert('此功能开发中');
     },
-    searchInPlaylist() {
+    async searchInPlaylist() {
       this.displaySearchInPlaylist =
         !this.displaySearchInPlaylist || this.isLikeSongsPage;
-      if (this.displaySearchInPlaylist == false) {
+      if (this.displaySearchInPlaylist === false) {
         this.searchKeyWords = '';
         this.inputSearchKeyWords = '';
-      } else {
-        this.searchInputWidth = '172px';
-        this.loadMore(500);
+        return;
+      }
+
+      this.searchInputWidth = '172px';
+      await this.$nextTick();
+
+      try {
+        if (this.loadMorePromise) await this.loadMorePromise;
+        while (this.lastLoadedTrackIndex < this.playlist.trackIds.length - 1) {
+          const previousIndex = this.lastLoadedTrackIndex;
+          await this.loadMore(100);
+          if (this.lastLoadedTrackIndex === previousIndex) break;
+        }
+      } catch (error) {
+        console.debug('[playlist-search] failed to load all tracks', error);
       }
     },
     removeTrack(trackID) {
@@ -714,15 +635,11 @@ export default {
       if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
       this.debounceTimeout = setTimeout(() => {
         this.searchKeyWords = this.inputSearchKeyWords;
-      }, 600);
+      }, 300);
     },
     toggleFullDescription() {
       this.showFullDescription = !this.showFullDescription;
-      if (this.showFullDescription) {
-        this.$store.commit('enableScrolling', false);
-      } else {
-        this.$store.commit('enableScrolling', true);
-      }
+      this.$store.commit('enableScrolling', !this.showFullDescription);
     },
   },
 };
@@ -732,6 +649,7 @@ export default {
 .playlist {
   margin-top: 32px;
 }
+
 .locate-current-track-button {
   position: fixed;
   right: 32px;
@@ -746,13 +664,11 @@ export default {
     opacity 0.24s ease-out,
     transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
-
 .locate-button-leave-active {
   transition:
     opacity 0.18s ease-in,
     transform 0.2s ease-in;
 }
-
 .locate-button-enter-from,
 .locate-button-leave-to {
   opacity: 0;
@@ -765,6 +681,7 @@ export default {
     bottom: 84px;
   }
 }
+
 .playlist-info {
   display: flex;
   margin-bottom: 72px;
@@ -779,7 +696,6 @@ export default {
       font-size: 36px;
       font-weight: 700;
       color: var(--color-text);
-
       .lock-icon {
         opacity: 0.28;
         color: var(--color-text);
@@ -832,49 +748,24 @@ export default {
   margin-bottom: 128px;
   border-radius: 1.25em;
   text-align: center;
-
   @keyframes letterSpacing4 {
-    from {
-      letter-spacing: 0px;
-    }
-
-    to {
-      letter-spacing: 4px;
-    }
+    from { letter-spacing: 0px; }
+    to { letter-spacing: 4px; }
   }
-
   @keyframes letterSpacing1 {
-    from {
-      letter-spacing: 0px;
-    }
-
-    to {
-      letter-spacing: 1px;
-    }
+    from { letter-spacing: 0px; }
+    to { letter-spacing: 1px; }
   }
-
   .title {
     font-size: 84px;
     line-height: 1.05;
     font-weight: 700;
     text-transform: uppercase;
-
     letter-spacing: 4px;
     animation-duration: 0.8s;
     animation-name: letterSpacing4;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    // background-image: linear-gradient(
-    //   225deg,
-    //   var(--color-primary),
-    //   var(--color-primary)
-    // );
-
-    img {
-      height: 78px;
-      border-radius: 0.125em;
-      margin-right: 24px;
-    }
   }
   .subtitle {
     font-size: 18px;
@@ -889,131 +780,30 @@ export default {
     margin-top: 32px;
     display: flex;
     justify-content: center;
-    button {
-      margin-right: 16px;
-    }
+    button { margin-right: 16px; }
   }
 }
 
-.gradient-test {
-  background-image: linear-gradient(to left, #92fe9d 0%, #00c9ff 100%);
-}
-
-[data-theme='dark'] {
-  .gradient-radar {
-    background-image: linear-gradient(to left, #92fe9d 0%, #00c9ff 100%);
-  }
-}
-
-.gradient-radar {
-  background-image: linear-gradient(to left, #0ba360 0%, #3cba92 100%);
-}
-
-.gradient-blue-purple {
-  background-image: linear-gradient(
-    45deg,
-    #89c4f5 0%,
-    #6284ff 42%,
-    #ff0000 100%
-  );
-}
-
-.gradient-sharp-blue {
-  background-image: linear-gradient(45deg, #00c6fb 0%, #005bea 100%);
-}
-
-.gradient-yellow-pink {
-  background-image: linear-gradient(45deg, #f6d365 0%, #fda085 100%);
-}
-
-.gradient-pink {
-  background-image: linear-gradient(45deg, #ee9ca7 0%, #ffdde1 100%);
-}
-
-.gradient-indigo-pink-yellow {
-  background-image: linear-gradient(
-    43deg,
-    #4158d0 0%,
-    #c850c0 46%,
-    #ffcc70 100%
-  );
-}
-
-.gradient-light-red-light-blue {
-  background-image: linear-gradient(
-    225deg,
-    hsl(190, 30%, 50%) 0%,
-    #081abb 38%,
-    #ec3841 58%,
-    hsl(13, 99%, 49%) 100%
-  );
-}
-
-.gradient-fog {
-  background:
-    linear-gradient(-180deg, #bcc5ce 0%, #929ead 98%),
-    radial-gradient(
-      at top left,
-      rgba(255, 255, 255, 0.3) 0%,
-      rgba(0, 0, 0, 0.3) 100%
-    );
-  background-blend-mode: screen;
-}
-
-.gradient-red {
-  background-image: linear-gradient(213deg, #ff0844 0%, #ffb199 100%);
-}
-
-.gradient-sky-blue {
-  background-image: linear-gradient(147deg, #48c6ef 0%, #6f86d6 100%);
-}
-
-.gradient-dark-blue-midnight-blue {
-  background-image: linear-gradient(213deg, #09203f 0%, #537895 100%);
-}
-
-.gradient-yellow-red {
-  background: linear-gradient(147deg, #fec867 0%, #f72c61 100%);
-}
-
-.gradient-yellow {
-  background: linear-gradient(147deg, #fceb02 0%, #fec401 100%);
-}
-
-.gradient-midnight-blue {
-  background-image: linear-gradient(-20deg, #2b5876 0%, #4e4376 100%);
-}
-
-.gradient-orange-red {
-  background-image: linear-gradient(147deg, #ffe53b 0%, #ff2525 74%);
-}
-
-.gradient-moonstone-blue {
-  background-image: linear-gradient(
-    147deg,
-    hsl(200, 34%, 8%) 0%,
-    hsl(204, 35%, 38%) 50%,
-    hsl(200, 34%, 18%) 100%
-  );
-}
-
-.gradient-pink-purple-blue {
-  background-image: linear-gradient(
-    to right,
-    #ff3cac 0%,
-    #784ba0 50%,
-    #2b86c5 100%
-  ) !important;
-}
-
-.gradient-green {
-  background-image: linear-gradient(
-    90deg,
-    #c6f6d5,
-    #68d391,
-    #38b2ac
-  ) !important;
-}
+.gradient-test { background-image: linear-gradient(to left, #92fe9d 0%, #00c9ff 100%); }
+[data-theme='dark'] .gradient-radar { background-image: linear-gradient(to left, #92fe9d 0%, #00c9ff 100%); }
+.gradient-radar { background-image: linear-gradient(to left, #0ba360 0%, #3cba92 100%); }
+.gradient-blue-purple { background-image: linear-gradient(45deg, #89c4f5 0%, #6284ff 42%, #ff0000 100%); }
+.gradient-sharp-blue { background-image: linear-gradient(45deg, #00c6fb 0%, #005bea 100%); }
+.gradient-yellow-pink { background-image: linear-gradient(45deg, #f6d365 0%, #fda085 100%); }
+.gradient-pink { background-image: linear-gradient(45deg, #ee9ca7 0%, #ffdde1 100%); }
+.gradient-indigo-pink-yellow { background-image: linear-gradient(43deg, #4158d0 0%, #c850c0 46%, #ffcc70 100%); }
+.gradient-light-red-light-blue { background-image: linear-gradient(225deg, hsl(190, 30%, 50%) 0%, #081abb 38%, #ec3841 58%, hsl(13, 99%, 49%) 100%); }
+.gradient-fog { background: linear-gradient(-180deg, #bcc5ce 0%, #929ead 98%), radial-gradient(at top left, rgba(255, 255, 255, 0.3) 0%, rgba(0, 0, 0, 0.3) 100%); background-blend-mode: screen; }
+.gradient-red { background-image: linear-gradient(213deg, #ff0844 0%, #ffb199 100%); }
+.gradient-sky-blue { background-image: linear-gradient(147deg, #48c6ef 0%, #6f86d6 100%); }
+.gradient-dark-blue-midnight-blue { background-image: linear-gradient(213deg, #09203f 0%, #537895 100%); }
+.gradient-yellow-red { background: linear-gradient(147deg, #fec867 0%, #f72c61 100%); }
+.gradient-yellow { background: linear-gradient(147deg, #fceb02 0%, #fec401 100%); }
+.gradient-midnight-blue { background-image: linear-gradient(-20deg, #2b5876 0%, #4e4376 100%); }
+.gradient-orange-red { background-image: linear-gradient(147deg, #ffe53b 0%, #ff2525 74%); }
+.gradient-moonstone-blue { background-image: linear-gradient(147deg, hsl(200, 34%, 8%) 0%, hsl(204, 35%, 38%) 50%, hsl(200, 34%, 18%) 100%); }
+.gradient-pink-purple-blue { background-image: linear-gradient(to right, #ff3cac 0%, #784ba0 50%, #2b86c5 100%) !important; }
+.gradient-green { background-image: linear-gradient(90deg, #c6f6d5, #68d391, #38b2ac) !important; }
 
 .user-info {
   h1 {
@@ -1032,42 +822,38 @@ export default {
 
 .search-box {
   display: flex;
-  position: absolute;
-  right: 20px;
-  bottom: -55px;
   justify-content: flex-end;
   -webkit-app-region: no-drag;
-
   .container {
     display: flex;
     align-items: center;
-    height: 32px;
+    width: 200px;
+    height: 36px;
     background: var(--color-secondary-bg-for-transparent);
     border-radius: 8px;
-    width: 200px;
   }
-
+  .input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
   .svg-icon {
     height: 15px;
     width: 15px;
     color: var(--color-text);
     opacity: 0.28;
-    margin: {
-      left: 8px;
-      right: 4px;
-    }
+    margin-left: 8px;
+    margin-right: 4px;
   }
-
   input {
+    box-sizing: border-box;
+    width: 100%;
     font-size: 16px;
     border: none;
+    outline: none;
     background: transparent;
-    width: 96%;
     font-weight: 600;
-    margin-top: -1px;
     color: var(--color-text);
   }
-
   .active {
     background: var(--color-primary-bg-for-transparent);
     input,
@@ -1078,14 +864,20 @@ export default {
   }
 }
 
+.playlist-search-box {
+  position: static;
+  width: 100%;
+  margin: -48px 0 24px;
+}
+.special-playlist + .playlist-search-box {
+  margin-top: -96px;
+}
+
 [data-theme='dark'] {
-  .search-box {
-    .active {
-      input,
-      .svg-icon {
-        color: var(--color-text);
-      }
-    }
+  .search-box .active,
+  .search-box-likepage .active {
+    input,
+    .svg-icon { color: var(--color-text); }
   }
 }
 
@@ -1096,11 +888,7 @@ export default {
   top: 95px;
   justify-content: flex-end;
   -webkit-app-region: no-drag;
-
-  .input {
-    transition: all 0.5s;
-  }
-
+  .input { transition: all 0.5s; }
   .container {
     display: flex;
     align-items: center;
@@ -1108,28 +896,23 @@ export default {
     background: var(--color-secondary-bg-for-transparent);
     border-radius: 8px;
   }
-
   .svg-icon {
     height: 15px;
     width: 15px;
     color: var(--color-text);
     opacity: 0.28;
-    margin: {
-      left: 8px;
-      right: 8px;
-    }
+    margin-left: 8px;
+    margin-right: 8px;
   }
-
   input {
     font-size: 16px;
     border: none;
+    outline: none;
     background: transparent;
     width: 96%;
     font-weight: 600;
-    margin-top: -1px;
     color: var(--color-text);
   }
-
   .active {
     background: var(--color-primary-bg-for-transparent);
     input,
@@ -1140,21 +923,8 @@ export default {
   }
 }
 
-[data-theme='dark'] {
-  .search-box-likepage {
-    .active {
-      input,
-      .svg-icon {
-        color: var(--color-text);
-      }
-    }
-  }
-}
-
 @media (max-width: 1336px) {
-  .search-box-likepage {
-    right: 8vw;
-  }
+  .search-box-likepage { right: 8vw; }
 }
 
 .load-more {
@@ -1164,65 +934,48 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .playlist {
-    margin-top: 8px;
-  }
-
+  .playlist { margin-top: 8px; }
   .playlist-info {
     margin-bottom: 36px;
     flex-direction: column;
     align-items: center;
-
     :deep(.cover-container) {
       width: min(58vw, 220px) !important;
       height: min(58vw, 220px) !important;
     }
-
     .info {
       width: 100%;
       margin: 24px 0 0;
       align-items: center;
       text-align: center;
-
-      .title {
-        font-size: 28px;
-        line-height: 1.15;
-      }
-
-      .artist {
-        margin-top: 14px;
-        font-size: 15px;
-      }
-
-      .description {
-        margin-top: 14px;
-      }
-
-      .buttons {
-        margin-top: 22px;
-      }
-    }
-
-    .search-box {
-      position: static;
-      width: 100%;
-      margin-top: 22px;
+      .title { font-size: 28px; line-height: 1.15; }
+      .artist { margin-top: 14px; font-size: 15px; }
+      .description { margin-top: 14px; }
+      .buttons { margin-top: 22px; }
     }
   }
-
   .special-playlist {
     margin: 64px 0;
-
-    .title {
-      font-size: 48px;
-    }
+    .title { font-size: 48px; }
   }
-
+  .playlist-search-box,
+  .special-playlist + .playlist-search-box {
+    box-sizing: border-box;
+    margin: -18px 0 18px;
+  }
+  .playlist-search-box .container {
+    width: 100%;
+    height: 42px;
+    border-radius: 10px;
+  }
+  .playlist-search-box input {
+    font-size: 16px;
+    min-height: 40px;
+  }
   .locate-current-track-button {
     right: 18px;
     bottom: calc(144px + env(safe-area-inset-bottom));
   }
-
   .search-box-likepage {
     position: static;
     margin-bottom: 18px;
