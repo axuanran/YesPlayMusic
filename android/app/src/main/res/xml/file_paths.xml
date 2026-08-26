@@ -3,4 +3,5 @@
     <external-path name="my_images" path="." />
     <cache-path name="my_cache_images" path="." />
     <external-files-path name="downloaded_tracks" path="Music/XuMP/" />
+    <files-path name="downloaded_tracks_internal" path="XuMP/" />
 </paths>
