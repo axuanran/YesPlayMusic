@@ -63,4 +63,6 @@ app.mount('#app');
 router
   .isReady()
   .then(() => setupMobileShell(router))
-  .catch(error => console.error('[mobile] Failed to set up shell', error));
+  .catch(error =>
+    console.error('[mobile] Failed to set up shell', error)
+  );
