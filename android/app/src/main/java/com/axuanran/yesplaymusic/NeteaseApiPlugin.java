@@ -45,6 +45,7 @@ import javax.crypto.spec.SecretKeySpec;
 public class NeteaseApiPlugin extends Plugin {
     private static final String MUSIC_DOMAIN = "https://music.163.com";
     private static final String API_DOMAIN = "https://interface.music.163.com";
+    private static final String EAPI_DOMAIN = "https://interfacepc.music.163.com";
     private static final String IV = "0102030405060708";
     private static final String PRESET_KEY = "0CoJUm6Qyw8W8jud";
     private static final String EAPI_KEY = "e82ckenh8dichen8";
@@ -130,9 +131,12 @@ public class NeteaseApiPlugin extends Plugin {
             form = data;
             requestCookie = buildRequestCookie(cookie);
         } else {
-            JSONObject header = buildEapiHeader(cookie);
+            String antiCheatToken = requiresAntiCheatToken(uri)
+                ? NeteaseAntiCheatToken.fetch(getActivity(), timeout)
+                : "";
+            JSONObject header = buildEapiHeader(cookie, antiCheatToken);
             data.put("header", header);
-            target = API_DOMAIN + "/eapi/" + uri.substring(5);
+            target = EAPI_DOMAIN + "/eapi/" + uri.substring(5);
             form = new JSONObject();
             form.put("params", encryptEapi(uri, data.toString()));
             requestCookie = buildEapiCookie(header);
@@ -216,7 +220,7 @@ public class NeteaseApiPlugin extends Plugin {
         return Base64.encodeToString(cipher.doFinal(value.getBytes(StandardCharsets.UTF_8)), Base64.NO_WRAP);
     }
 
-    private JSONObject buildEapiHeader(String cookie) throws JSONException {
+    private JSONObject buildEapiHeader(String cookie, String antiCheatToken) throws JSONException {
         JSONObject header = new JSONObject();
         header.put("osver", "14");
         header.put("deviceId", "yesplaymusic-android");
@@ -230,9 +234,19 @@ public class NeteaseApiPlugin extends Plugin {
         header.put("__csrf", readCookie(cookie, "__csrf"));
         String musicU = readCookie(cookie, "MUSIC_U");
         String musicA = readCookie(cookie, "MUSIC_A");
+        String nmtid = readCookie(cookie, "NMTID");
         if (!musicU.isEmpty()) header.put("MUSIC_U", musicU);
         if (!musicA.isEmpty()) header.put("MUSIC_A", musicA);
+        if (!nmtid.isEmpty()) header.put("NMTID", nmtid);
+        if (antiCheatToken != null && !antiCheatToken.isEmpty()) {
+            header.put("X-antiCheatToken", antiCheatToken);
+        }
         return header;
+    }
+
+    private boolean requiresAntiCheatToken(String uri) {
+        return "/api/playlist/subscribe".equals(uri) ||
+            "/api/playlist/unsubscribe".equals(uri);
     }
 
     private String buildRequestCookie(String cookie) {
