@@ -25,6 +25,7 @@ function setDownloadFeature(enabled) {
 }
 
 export const isDownloadEnabled = isElectron && readDownloadFeature();
+export const isTrackDownloadEnabled = isCapacitor || isDownloadEnabled;
 
 if (typeof window !== 'undefined') {
   Object.defineProperties(window, {
