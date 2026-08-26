@@ -1,5 +1,10 @@
 import { getMP3 } from '@/api/track';
+import {
+  getEmbeddedResolverConfig,
+  isResolverEnabled,
+} from '@/api/audioResolver';
 import { isAccountLoggedIn } from '@/utils/auth';
+import { isCapacitor } from '@/utils/env';
 import { resolveTrackSourceWithProviders } from '@/plugins/providers/audio';
 
 /**
@@ -18,6 +23,14 @@ export async function resolveTrackSource(track, options = {}) {
   );
   if (providerSource) {
     return providerSource;
+  }
+
+  if (
+    isCapacitor &&
+    isResolverEnabled() &&
+    getEmbeddedResolverConfig().audio?.fallbackToLegacy === false
+  ) {
+    return null;
   }
 
   return resolveFromLegacy(trackId, options);

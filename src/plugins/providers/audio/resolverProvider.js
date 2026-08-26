@@ -1,5 +1,9 @@
 import { getMP3 } from '@/api/track';
-import { isResolverEnabled, resolveAudioByBackend } from '@/api/audioResolver';
+import {
+  getEmbeddedResolverConfig,
+  isResolverEnabled,
+  resolveAudioByBackend,
+} from '@/api/audioResolver';
 import { isAccountLoggedIn } from '@/utils/auth';
 import { isCapacitor } from '@/utils/env';
 import { registerAudioProvider } from './registry';
@@ -19,33 +23,65 @@ function isBundledResolverMissing(error) {
   return !error?.response || status === 404 || status === 405;
 }
 
+function getEmbeddedAudioOptions() {
+  const audio = getEmbeddedResolverConfig().audio || {};
+  const cacheTtlSeconds = Number(audio.cacheTtl);
+  return {
+    cacheTtlMs:
+      Number.isFinite(cacheTtlSeconds) && cacheTtlSeconds >= 0
+        ? cacheTtlSeconds * 1000
+        : 5 * 60 * 1000,
+    neteaseEnabled: audio.mobile?.neteaseEnabled !== false,
+    outerUrlFallback: audio.mobile?.outerUrlFallback !== false,
+  };
+}
+
 async function resolveWithUiProvider(track, quality, context = {}) {
   const trackId = normalizeTrackId(track);
   if (!trackId) return null;
 
-  const result = await getMP3(trackId, {
-    quality,
-    signal: context.signal,
-  });
-  const song = result?.data?.[0];
-  if (song?.url && song.freeTrialInfo == null) {
+  const options = getEmbeddedAudioOptions();
+  let directError;
+
+  if (options.neteaseEnabled) {
+    try {
+      const result = await getMP3(trackId, {
+        quality,
+        signal: context.signal,
+      });
+      const song = result?.data?.[0];
+      if (song?.url && song.freeTrialInfo == null) {
+        return {
+          ok: true,
+          playUrl: song.url.replace(/^http:/, 'https:'),
+          providerId: 'embedded-audio-provider',
+          quality: song.level || quality,
+          cacheTtlMs: options.cacheTtlMs,
+          meta: { source: 'netease', br: song.br, size: song.size },
+        };
+      }
+    } catch (error) {
+      if (context.signal?.aborted) throw error;
+      directError = error;
+    }
+  }
+
+  if (!isAccountLoggedIn() && options.outerUrlFallback) {
     return {
       ok: true,
-      playUrl: song.url.replace(/^http:/, 'https:'),
+      playUrl: outerUrl(trackId),
       providerId: 'embedded-audio-provider',
-      quality: song.level || quality,
-      meta: { source: 'netease', br: song.br, size: song.size },
+      quality,
+      cacheTtlMs: options.cacheTtlMs,
+      meta: {
+        source: 'netease-outer',
+        directError: directError?.message,
+      },
     };
   }
 
-  if (isAccountLoggedIn()) return null;
-  return {
-    ok: true,
-    playUrl: outerUrl(trackId),
-    providerId: 'embedded-audio-provider',
-    quality,
-    meta: { source: 'netease-outer' },
-  };
+  if (directError) throw directError;
+  return null;
 }
 
 async function resolveWithBundledResolver(track, quality, context = {}) {

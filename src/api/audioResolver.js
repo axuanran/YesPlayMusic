@@ -3,7 +3,72 @@ import { clearAudioProviderCache } from '@/plugins/providers/audio/registry';
 import { isCapacitor, isElectron } from '@/utils/env';
 
 const RESOLVER_BASE_URL = '/resolver-api';
+const DEFAULT_EMBEDDED_CACHE_TTL_SECONDS = 5 * 60;
 let resolverAxios = null;
+
+function getRuntimeSettings() {
+  const runtimeSettings = globalThis?.yesplaymusicStore?.state?.settings;
+  if (runtimeSettings) return runtimeSettings;
+  try {
+    return JSON.parse(localStorage.getItem('settings')) || {};
+  } catch {
+    return {};
+  }
+}
+
+export function normalizeEmbeddedResolverConfig(value) {
+  const config = value && typeof value === 'object' ? value : {};
+  const audio =
+    config.audio && typeof config.audio === 'object' ? config.audio : {};
+  const mobile =
+    audio.mobile && typeof audio.mobile === 'object' ? audio.mobile : {};
+  const cacheTtl = Number(audio.cacheTtl);
+
+  return {
+    ...config,
+    audio: {
+      ...audio,
+      cacheTtl:
+        Number.isFinite(cacheTtl) && cacheTtl >= 0
+          ? cacheTtl
+          : DEFAULT_EMBEDDED_CACHE_TTL_SECONDS,
+      fallbackToLegacy: audio.fallbackToLegacy !== false,
+      mobile: {
+        ...mobile,
+        neteaseEnabled: mobile.neteaseEnabled !== false,
+        outerUrlFallback: mobile.outerUrlFallback !== false,
+      },
+    },
+  };
+}
+
+export function getEmbeddedResolverConfig() {
+  return normalizeEmbeddedResolverConfig(
+    getRuntimeSettings().embeddedResolverConfig
+  );
+}
+
+function saveEmbeddedResolverConfig(config) {
+  const normalized = normalizeEmbeddedResolverConfig(config);
+  const store = globalThis?.yesplaymusicStore;
+  if (store?.commit && store?.state?.settings) {
+    store.commit('updateSettings', {
+      key: 'embeddedResolverConfig',
+      value: normalized,
+    });
+    return normalized;
+  }
+
+  try {
+    const settings = JSON.parse(localStorage.getItem('settings')) || {};
+    settings.embeddedResolverConfig = normalized;
+    localStorage.setItem('settings', JSON.stringify(settings));
+  } catch {
+    // Runtime settings are expected to be available in the app. Keeping this
+    // fallback silent lets isolated tests/bootstrap code still normalize data.
+  }
+  return normalized;
+}
 
 export function getCurrentPageResolverURL() {
   return isCapacitor ? 'embedded://audio-resolver' : RESOLVER_BASE_URL;
@@ -22,21 +87,6 @@ function getResolverClient() {
     });
   }
   return resolverAxios;
-}
-
-function getEmbeddedResolverConfig() {
-  try {
-    const settings = JSON.parse(localStorage.getItem('settings')) || {};
-    return settings.embeddedResolverConfig || {};
-  } catch {
-    return {};
-  }
-}
-
-function saveEmbeddedResolverConfig(config) {
-  const settings = JSON.parse(localStorage.getItem('settings')) || {};
-  settings.embeddedResolverConfig = config || {};
-  localStorage.setItem('settings', JSON.stringify(settings));
 }
 
 /**
@@ -83,12 +133,7 @@ export async function resolveAudioByBackend(
 }
 
 export function isResolverEnabled() {
-  try {
-    const settings = JSON.parse(localStorage.getItem('settings'));
-    return settings?.useAudioResolver === true;
-  } catch {
-    return false;
-  }
+  return getRuntimeSettings()?.useAudioResolver === true;
 }
 
 export async function getResolverConfig() {
@@ -102,8 +147,9 @@ export async function getResolverConfig() {
 
 export async function updateResolverConfig(config) {
   if (isCapacitor) {
-    saveEmbeddedResolverConfig(config);
-    return { ok: true, config, embedded: true };
+    const normalized = saveEmbeddedResolverConfig(config);
+    clearAudioProviderCache();
+    return { ok: true, config: normalized, embedded: true };
   }
   const client = getResolverClient();
   const { data } = await client.post('/api/admin/config', config || {});

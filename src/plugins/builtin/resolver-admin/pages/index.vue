@@ -7,7 +7,7 @@
         </button>
         <h1>内置音频解析</h1>
         <p v-if="isCapacitor">
-          Android 使用 UI 内置 Provider，无需填写 Resolver 地址
+          Android 使用 UI/原生兼容 Provider，可配置直链、兜底与缓存策略
         </p>
         <p v-else>
           完整 Resolver 已随应用内置，可直接配置 Netease、Unblock、LX 等音源
@@ -24,12 +24,7 @@
         v-if="!isCapacitor"
         @saved="refreshProviderStatus"
       />
-      <div v-else class="mobile-config-note">
-        <div class="title">Android 解析模式</div>
-        <div class="description">
-          Android 使用 UI/原生兼容的内置解析链；音质跟随全局“音乐音质”设置。
-        </div>
-      </div>
+      <mobile-resolver-configuration v-else @saved="refreshProviderStatus" />
       <provider-status
         :providers="providerStatus"
         @refresh="refreshProviderStatus"
@@ -54,6 +49,7 @@ import {
   getAudioProviderStatus,
   resolveTrackSourceWithProviders,
 } from '@/plugins/providers/audio';
+import MobileResolverConfiguration from './components/MobileResolverConfiguration.vue';
 import ProviderStatus from './components/ProviderStatus.vue';
 import ResolverConfiguration from './components/ResolverConfiguration.vue';
 import ResolverControls from './components/ResolverControls.vue';
@@ -76,6 +72,7 @@ const resolverEnabledSetting = {
 export default {
   name: 'ResolverAdminPlugin',
   components: {
+    MobileResolverConfiguration,
     ProviderStatus,
     ResolverConfiguration,
     ResolverControls,
@@ -167,14 +164,6 @@ export default {
     margin: 0;
     opacity: 0.68;
   }
-}
-
-.mobile-config-note {
-  margin: 28px 0;
-  padding: 16px;
-  border-radius: 10px;
-  color: var(--color-text);
-  background: var(--color-secondary-bg);
 }
 </style>
 
