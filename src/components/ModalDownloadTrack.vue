@@ -370,6 +370,7 @@ export default {
     async downloadPlaylistOnMobile() {
       this.completedTracks = 0;
       this.failedTracks = 0;
+      let canceled = false;
       for (let index = 0; index < this.tracks.length; index += 1) {
         const track = this.tracks[index];
         this.currentTrackIndex = index + 1;
@@ -379,11 +380,20 @@ export default {
         this.activeMobileRequestId = `playlist-${track.id}-${index}-${Date.now()}`;
         try {
           const url = await this.resolveDownloadUrl(track);
-          await downloadTrackOnMobile({
+          const result = await downloadTrackOnMobile({
             url,
             fileName: createTrackDownloadFilename(track, this.quality),
             requestId: this.activeMobileRequestId,
           });
+          if (result?.status === 'canceled') {
+            canceled = true;
+            break;
+          }
+          if (result?.status !== 'completed') {
+            throw new Error(
+              `Unexpected download status: ${result?.status || 'unknown'}`
+            );
+          }
           this.completedTracks += 1;
         } catch (error) {
           this.failedTracks += 1;
@@ -394,6 +404,7 @@ export default {
         }
       }
       this.activeMobileRequestId = '';
+      if (canceled) return;
       this.showToast(
         this.$t('downloadTrack.batchCompleted', {
           completed: this.completedTracks,
