@@ -269,7 +269,7 @@ Web 构建输出到 `dist`，桌面构建输出到 `dist_electron`。跨平台�
 
 </details>
 
-### Android 手机端
+### Android 手机端 手机端仍在开发中，不可用
 
 手机端使用 Capacitor，共用现有 Vue 3 页面、账号、歌单与播放器逻辑。Android 应用显示名称为 **XuMP**，正式包标识为 `com.axuanran.xump`。无需配置公网网易云 API 或 Audio Resolver 地址：Android 原生模块直接完成网易云 `weapi/eapi` 加密、Cookie 管理和 HTTPS 请求；音频地址由 Vue 内置 Provider 解析，桌面端和 Android 共用。
 
