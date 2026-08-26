@@ -102,6 +102,7 @@ import ExplicitSymbol from '@/components/ExplicitSymbol.vue';
 import { mapState } from 'vuex';
 import { isNil } from 'lodash';
 import { isElectron } from '@/utils/env';
+import { createSizedCoverUrl } from '@/utils/coverImageUrl';
 
 export default {
   name: 'TrackListItem',
@@ -147,12 +148,11 @@ export default {
       return this.track?.privilege?.pl > 0 || this.track?.playable;
     },
     imgUrl() {
-      let image =
+      const image =
         this.track?.al?.picUrl ||
         this.track?.album?.picUrl ||
         'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg';
-      const separator = image.includes('?') ? '&' : '?';
-      return `${image}${separator}param=224y224`;
+      return createSizedCoverUrl(image, 224);
     },
     artists() {
       const { ar, artists } = this.track;
