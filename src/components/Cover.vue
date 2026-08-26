@@ -33,6 +33,9 @@
 </template>
 
 <script>
+import { resolveCoverImageUrl } from '@/utils/coverImageUrl';
+import { isCapacitor } from '@/utils/env';
+
 export default {
   props: {
     id: { type: [Number, String], required: true },
@@ -58,10 +61,18 @@ export default {
     };
   },
   computed: {
+    normalizedImageUrl() {
+      return resolveCoverImageUrl(this.imageUrl);
+    },
+    normalizedFallbackImageUrl() {
+      return resolveCoverImageUrl(this.fallbackImageUrl);
+    },
     resolvedImageUrl() {
-      return this.failedImageUrl === this.imageUrl && this.fallbackImageUrl
-        ? this.fallbackImageUrl
-        : this.imageUrl;
+      if (!this.normalizedImageUrl) return this.normalizedFallbackImageUrl;
+      return this.failedImageUrl === this.normalizedImageUrl &&
+        this.normalizedFallbackImageUrl
+        ? this.normalizedFallbackImageUrl
+        : this.normalizedImageUrl;
     },
     containerStyles() {
       if (this.fixedSize === 0) return {};
@@ -83,18 +94,37 @@ export default {
     },
     shadowStyles() {
       let styles = {};
-      styles.backgroundImage = `url(${this.resolvedImageUrl})`;
+      styles.backgroundImage = this.resolvedImageUrl
+        ? `url(${this.resolvedImageUrl})`
+        : 'none';
       if (this.type === 'artist') styles.borderRadius = '50%';
       return styles;
     },
   },
+  watch: {
+    imageUrl() {
+      this.failedImageUrl = '';
+    },
+    fallbackImageUrl() {
+      this.failedImageUrl = '';
+    },
+  },
   methods: {
-    handleImageError() {
+    handleImageError(event) {
+      const failedUrl = event?.currentTarget?.currentSrc || this.resolvedImageUrl;
+      if (isCapacitor) {
+        console.warn('[cover] image load failed', {
+          id: this.id,
+          type: this.type,
+          url: failedUrl,
+          fallback: this.normalizedFallbackImageUrl,
+        });
+      }
       if (
-        this.fallbackImageUrl &&
-        this.resolvedImageUrl !== this.fallbackImageUrl
+        this.normalizedFallbackImageUrl &&
+        this.resolvedImageUrl !== this.normalizedFallbackImageUrl
       ) {
-        this.failedImageUrl = this.imageUrl;
+        this.failedImageUrl = this.normalizedImageUrl;
       }
     },
     play() {
