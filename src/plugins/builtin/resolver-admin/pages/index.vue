@@ -24,10 +24,7 @@
         v-if="!isCapacitor"
         @saved="refreshProviderStatus"
       />
-      <mobile-resolver-configuration
-        v-else
-        @saved="refreshProviderStatus"
-      />
+      <mobile-resolver-configuration v-else @saved="refreshProviderStatus" />
       <provider-status
         :providers="providerStatus"
         @refresh="refreshProviderStatus"
