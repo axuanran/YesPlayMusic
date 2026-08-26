@@ -390,7 +390,9 @@ export default {
             break;
           }
           if (result?.status !== 'completed') {
-            throw new Error(`Unexpected download status: ${result?.status || 'unknown'}`);
+            throw new Error(
+              `Unexpected download status: ${result?.status || 'unknown'}`
+            );
           }
           this.completedTracks += 1;
         } catch (error) {
