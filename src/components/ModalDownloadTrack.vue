@@ -27,7 +27,10 @@
       </div>
       <label class="quality-field">
         <span>{{ $t('downloadTrack.quality') }}</span>
-        <select v-model="quality" :disabled="downloading || canShareDownloadedTrack">
+        <select
+          v-model="quality"
+          :disabled="downloading || canShareDownloadedTrack"
+        >
           <option
             v-for="item in qualities"
             :key="item.value"
@@ -72,12 +75,7 @@
       >
         {{ shareOriginalLabel }}
       </button>
-      <button
-        v-else
-        class="primary"
-        :disabled="downloading"
-        @click="download"
-      >
+      <button v-else class="primary" :disabled="downloading" @click="download">
         {{
           downloading
             ? $t('downloadTrack.downloading')
@@ -171,7 +169,9 @@ export default {
       );
     },
     shareOriginalLabel() {
-      return String(this.$i18n?.locale || '').toLowerCase().startsWith('zh')
+      return String(this.$i18n?.locale || '')
+        .toLowerCase()
+        .startsWith('zh')
         ? '分享原曲'
         : 'Share original track';
     },
@@ -242,7 +242,10 @@ export default {
           this.mobileProgressListener = listener;
         })
         .catch(error => {
-          console.warn('[track-download] unable to attach mobile progress', error);
+          console.warn(
+            '[track-download] unable to attach mobile progress',
+            error
+          );
         });
     }
   },
