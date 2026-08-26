@@ -16,6 +16,15 @@
 
       <div class="topbar-actions">
         <button
+          v-if="showCacheAction"
+          class="topbar-button"
+          type="button"
+          :aria-label="$t('settings.viewCachedTracks')"
+          @click="showCachedTracks"
+        >
+          <svg-icon icon-class="list" />
+        </button>
+        <button
           class="topbar-button"
           type="button"
           :aria-label="$t('nav.search')"
@@ -52,7 +61,7 @@
 </template>
 
 <script>
-import { mapState } from 'vuex';
+import { mapMutations, mapState } from 'vuex';
 import { isLooseLoggedIn } from '@/utils/auth';
 import { isCapacitor } from '@/utils/env';
 
@@ -67,6 +76,9 @@ export default {
       // loginMode makes this computed property update immediately after login/logout.
       void this.data.loginMode;
       return !isLooseLoggedIn() && !LOGIN_ROUTES.includes(this.$route.name);
+    },
+    showCacheAction() {
+      return isCapacitor && this.$route.name === 'settings';
     },
     showBackButton() {
       return !PRIMARY_ROUTES.includes(this.$route.name);
@@ -128,6 +140,14 @@ export default {
     },
   },
   methods: {
+    ...mapMutations(['updateModal']),
+    showCachedTracks() {
+      this.updateModal({
+        modalName: 'cachedTracksModal',
+        key: 'show',
+        value: true,
+      });
+    },
     toLogin() {
       this.$router.push({ name: isCapacitor ? 'loginAccount' : 'login' });
     },
