@@ -111,7 +111,8 @@ export default {
   },
   methods: {
     handleImageError(event) {
-      const failedUrl = event?.currentTarget?.currentSrc || this.resolvedImageUrl;
+      const failedUrl =
+        event?.currentTarget?.currentSrc || this.resolvedImageUrl;
       if (isCapacitor) {
         console.warn('[cover] image load failed', {
           id: this.id,
