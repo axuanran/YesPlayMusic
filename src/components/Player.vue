@@ -38,11 +38,7 @@
     <div class="controls">
       <div class="playing">
         <div class="container" @click.stop>
-          <img
-            :src="currentTrackCoverUrl"
-            loading="lazy"
-            @click="goToAlbum"
-          />
+          <img :src="currentTrackCoverUrl" loading="lazy" @click="goToAlbum" />
           <div class="track-info" :title="audioSource">
             <div
               :class="['name', { 'has-list': hasList() }]"
@@ -57,9 +53,7 @@
                 @click="ar.id && goToArtist(ar.id)"
               >
                 <span :class="{ ar: ar.id }"> {{ ar.name }} </span
-                ><span v-if="index !== currentTrackArtists.length - 1"
-                  >, </span
-                >
+                ><span v-if="index !== currentTrackArtists.length - 1">, </span>
               </span>
             </div>
           </div>

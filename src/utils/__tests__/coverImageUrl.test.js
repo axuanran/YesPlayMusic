@@ -29,9 +29,9 @@ describe('cover image URLs', () => {
     expect(resolveCoverImageUrl({ al: { picUrl: 'http://a/1.jpg' } })).toBe(
       'https://a/1.jpg'
     );
-    expect(
-      resolveCoverImageUrl({ album: { picUrl: 'http://a/2.jpg' } })
-    ).toBe('https://a/2.jpg');
+    expect(resolveCoverImageUrl({ album: { picUrl: 'http://a/2.jpg' } })).toBe(
+      'https://a/2.jpg'
+    );
     expect(
       resolveCoverImageUrl({ simpleSong: { al: { picUrl: 'http://a/3.jpg' } } })
     ).toBe('https://a/3.jpg');
@@ -42,7 +42,10 @@ describe('cover image URLs', () => {
 
   it('replaces an existing Netease size parameter instead of duplicating it', () => {
     expect(
-      createSizedCoverUrl('https://p1.music.126.net/cover.jpg?param=100y100', 640)
+      createSizedCoverUrl(
+        'https://p1.music.126.net/cover.jpg?param=100y100',
+        640
+      )
     ).toBe('https://p1.music.126.net/cover.jpg?param=640y640');
     expect(
       createSizedCoverUrl(

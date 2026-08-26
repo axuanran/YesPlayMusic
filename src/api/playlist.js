@@ -141,7 +141,7 @@ export function getPlaylistDetail(id, noCache = false) {
  * 说明 : 调用此接口 , 可获取精品歌单
  * - cat: tag, 比如 " 华语 "、" 古风 " 、" 欧美 "、" 流行 ", 默认为 "全部", 可从精品歌单标签列表接口获取(/playlist/highquality/tags)
  * - limit: 取出数量 , 默认为 20
- * - before: 分页参数,取上一页最后一个歌单的 updateTime 获取下一页数据
+ * - before: 分页参数,取上一页最后一个歌单的 updateTime 获取下一页
  * @param {Object} params
  * @param {string} params.cat
  * @param {number=} params.limit
@@ -223,14 +223,14 @@ export function subscribePlaylist(params) {
           Number(requestParams.t) === 1
         );
         queueMicrotask(() => {
-          globalThis?.yesplaymusicStore?.dispatch?.('fetchLikedPlaylist').catch(
-            error => {
+          globalThis?.yesplaymusicStore
+            ?.dispatch?.('fetchLikedPlaylist')
+            .catch(error => {
               console.warn(
                 '[playlist] failed to refresh subscribed playlists',
                 error
               );
-            }
-          );
+            });
         });
       }
       return result;
@@ -312,10 +312,9 @@ export function dailyRecommendTracks() {
     const privileges = Array.isArray(result?.data?.privileges)
       ? result.data.privileges
       : [];
-    result.data.dailySongs = mapTrackPlayableStatus(
-      dailySongs,
-      privileges
-    ).map(normalizeRecommendedTrack);
+    result.data.dailySongs = mapTrackPlayableStatus(dailySongs, privileges).map(
+      normalizeRecommendedTrack
+    );
     return result;
   });
 }

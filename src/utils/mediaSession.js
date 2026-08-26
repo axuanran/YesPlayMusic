@@ -1,7 +1,4 @@
-import {
-  createSizedCoverUrl,
-  resolveCoverImageUrl,
-} from './coverImageUrl';
+import { createSizedCoverUrl, resolveCoverImageUrl } from './coverImageUrl';
 
 const ARTWORK_SIZES = [96, 128, 192, 256, 384, 512];
 

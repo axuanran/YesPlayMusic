@@ -271,7 +271,10 @@ const specialPlaylist = {
   2888212971: { name: '全球百大DJ', gradient: 'gradient-orange-red' },
   2829733864: { name: '睡眠伴侣', gradient: 'gradient-midnight-blue' },
   2829844572: { name: '洗澡时听的歌', gradient: 'gradient-yellow' },
-  2920647537: { name: '还是会想你', gradient: 'gradient-dark-blue-midnight-blue' },
+  2920647537: {
+    name: '还是会想你',
+    gradient: 'gradient-dark-blue-midnight-blue',
+  },
   2890501416: { name: '助眠白噪声', gradient: 'gradient-sky-blue' },
   5217150082: { name: '摇滚唱片行', gradient: 'gradient-yellow-red' },
   2829961453: { name: '古风音乐大赏', gradient: 'gradient-fog' },
@@ -506,8 +509,10 @@ export default {
       if (this.currentTrackIndex < 0) return;
       this.$nextTick(() => {
         const observedTrackID = String(this.currentTrackID);
-        const trackElement = this.$refs.trackList?.getTrackElement(observedTrackID);
-        if (!trackElement || typeof IntersectionObserver === 'undefined') return;
+        const trackElement =
+          this.$refs.trackList?.getTrackElement(observedTrackID);
+        if (!trackElement || typeof IntersectionObserver === 'undefined')
+          return;
         const scrollContainer = document.querySelector('main');
         this.currentTrackVisibilityObserver = new IntersectionObserver(
           entries => {
@@ -749,12 +754,20 @@ export default {
   border-radius: 1.25em;
   text-align: center;
   @keyframes letterSpacing4 {
-    from { letter-spacing: 0px; }
-    to { letter-spacing: 4px; }
+    from {
+      letter-spacing: 0px;
+    }
+    to {
+      letter-spacing: 4px;
+    }
   }
   @keyframes letterSpacing1 {
-    from { letter-spacing: 0px; }
-    to { letter-spacing: 1px; }
+    from {
+      letter-spacing: 0px;
+    }
+    to {
+      letter-spacing: 1px;
+    }
   }
   .title {
     font-size: 84px;
@@ -780,30 +793,110 @@ export default {
     margin-top: 32px;
     display: flex;
     justify-content: center;
-    button { margin-right: 16px; }
+    button {
+      margin-right: 16px;
+    }
   }
 }
 
-.gradient-test { background-image: linear-gradient(to left, #92fe9d 0%, #00c9ff 100%); }
-[data-theme='dark'] .gradient-radar { background-image: linear-gradient(to left, #92fe9d 0%, #00c9ff 100%); }
-.gradient-radar { background-image: linear-gradient(to left, #0ba360 0%, #3cba92 100%); }
-.gradient-blue-purple { background-image: linear-gradient(45deg, #89c4f5 0%, #6284ff 42%, #ff0000 100%); }
-.gradient-sharp-blue { background-image: linear-gradient(45deg, #00c6fb 0%, #005bea 100%); }
-.gradient-yellow-pink { background-image: linear-gradient(45deg, #f6d365 0%, #fda085 100%); }
-.gradient-pink { background-image: linear-gradient(45deg, #ee9ca7 0%, #ffdde1 100%); }
-.gradient-indigo-pink-yellow { background-image: linear-gradient(43deg, #4158d0 0%, #c850c0 46%, #ffcc70 100%); }
-.gradient-light-red-light-blue { background-image: linear-gradient(225deg, hsl(190, 30%, 50%) 0%, #081abb 38%, #ec3841 58%, hsl(13, 99%, 49%) 100%); }
-.gradient-fog { background: linear-gradient(-180deg, #bcc5ce 0%, #929ead 98%), radial-gradient(at top left, rgba(255, 255, 255, 0.3) 0%, rgba(0, 0, 0, 0.3) 100%); background-blend-mode: screen; }
-.gradient-red { background-image: linear-gradient(213deg, #ff0844 0%, #ffb199 100%); }
-.gradient-sky-blue { background-image: linear-gradient(147deg, #48c6ef 0%, #6f86d6 100%); }
-.gradient-dark-blue-midnight-blue { background-image: linear-gradient(213deg, #09203f 0%, #537895 100%); }
-.gradient-yellow-red { background: linear-gradient(147deg, #fec867 0%, #f72c61 100%); }
-.gradient-yellow { background: linear-gradient(147deg, #fceb02 0%, #fec401 100%); }
-.gradient-midnight-blue { background-image: linear-gradient(-20deg, #2b5876 0%, #4e4376 100%); }
-.gradient-orange-red { background-image: linear-gradient(147deg, #ffe53b 0%, #ff2525 74%); }
-.gradient-moonstone-blue { background-image: linear-gradient(147deg, hsl(200, 34%, 8%) 0%, hsl(204, 35%, 38%) 50%, hsl(200, 34%, 18%) 100%); }
-.gradient-pink-purple-blue { background-image: linear-gradient(to right, #ff3cac 0%, #784ba0 50%, #2b86c5 100%) !important; }
-.gradient-green { background-image: linear-gradient(90deg, #c6f6d5, #68d391, #38b2ac) !important; }
+.gradient-test {
+  background-image: linear-gradient(to left, #92fe9d 0%, #00c9ff 100%);
+}
+[data-theme='dark'] .gradient-radar {
+  background-image: linear-gradient(to left, #92fe9d 0%, #00c9ff 100%);
+}
+.gradient-radar {
+  background-image: linear-gradient(to left, #0ba360 0%, #3cba92 100%);
+}
+.gradient-blue-purple {
+  background-image: linear-gradient(
+    45deg,
+    #89c4f5 0%,
+    #6284ff 42%,
+    #ff0000 100%
+  );
+}
+.gradient-sharp-blue {
+  background-image: linear-gradient(45deg, #00c6fb 0%, #005bea 100%);
+}
+.gradient-yellow-pink {
+  background-image: linear-gradient(45deg, #f6d365 0%, #fda085 100%);
+}
+.gradient-pink {
+  background-image: linear-gradient(45deg, #ee9ca7 0%, #ffdde1 100%);
+}
+.gradient-indigo-pink-yellow {
+  background-image: linear-gradient(
+    43deg,
+    #4158d0 0%,
+    #c850c0 46%,
+    #ffcc70 100%
+  );
+}
+.gradient-light-red-light-blue {
+  background-image: linear-gradient(
+    225deg,
+    hsl(190, 30%, 50%) 0%,
+    #081abb 38%,
+    #ec3841 58%,
+    hsl(13, 99%, 49%) 100%
+  );
+}
+.gradient-fog {
+  background:
+    linear-gradient(-180deg, #bcc5ce 0%, #929ead 98%),
+    radial-gradient(
+      at top left,
+      rgba(255, 255, 255, 0.3) 0%,
+      rgba(0, 0, 0, 0.3) 100%
+    );
+  background-blend-mode: screen;
+}
+.gradient-red {
+  background-image: linear-gradient(213deg, #ff0844 0%, #ffb199 100%);
+}
+.gradient-sky-blue {
+  background-image: linear-gradient(147deg, #48c6ef 0%, #6f86d6 100%);
+}
+.gradient-dark-blue-midnight-blue {
+  background-image: linear-gradient(213deg, #09203f 0%, #537895 100%);
+}
+.gradient-yellow-red {
+  background: linear-gradient(147deg, #fec867 0%, #f72c61 100%);
+}
+.gradient-yellow {
+  background: linear-gradient(147deg, #fceb02 0%, #fec401 100%);
+}
+.gradient-midnight-blue {
+  background-image: linear-gradient(-20deg, #2b5876 0%, #4e4376 100%);
+}
+.gradient-orange-red {
+  background-image: linear-gradient(147deg, #ffe53b 0%, #ff2525 74%);
+}
+.gradient-moonstone-blue {
+  background-image: linear-gradient(
+    147deg,
+    hsl(200, 34%, 8%) 0%,
+    hsl(204, 35%, 38%) 50%,
+    hsl(200, 34%, 18%) 100%
+  );
+}
+.gradient-pink-purple-blue {
+  background-image: linear-gradient(
+    to right,
+    #ff3cac 0%,
+    #784ba0 50%,
+    #2b86c5 100%
+  ) !important;
+}
+.gradient-green {
+  background-image: linear-gradient(
+    90deg,
+    #c6f6d5,
+    #68d391,
+    #38b2ac
+  ) !important;
+}
 
 .user-info {
   h1 {
@@ -877,7 +970,9 @@ export default {
   .search-box .active,
   .search-box-likepage .active {
     input,
-    .svg-icon { color: var(--color-text); }
+    .svg-icon {
+      color: var(--color-text);
+    }
   }
 }
 
@@ -888,7 +983,9 @@ export default {
   top: 95px;
   justify-content: flex-end;
   -webkit-app-region: no-drag;
-  .input { transition: all 0.5s; }
+  .input {
+    transition: all 0.5s;
+  }
   .container {
     display: flex;
     align-items: center;
@@ -924,7 +1021,9 @@ export default {
 }
 
 @media (max-width: 1336px) {
-  .search-box-likepage { right: 8vw; }
+  .search-box-likepage {
+    right: 8vw;
+  }
 }
 
 .load-more {
@@ -934,7 +1033,9 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .playlist { margin-top: 8px; }
+  .playlist {
+    margin-top: 8px;
+  }
   .playlist-info {
     margin-bottom: 36px;
     flex-direction: column;
@@ -948,15 +1049,27 @@ export default {
       margin: 24px 0 0;
       align-items: center;
       text-align: center;
-      .title { font-size: 28px; line-height: 1.15; }
-      .artist { margin-top: 14px; font-size: 15px; }
-      .description { margin-top: 14px; }
-      .buttons { margin-top: 22px; }
+      .title {
+        font-size: 28px;
+        line-height: 1.15;
+      }
+      .artist {
+        margin-top: 14px;
+        font-size: 15px;
+      }
+      .description {
+        margin-top: 14px;
+      }
+      .buttons {
+        margin-top: 22px;
+      }
     }
   }
   .special-playlist {
     margin: 64px 0;
-    .title { font-size: 48px; }
+    .title {
+      font-size: 48px;
+    }
   }
   .playlist-search-box,
   .special-playlist + .playlist-search-box {
