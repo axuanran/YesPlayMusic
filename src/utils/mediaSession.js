@@ -1,3 +1,8 @@
+import {
+  createSizedCoverUrl,
+  resolveCoverImageUrl,
+} from './coverImageUrl';
+
 const ARTWORK_SIZES = [96, 128, 192, 256, 384, 512];
 
 const normalizeArtists = track => {
@@ -28,15 +33,14 @@ export function getMediaSessionDuration(track) {
 
 export function createMediaSessionMetadata(track) {
   const album = normalizeAlbum(track);
-  const artworkUrl = album.picUrl || track?.coverUrl || '';
-  const artworkQuerySeparator = artworkUrl.includes('?') ? '&' : '?';
+  const artworkUrl = resolveCoverImageUrl(track);
   return {
     title: track?.name || '',
     artist: normalizeArtists(track).join(', '),
     album: album.name || '',
     artwork: artworkUrl
       ? ARTWORK_SIZES.map(size => ({
-          src: `${artworkUrl}${artworkQuerySeparator}param=${size}y${size}`,
+          src: createSizedCoverUrl(artworkUrl, size),
           sizes: `${size}x${size}`,
           type: 'image/jpeg',
         }))
