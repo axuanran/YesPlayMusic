@@ -39,7 +39,7 @@
       <div class="playing">
         <div class="container" @click.stop>
           <img
-            :src="resizeImage(currentTrack.al && currentTrack.al.picUrl, 224)"
+            :src="currentTrackCoverUrl"
             loading="lazy"
             @click="goToAlbum"
           />
@@ -52,12 +52,14 @@
             </div>
             <div class="artist">
               <span
-                v-for="(ar, index) in currentTrack.ar"
-                :key="ar.id"
+                v-for="(ar, index) in currentTrackArtists"
+                :key="ar.id || `${ar.name}-${index}`"
                 @click="ar.id && goToArtist(ar.id)"
               >
                 <span :class="{ ar: ar.id }"> {{ ar.name }} </span
-                ><span v-if="index !== currentTrack.ar.length - 1">, </span>
+                ><span v-if="index !== currentTrackArtists.length - 1"
+                  >, </span
+                >
               </span>
             </div>
           </div>
@@ -269,6 +271,10 @@ import { PLAYBACK_RATES } from '@/utils/playbackRate';
 import { getWheelAdjustedVolume } from '@/utils/volume';
 import { isElectron } from '@/utils/env';
 import { amllWsProtocol } from '@/utils/amllWsProtocol';
+import {
+  createSizedCoverUrl,
+  resolveCoverImageUrl,
+} from '@/utils/coverImageUrl';
 
 export default {
   name: 'Player',
@@ -294,6 +300,15 @@ export default {
       const version = this.playerVersion;
       if (version < 0) return this.player.displayTrack;
       return this.player.displayTrack;
+    },
+    currentTrackCoverUrl() {
+      return createSizedCoverUrl(this.currentTrack, 224);
+    },
+    currentTrackArtists() {
+      const track = this.currentTrack;
+      if (Array.isArray(track?.ar) && track.ar.length > 0) return track.ar;
+      if (Array.isArray(track?.artists)) return track.artists;
+      return track?.simpleSong?.ar || [];
     },
     resolvedCurrentTrack() {
       void this.playerVersion;
@@ -382,10 +397,10 @@ export default {
         id: track?.id ?? '',
         name: track?.name ?? '',
         duration: track?.dt ?? 0,
-        albumId: track?.al?.id ?? '',
-        albumName: track?.al?.name ?? '',
-        cover: track?.al?.picUrl ?? '',
-        artists: (track?.ar || []).map(artist => [
+        albumId: track?.al?.id ?? track?.album?.id ?? '',
+        albumName: track?.al?.name ?? track?.album?.name ?? '',
+        cover: resolveCoverImageUrl(track),
+        artists: (track?.ar || track?.artists || []).map(artist => [
           artist?.id ?? '',
           artist?.name ?? '',
         ]),
@@ -483,13 +498,15 @@ export default {
       if (!this.amllEnabled) return;
       const track = this.player.currentTrack;
       if (!track?.id) return;
+      const album = track.al || track.album || {};
+      const artists = track.ar || track.artists || [];
       amllWsProtocol.publish({
         update: 'setMusic',
         musicId: String(track.id),
         musicName: String(track.name || ''),
-        albumId: String(track.al?.id ?? ''),
-        albumName: String(track.al?.name || ''),
-        artists: (track.ar || []).map(artist => ({
+        albumId: String(album.id ?? ''),
+        albumName: String(album.name || ''),
+        artists: artists.map(artist => ({
           id: String(artist?.id ?? ''),
           name: String(artist?.name || ''),
         })),
@@ -501,7 +518,7 @@ export default {
       amllWsProtocol.publish({
         update: 'setCover',
         source: 'uri',
-        url: String(track.al?.picUrl || ''),
+        url: resolveCoverImageUrl(track),
       });
       amllWsProtocol.publish({
         update: 'setLyric',
@@ -643,8 +660,10 @@ export default {
     },
     goToAlbum() {
       if (this.player.isTrackPending) return;
-      if (this.player.currentTrack.al.id === 0) return;
-      this.$router.push({ path: '/album/' + this.player.currentTrack.al.id });
+      const albumId =
+        this.player.currentTrack?.al?.id || this.player.currentTrack?.album?.id;
+      if (!albumId) return;
+      this.$router.push({ path: '/album/' + albumId });
     },
     goToArtist(id) {
       this.$router.push({ path: '/artist/' + id });
