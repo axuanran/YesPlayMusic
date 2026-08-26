@@ -2,10 +2,13 @@ package com.axuanran.yesplaymusic;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.widget.FrameLayout;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -46,6 +49,10 @@ final class NeteaseAntiCheatToken {
             if (webView == null) return;
             webView.stopLoading();
             webView.removeJavascriptInterface("YpmAntiCheat");
+            ViewParent parent = webView.getParent();
+            if (parent instanceof ViewGroup) {
+                ((ViewGroup) parent).removeView(webView);
+            }
             webView.destroy();
         };
 
@@ -111,6 +118,13 @@ final class NeteaseAntiCheatToken {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setUserAgentString(WEB_USER_AGENT);
+
+        webView.setAlpha(0f);
+        FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(1, 1);
+        ViewGroup root = activity.findViewById(android.R.id.content);
+        if (root != null) {
+            root.addView(webView, layoutParams);
+        }
 
         webView.addJavascriptInterface(new TokenBridge(callback), "YpmAntiCheat");
         webView.loadDataWithBaseURL(
