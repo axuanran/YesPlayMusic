@@ -2,13 +2,10 @@
   <div class="track-list">
     <ContextMenu ref="menu">
       <div v-show="type !== 'cloudDisk'" class="item-info">
-        <img
-          :src="resizeImage(rightClickedTrackComputed.al.picUrl, 224)"
-          loading="lazy"
-        />
+        <img :src="rightClickedArtworkPreviewUrl" loading="lazy" />
         <div class="info">
           <div class="title">{{ rightClickedTrackComputed.name }}</div>
-          <div class="subtitle">{{ rightClickedTrackComputed.ar[0].name }}</div>
+          <div class="subtitle">{{ rightClickedTrackArtistName }}</div>
         </div>
       </div>
       <hr v-show="type !== 'cloudDisk'" />
@@ -115,11 +112,18 @@ import { mapActions, mapMutations, mapState } from 'vuex';
 import { addOrRemoveTrackFromPlaylist } from '@/api/playlist';
 import { cloudDiskTrackDelete } from '@/api/user';
 import { isAccountLoggedIn } from '@/utils/auth';
+import {
+  createSizedCoverUrl,
+  resolveCoverImageUrl,
+} from '@/utils/coverImageUrl';
 
 import TrackListItem from '@/components/TrackListItem.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
 import locale from '@/locale';
 import { isArtworkDownloadEnabled, isTrackDownloadEnabled } from '@/utils/env';
+
+const DEFAULT_TRACK_COVER =
+  'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg';
 
 export default {
   name: 'TrackList',
@@ -213,11 +217,21 @@ export default {
         : this.rightClickedTrack;
     },
     rightClickedArtworkUrl() {
+      return resolveCoverImageUrl(this.rightClickedTrack);
+    },
+    rightClickedArtworkPreviewUrl() {
       return (
-        this.rightClickedTrack?.al?.picUrl ||
-        this.rightClickedTrack?.album?.picUrl ||
-        this.rightClickedTrack?.coverUrl ||
-        this.rightClickedTrack?.simpleSong?.al?.picUrl ||
+        createSizedCoverUrl(this.rightClickedTrack, 224) ||
+        createSizedCoverUrl(DEFAULT_TRACK_COVER, 224)
+      );
+    },
+    rightClickedTrackArtistName() {
+      const track = this.rightClickedTrackComputed;
+      return (
+        track?.ar?.[0]?.name ||
+        track?.artists?.[0]?.name ||
+        track?.artist ||
+        track?.simpleSong?.ar?.[0]?.name ||
         ''
       );
     },
@@ -368,9 +382,7 @@ export default {
       if (!url) return;
       const track = this.rightClickedTrack;
       const artist =
-        track.ar?.[0]?.name ||
-        track.artists?.[0]?.name ||
-        track.artist ||
+        this.rightClickedTrackArtistName ||
         locale.global.t('downloadArtwork.unknownArtist');
       const extension =
         new URL(url, window.location.href).pathname
