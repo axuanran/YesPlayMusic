@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(NeteaseApiPlugin.class);
         registerPlugin(BackgroundAudioPlugin.class);
+        registerPlugin(TrackDownloadPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
