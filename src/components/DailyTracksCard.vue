@@ -43,10 +43,7 @@ export default {
   computed: {
     ...mapState(['dailyTracks']),
     fallbackCoverUrl() {
-      return createSizedCoverUrl(
-        sample(defaultCovers),
-        DAILY_CARD_COVER_SIZE
-      );
+      return createSizedCoverUrl(sample(defaultCovers), DAILY_CARD_COVER_SIZE);
     },
     coverUrl() {
       if (this.failedCover) return this.fallbackCoverUrl;
