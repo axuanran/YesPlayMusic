@@ -24,8 +24,10 @@ function setDownloadFeature(enabled) {
   window.location.reload();
 }
 
-export const isDownloadEnabled = isElectron && readDownloadFeature();
-export const isTrackDownloadEnabled = isCapacitor || isDownloadEnabled;
+const isDesktopDownloadEnabled = isElectron && readDownloadFeature();
+export const isDownloadEnabled = isCapacitor || isDesktopDownloadEnabled;
+export const isTrackDownloadEnabled = isDownloadEnabled;
+export const isArtworkDownloadEnabled = isDesktopDownloadEnabled;
 
 if (typeof window !== 'undefined') {
   Object.defineProperties(window, {
