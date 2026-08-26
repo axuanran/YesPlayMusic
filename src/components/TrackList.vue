@@ -24,7 +24,7 @@
         {{ $t('contextMenu.downloadTrack') }}
       </div>
       <div
-        v-if="isDownloadEnabled && rightClickedArtworkUrl"
+        v-if="isArtworkDownloadEnabled && rightClickedArtworkUrl"
         class="item"
         @click="downloadArtwork"
       >
@@ -117,7 +117,10 @@ import { isAccountLoggedIn } from '@/utils/auth';
 import TrackListItem from '@/components/TrackListItem.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
 import locale from '@/locale';
-import { isDownloadEnabled, isTrackDownloadEnabled } from '@/utils/env';
+import {
+  isArtworkDownloadEnabled,
+  isTrackDownloadEnabled,
+} from '@/utils/env';
 
 export default {
   name: 'TrackList',
@@ -188,7 +191,7 @@ export default {
       },
       rightClickedTrackIndex: -1,
       listStyles: {},
-      isDownloadEnabled,
+      isArtworkDownloadEnabled,
       isTrackDownloadEnabled,
     };
   },
