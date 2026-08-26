@@ -13,7 +13,7 @@
         {{ $t('cachedTracks.empty') }}
       </div>
       <div v-else class="track-list">
-        <div v-for="track in tracks" :key="track.id" class="track">
+        <div v-for="track in tracks" :key="track.cacheKey || track.id" class="track">
           <img
             v-if="track.cover"
             :src="resizeImage(track.cover, 112)"
@@ -25,6 +25,7 @@
             <div class="metadata">
               {{ track.artists.join(', ') || $t('cachedTracks.unknownArtist') }}
               <span v-if="track.album"> · {{ track.album }}</span>
+              <span v-if="track.quality"> · {{ track.quality }}</span>
             </div>
           </div>
           <button :title="$t('cachedTracks.play')" @click="play(track)">
@@ -32,7 +33,7 @@
           </button>
           <button
             class="remove"
-            :disabled="removingIds.includes(track.id)"
+            :disabled="removingIds.includes(track.cacheKey || track.id)"
             :title="$t('cachedTracks.remove')"
             @click="remove(track)"
           >
@@ -55,6 +56,22 @@ import {
   onTrackCacheChanged,
   removeCachedTrack,
 } from '@/utils/db';
+import { isCapacitor } from '@/utils/env';
+
+function normalizeNativeTrack(track = {}) {
+  const numericId = Number(track.id);
+  return {
+    id: Number.isFinite(numericId) ? numericId : track.id,
+    cacheKey: track.cacheKey || '',
+    name: track.title || (track.id ? `#${track.id}` : ''),
+    artists: track.artist ? [track.artist] : [],
+    album: track.album || '',
+    cover: track.artwork || '',
+    quality: track.quality || '',
+    bytes: Number(track.bytes) || 0,
+    completed: track.completed !== false,
+  };
+}
 
 export default {
   name: 'ModalCachedTracks',
@@ -65,6 +82,7 @@ export default {
       loading: false,
       removingIds: [],
       removeCacheListener: null,
+      nativeCacheListener: null,
     };
   },
   computed: {
@@ -88,12 +106,17 @@ export default {
     },
   },
   mounted() {
+    if (isCapacitor) {
+      this.bindNativeCacheListener();
+      return;
+    }
     this.removeCacheListener = onTrackCacheChanged(() => {
       if (this.show) this.load();
     });
   },
   beforeUnmount() {
     this.removeCacheListener?.();
+    this.nativeCacheListener?.remove?.();
   },
   methods: {
     ...mapMutations(['updateModal']),
@@ -101,10 +124,30 @@ export default {
     close() {
       this.show = false;
     },
+    async getNativeAudioPlugin() {
+      const { BackgroundAudio } = await import('@/mobile/AndroidAudioEngine');
+      return BackgroundAudio;
+    },
+    async bindNativeCacheListener() {
+      try {
+        const plugin = await this.getNativeAudioPlugin();
+        this.nativeCacheListener = await plugin.addListener('cacheChanged', () => {
+          if (this.show) this.load();
+        });
+      } catch (error) {
+        console.error('[android-audio-cache] failed to listen', error);
+      }
+    },
     async load() {
       this.loading = true;
       try {
-        this.tracks = await listCachedTracks();
+        if (isCapacitor) {
+          const plugin = await this.getNativeAudioPlugin();
+          const result = await plugin.listCachedTracks();
+          this.tracks = (result?.tracks || []).map(normalizeNativeTrack);
+        } else {
+          this.tracks = await listCachedTracks();
+        }
       } catch (error) {
         console.error('[track-cache] failed to list cached tracks', error);
         this.showToast(this.$t('cachedTracks.loadFailed'));
@@ -117,16 +160,25 @@ export default {
       this.close();
     },
     async remove(track) {
-      if (this.removingIds.includes(track.id)) return;
-      this.removingIds.push(track.id);
+      const removeId = track.cacheKey || track.id;
+      if (this.removingIds.includes(removeId)) return;
+      this.removingIds.push(removeId);
       try {
-        await removeCachedTrack(track.id);
-        this.tracks = this.tracks.filter(item => item.id !== track.id);
+        if (isCapacitor) {
+          if (!track.cacheKey) throw new Error('Native cache key is missing');
+          const plugin = await this.getNativeAudioPlugin();
+          await plugin.removeCache({ cacheKey: track.cacheKey });
+        } else {
+          await removeCachedTrack(track.id);
+        }
+        this.tracks = this.tracks.filter(
+          item => (item.cacheKey || item.id) !== removeId
+        );
       } catch (error) {
         console.error(`[track-cache] failed to remove ${track.id}`, error);
         this.showToast(this.$t('cachedTracks.removeFailed'));
       } finally {
-        this.removingIds = this.removingIds.filter(id => id !== track.id);
+        this.removingIds = this.removingIds.filter(id => id !== removeId);
       }
     },
   },
