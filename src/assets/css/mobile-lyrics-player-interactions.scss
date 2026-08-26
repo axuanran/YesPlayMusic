@@ -1,0 +1,26 @@
+@media (max-width: 768px) {
+  .lyrics-page .left-side .controls .lyric-behavior-menu {
+    position: fixed !important;
+  }
+
+  .lyrics-page .right-side .lyrics-container {
+    touch-action: pan-y;
+  }
+
+  .lyrics-page .left-side .controls .progress-bar,
+  .lyrics-page .left-side .controls .media-controls,
+  .lyrics-page .left-side .controls .top-part,
+  .lyrics-page > .close-button {
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 768px) and (hover: none) and (pointer: coarse) {
+  .lyrics-page .right-side .lyrics-container .line:hover {
+    background: transparent !important;
+  }
+
+  .lyrics-page .right-side .lyrics-container .line.highlight:hover {
+    background: rgba(255, 255, 255, 0.055) !important;
+  }
+}
