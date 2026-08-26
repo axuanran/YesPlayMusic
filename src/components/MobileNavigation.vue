@@ -17,14 +17,15 @@
       <div class="topbar-actions">
         <button
           v-if="showCacheAction"
-          class="topbar-button"
+          class="topbar-button cache-action"
           type="button"
           :aria-label="$t('settings.viewCachedTracks')"
           @click="showCachedTracks"
         >
-          <svg-icon icon-class="list" />
+          缓存管理
         </button>
         <button
+          v-else
           class="topbar-button"
           type="button"
           :aria-label="$t('nav.search')"
@@ -236,6 +237,16 @@ export default {
     }
   }
 
+  .cache-action {
+    width: auto;
+    min-width: 72px;
+    padding: 0 10px;
+    color: var(--color-primary);
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
   .login-action {
     width: auto;
     padding: 0 10px;
@@ -296,6 +307,10 @@ export default {
   .topbar-actions {
     width: 84px;
     justify-self: end;
+  }
+
+  .cache-action {
+    width: 84px;
   }
 
   .login-action {
