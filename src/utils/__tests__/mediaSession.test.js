@@ -28,6 +28,26 @@ describe('media session data', () => {
     });
   });
 
+  it('normalizes Android artwork shapes and replaces stale size parameters', () => {
+    const metadata = createMediaSessionMetadata({
+      name: 'Android Track',
+      simpleSong: {
+        al: {
+          picUrl: 'http://p1.music.126.net/cover.jpg?param=64y64',
+        },
+      },
+    });
+
+    expect(metadata.artwork[0]).toEqual({
+      src: 'https://p1.music.126.net/cover.jpg?param=96y96',
+      sizes: '96x96',
+      type: 'image/jpeg',
+    });
+    expect(metadata.artwork.at(-1)?.src).toBe(
+      'https://p1.music.126.net/cover.jpg?param=512y512'
+    );
+  });
+
   it('keeps fractional duration and playback position precision', () => {
     expect(getMediaSessionDuration({ dt: 180543 })).toBe(180.543);
     expect(
