@@ -344,7 +344,9 @@ describe('AndroidAudioEngine', () => {
           automaticallyCacheSongs: false,
         })
       );
-    } catch {}
+    } catch {
+      // Some non-browser test environments do not expose localStorage.
+    }
     const engine = new AndroidAudioEngine();
 
     await engine.cacheSource('https://example.test/song.mp3', { id: 42 });
