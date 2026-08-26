@@ -333,6 +333,10 @@ import { hasListSource, getListSourcePath } from '@/utils/playList';
 import locale from '@/locale';
 import { getWheelAdjustedVolume } from '@/utils/volume';
 import { amllWsProtocol } from '@/utils/amllWsProtocol';
+import {
+  createSizedCoverUrl,
+  resolveCoverImageUrl,
+} from '@/utils/coverImageUrl';
 
 export default {
   name: 'Lyrics',
@@ -378,8 +382,7 @@ export default {
       },
     },
     imageUrl() {
-      const picUrl = this.currentTrack?.al?.picUrl;
-      return picUrl ? `${picUrl}?param=1024y1024` : '';
+      return createSizedCoverUrl(this.currentTrack, 1024);
     },
     playing() {
       void this.playerVersion;
@@ -395,8 +398,7 @@ export default {
       },
     },
     bgImageUrl() {
-      const picUrl = this.currentTrack?.al?.picUrl;
-      return picUrl ? `${picUrl}?param=512y512` : '';
+      return createSizedCoverUrl(this.currentTrack, 512);
     },
     isShowLyricTypeSwitch() {
       return (
@@ -540,12 +542,18 @@ export default {
       return this.lyric.length == 0;
     },
     artist() {
-      return this.currentTrack?.ar
-        ? this.currentTrack.ar[0]
-        : { id: 0, name: 'unknown' };
+      const artists =
+        this.currentTrack?.ar ||
+        this.currentTrack?.artists ||
+        this.currentTrack?.simpleSong?.ar ||
+        [];
+      return artists[0] || { id: 0, name: 'unknown' };
     },
     album() {
-      return this.currentTrack?.al || { id: 0, name: 'unknown' };
+      return (
+        this.currentTrack?.al ||
+        this.currentTrack?.album || { id: 0, name: 'unknown' }
+      );
     },
     theme() {
       return this.settings.lyricsBackground === true ? 'dark' : 'auto';
@@ -750,7 +758,7 @@ export default {
         lyric.some(line => line.content === '纯音乐，请欣赏');
       if (includesInstrumentalMarker) {
         const authorPattern = /^作(词|曲)\s*(:|：)\s*/;
-        const author = this.currentTrack?.ar[0]?.name;
+        const author = this.artist.name;
         lyric = lyric.filter(line => {
           const match = line.content.match(authorPattern);
           return !match || line.content.replace(match[0], '') !== author;
@@ -1033,13 +1041,13 @@ export default {
     },
     async getCoverColor() {
       if (this.settings.lyricsBackground !== true) return;
-      let picUrl = this.currentTrack?.al?.picUrl;
+      let picUrl = resolveCoverImageUrl(this.currentTrack);
       if (this.currentTrack?.local && window.electronAPI?.localMusic) {
         try {
           const currentTrack = await window.electronAPI.localMusic.get(
             this.currentTrack.id
           );
-          picUrl = currentTrack?.al?.picUrl || picUrl;
+          picUrl = resolveCoverImageUrl(currentTrack) || picUrl;
         } catch {
           // Keep the existing artwork URL if the desktop service is restarting.
         }
@@ -1048,7 +1056,7 @@ export default {
         this.background = '';
         return;
       }
-      const cover = `${picUrl}?param=256y256`;
+      const cover = createSizedCoverUrl(picUrl, 256);
       Vibrant.from(cover, { colorCount: 1 })
         .getPalette()
         .then(palette => {
