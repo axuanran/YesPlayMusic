@@ -27,7 +27,7 @@
     <Toast />
     <ModalAddTrackToPlaylist v-if="isAccountLoggedIn" />
     <ModalNewPlaylist v-if="isAccountLoggedIn" />
-    <ModalDownloadTrack v-if="isDownloadEnabled" />
+    <ModalDownloadTrack v-if="isTrackDownloadEnabled" />
     <ModalCachedTracks v-if="isElectron" />
     <transition v-if="enablePlayer" name="slide-up">
       <Lyrics v-show="showLyrics" />
@@ -49,7 +49,7 @@ import { ipcRenderer } from './electron/ipcRenderer';
 import { isAccountLoggedIn, isLooseLoggedIn } from '@/utils/auth';
 import Lyrics from './views/lyrics.vue';
 import { mapState } from 'vuex';
-import { isDownloadEnabled, isElectron } from '@/utils/env';
+import { isElectron, isTrackDownloadEnabled } from '@/utils/env';
 
 export default {
   name: 'App',
@@ -68,7 +68,7 @@ export default {
   data() {
     return {
       isElectron,
-      isDownloadEnabled,
+      isTrackDownloadEnabled,
       userSelectNone: false,
       removeDesktopLyricsSettingsListener: null,
       // keep-alive :include matches component name (PascalCase), not route name
