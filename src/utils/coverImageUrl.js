@@ -4,8 +4,8 @@ const LOOPBACK_HTTP_ORIGIN =
 const FALLBACK_COVER = '';
 
 /**
- * Resolve cover url from different Netease response shapes.
- * Android API responses are not always identical to desktop responses.
+ * Resolve cover url from the response shapes used by the web API, the
+ * Android built-in API and local/streaming tracks.
  */
 export function resolveCoverImageUrl(source) {
   if (!source) return FALLBACK_COVER;
@@ -17,27 +17,44 @@ export function resolveCoverImageUrl(source) {
   return normalizeCoverUrl(
     source.picUrl ||
       source.coverImgUrl ||
-      source.album?.picUrl ||
+      source.coverUrl ||
+      source.blurPicUrl ||
       source.al?.picUrl ||
+      source.album?.picUrl ||
+      source.album?.blurPicUrl ||
+      source.simpleSong?.al?.picUrl ||
+      source.song?.al?.picUrl ||
       source.song?.album?.picUrl ||
+      source.artist?.picUrl ||
+      source.avatarUrl ||
       ''
   );
 }
 
-export function createSizedCoverUrl(imageUrl, size = 300) {
-  const normalizedUrl = resolveCoverImageUrl(imageUrl);
+export function createSizedCoverUrl(source, size = 300) {
+  const normalizedUrl = resolveCoverImageUrl(source);
   if (!normalizedUrl) return '';
 
-  const separator = normalizedUrl.includes('?') ? '&' : '?';
-  return `${normalizedUrl}${separator}param=${size}y${size}`;
+  const numericSize = Number.parseInt(size, 10);
+  if (!Number.isFinite(numericSize) || numericSize <= 0) return normalizedUrl;
+
+  const urlWithoutOldSize = normalizedUrl
+    .replace(/([?&])param=\d+y\d+(?=&|$)/gi, '$1')
+    .replace(/\?&/, '?')
+    .replace(/&&+/g, '&')
+    .replace(/[?&]$/, '');
+  const separator = urlWithoutOldSize.includes('?') ? '&' : '?';
+  return `${urlWithoutOldSize}${separator}param=${numericSize}y${numericSize}`;
 }
 
 function normalizeCoverUrl(imageUrl) {
   if (!imageUrl || typeof imageUrl !== 'string') return '';
 
-  const normalizedUrl = LOOPBACK_HTTP_ORIGIN.test(imageUrl)
-    ? imageUrl
-    : imageUrl.replace(/^http:\/\//i, 'https://');
+  const trimmedUrl = imageUrl.trim();
+  if (!trimmedUrl) return '';
+  if (trimmedUrl.startsWith('//')) return `https:${trimmedUrl}`;
 
-  return normalizedUrl;
+  return LOOPBACK_HTTP_ORIGIN.test(trimmedUrl)
+    ? trimmedUrl
+    : trimmedUrl.replace(/^http:\/\//i, 'https://');
 }
