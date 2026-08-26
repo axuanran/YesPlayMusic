@@ -27,7 +27,7 @@
       </div>
       <label class="quality-field">
         <span>{{ $t('downloadTrack.quality') }}</span>
-        <select v-model="quality" :disabled="downloading">
+        <select v-model="quality" :disabled="downloading || canShareDownloadedTrack">
           <option
             v-for="item in qualities"
             :key="item.value"
@@ -58,9 +58,26 @@
     </template>
     <template #footer>
       <button :disabled="downloading" @click="close">
-        {{ $t('downloadTrack.cancel') }}
+        {{
+          canShareDownloadedTrack
+            ? $t('modal.close')
+            : $t('downloadTrack.cancel')
+        }}
       </button>
-      <button class="primary" :disabled="downloading" @click="download">
+      <button
+        v-if="canShareDownloadedTrack"
+        class="primary"
+        :disabled="downloading"
+        @click="shareDownloadedTrack"
+      >
+        {{ shareOriginalLabel }}
+      </button>
+      <button
+        v-else
+        class="primary"
+        :disabled="downloading"
+        @click="download"
+      >
         {{
           downloading
             ? $t('downloadTrack.downloading')
@@ -75,7 +92,13 @@
 import { mapActions, mapMutations, mapState } from 'vuex';
 import Modal from '@/components/Modal.vue';
 import { getLyric } from '@/api/track';
+import { isCapacitor } from '@/utils/env';
 import { resolveTrackSource } from '@/utils/resolveAudioSource';
+import {
+  addTrackDownloadProgressListener,
+  downloadTrackOnMobile,
+  shareDownloadedTrackOnMobile,
+} from '@/mobile/trackDownload';
 import {
   createTrackDownloadFilename,
   createTrackDownloadMetadata,
@@ -104,7 +127,10 @@ export default {
       completedTracks: 0,
       failedTracks: 0,
       activeBatchId: '',
+      activeMobileRequestId: '',
+      downloadedTrack: null,
       removeProgressListener: null,
+      mobileProgressListener: null,
       qualities: TRACK_DOWNLOAD_QUALITIES,
     };
   },
@@ -133,6 +159,21 @@ export default {
     },
     isPlaylist() {
       return this.tracks.length > 0;
+    },
+    isMobileDownload() {
+      return isCapacitor;
+    },
+    canShareDownloadedTrack() {
+      return (
+        this.isMobileDownload &&
+        !this.isPlaylist &&
+        Boolean(this.downloadedTrack?.uri)
+      );
+    },
+    shareOriginalLabel() {
+      return String(this.$i18n?.locale || '').toLowerCase().startsWith('zh')
+        ? '分享原曲'
+        : 'Share original track';
     },
     modalTitle() {
       return this.$t(
@@ -170,6 +211,8 @@ export default {
       this.completedTracks = 0;
       this.failedTracks = 0;
       this.activeBatchId = '';
+      this.activeMobileRequestId = '';
+      this.downloadedTrack = null;
     },
   },
   mounted() {
@@ -182,9 +225,30 @@ export default {
         this.receivedBytes = Math.max(0, Number(progress?.received) || 0);
         this.totalBytes = Math.max(0, Number(progress?.total) || 0);
       }) || null;
+
+    if (this.isMobileDownload) {
+      addTrackDownloadProgressListener(progress => {
+        if (!this.downloading) return;
+        if (
+          this.activeMobileRequestId &&
+          progress?.requestId !== this.activeMobileRequestId
+        ) {
+          return;
+        }
+        this.receivedBytes = Math.max(0, Number(progress?.received) || 0);
+        this.totalBytes = Math.max(0, Number(progress?.total) || 0);
+      })
+        .then(listener => {
+          this.mobileProgressListener = listener;
+        })
+        .catch(error => {
+          console.warn('[track-download] unable to attach mobile progress', error);
+        });
+    }
   },
   beforeUnmount() {
     this.removeProgressListener?.();
+    this.mobileProgressListener?.remove?.();
   },
   methods: {
     ...mapMutations(['updateModal']),
@@ -216,10 +280,27 @@ export default {
           })
         );
       } finally {
+        this.activeMobileRequestId = '';
         this.downloading = false;
       }
     },
     async downloadSingle() {
+      if (this.isMobileDownload) {
+        const requestId = `track-${this.track.id}-${Date.now()}`;
+        this.activeMobileRequestId = requestId;
+        const url = await this.resolveDownloadUrl(this.track);
+        const result = await downloadTrackOnMobile({
+          url,
+          fileName: createTrackDownloadFilename(this.track, this.quality),
+          requestId,
+        });
+        if (result?.status === 'completed' && result?.uri) {
+          this.downloadedTrack = result;
+          this.showToast(this.$t('downloadTrack.completed'));
+        }
+        return;
+      }
+
       const request = await this.createDownloadRequest(this.track);
       const result = await window.electronAPI?.download?.saveTrack?.({
         ...request,
@@ -231,6 +312,11 @@ export default {
       }
     },
     async downloadPlaylist() {
+      if (this.isMobileDownload) {
+        await this.downloadPlaylistOnMobile();
+        return;
+      }
+
       const downloadApi = window.electronAPI?.download;
       const batch = await downloadApi?.beginBatch?.({
         playlistName: this.playlistName,
@@ -277,6 +363,58 @@ export default {
         })
       );
       this.show = false;
+    },
+    async downloadPlaylistOnMobile() {
+      this.completedTracks = 0;
+      this.failedTracks = 0;
+      for (let index = 0; index < this.tracks.length; index += 1) {
+        const track = this.tracks[index];
+        this.currentTrackIndex = index + 1;
+        this.currentTrackName = track.name || `#${track.id}`;
+        this.receivedBytes = 0;
+        this.totalBytes = 0;
+        this.activeMobileRequestId = `playlist-${track.id}-${index}-${Date.now()}`;
+        try {
+          const url = await this.resolveDownloadUrl(track);
+          await downloadTrackOnMobile({
+            url,
+            fileName: createTrackDownloadFilename(track, this.quality),
+            requestId: this.activeMobileRequestId,
+          });
+          this.completedTracks += 1;
+        } catch (error) {
+          this.failedTracks += 1;
+          console.error(
+            `[track-download] failed to download ${track.id} on mobile`,
+            error
+          );
+        }
+      }
+      this.activeMobileRequestId = '';
+      this.showToast(
+        this.$t('downloadTrack.batchCompleted', {
+          completed: this.completedTracks,
+          failed: this.failedTracks,
+        })
+      );
+      this.show = false;
+    },
+    async shareDownloadedTrack() {
+      if (!this.downloadedTrack?.uri) return;
+      try {
+        await shareDownloadedTrackOnMobile({
+          uri: this.downloadedTrack.uri,
+          mimeType: this.downloadedTrack.mimeType || 'audio/*',
+          chooserTitle: this.shareOriginalLabel,
+        });
+      } catch (error) {
+        const prefix = String(this.$i18n?.locale || '')
+          .toLowerCase()
+          .startsWith('zh')
+          ? '分享失败'
+          : 'Share failed';
+        this.showToast(`${prefix}: ${error?.message || String(error)}`);
+      }
     },
     async createDownloadRequest(track) {
       const [url, lyricResult] = await Promise.all([
