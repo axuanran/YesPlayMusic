@@ -19,6 +19,7 @@ import androidx.media3.datasource.cache.CacheWriter;
 import androidx.media3.session.MediaController;
 import androidx.media3.session.SessionToken;
 
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -28,6 +29,7 @@ import com.getcapacitor.annotation.Permission;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -178,6 +180,9 @@ public final class BackgroundAudioPlugin extends Plugin {
         JSObject track = call.getObject("track", new JSObject());
         boolean reuseIfSame = call.getBoolean("reuseIfSame", false);
         boolean reuseActiveSession = call.getBoolean("reuseActiveSession", false);
+        NativeAudioCache.getInstance(getContext()).setWriteThroughEnabled(
+            track.optBoolean("cacheEnabled", true)
+        );
         withController(
             call,
             mediaController -> {
@@ -340,9 +345,20 @@ public final class BackgroundAudioPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setCacheEnabled(PluginCall call) {
+        boolean enabled = call.getBoolean("enabled", true);
+        NativeAudioCache audioCache = NativeAudioCache.getInstance(getContext());
+        audioCache.setWriteThroughEnabled(enabled);
+        JSObject result = cacheStatus();
+        result.put("enabled", enabled);
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void cache(PluginCall call) {
         String source = call.getString("source");
         String cacheKey = call.getString("cacheKey");
+        JSObject track = call.getObject("track", new JSObject());
         if (source == null || source.isBlank()) {
             call.reject("Audio source is required");
             return;
@@ -353,6 +369,7 @@ public final class BackgroundAudioPlugin extends Plugin {
         }
 
         NativeAudioCache audioCache = NativeAudioCache.getInstance(getContext());
+        recordTrack(audioCache, cacheKey, track, track.optString("id", ""));
         AtomicLong lastProgressEvent = new AtomicLong(0);
         CacheWriter writer =
             audioCache.createWriter(
@@ -405,6 +422,39 @@ public final class BackgroundAudioPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void listCachedTracks(PluginCall call) {
+        cacheExecutor.execute(
+            () -> {
+                try {
+                    List<NativeAudioCache.CacheEntry> entries =
+                        NativeAudioCache.getInstance(getContext()).entries();
+                    JSArray tracks = new JSArray();
+                    for (NativeAudioCache.CacheEntry entry : entries) {
+                        JSObject track = new JSObject();
+                        track.put("cacheKey", entry.cacheKey);
+                        track.put("id", entry.id);
+                        track.put("quality", entry.quality);
+                        track.put("title", entry.title);
+                        track.put("artist", entry.artist);
+                        track.put("album", entry.album);
+                        track.put("artwork", entry.artwork);
+                        track.put("bytes", entry.bytes);
+                        track.put("contentLength", entry.contentLength);
+                        track.put("completed", entry.completed);
+                        track.put("updatedAt", entry.updatedAt);
+                        tracks.put(track);
+                    }
+                    JSObject result = cacheStatus();
+                    result.put("tracks", tracks);
+                    postResolve(call, result);
+                } catch (Exception error) {
+                    postReject(call, error);
+                }
+            }
+        );
+    }
+
+    @PluginMethod
     public void removeCache(PluginCall call) {
         String cacheKey = call.getString("cacheKey");
         if (cacheKey == null || cacheKey.isBlank()) {
@@ -431,13 +481,18 @@ public final class BackgroundAudioPlugin extends Plugin {
 
     @PluginMethod
     public void clearCache(PluginCall call) {
+        NativeAudioCache audioCache = NativeAudioCache.getInstance(getContext());
+        // Prevent the currently playing stream from immediately filling the cache
+        // again while a manual clear is in progress. The next load() restores the
+        // setting supplied by the web layer.
+        audioCache.setWriteThroughEnabled(false);
         for (String cacheKey : new ArrayList<>(cacheWriters.keySet())) {
             cancelWriter(cacheKey);
         }
         cacheExecutor.execute(
             () -> {
                 try {
-                    NativeAudioCache.getInstance(getContext()).clear();
+                    audioCache.clear();
                     JSObject result = cacheStatus();
                     postResolve(call, result);
                     postEvent("cacheChanged", result);
@@ -511,6 +566,7 @@ public final class BackgroundAudioPlugin extends Plugin {
             state.put("album", text(mediaItem.mediaMetadata.albumTitle));
             if (mediaItem.localConfiguration != null) {
                 state.put("source", mediaItem.localConfiguration.uri.toString());
+                state.put("cacheKey", mediaItem.localConfiguration.customCacheKey);
             }
             state.put(
                 "artwork",
@@ -528,6 +584,13 @@ public final class BackgroundAudioPlugin extends Plugin {
         String fallbackMediaId
     ) {
         String mediaId = track.optString("id", fallbackMediaId);
+        String quality = NativeAudioCache.normalizeQuality(
+            track.optString("quality", "exhigh")
+        );
+        String cacheKey = track.optString("cacheKey", "");
+        if (cacheKey.isBlank()) {
+            cacheKey = NativeAudioCache.keyFor(mediaId, quality);
+        }
         MediaMetadata.Builder metadata =
             new MediaMetadata.Builder()
                 .setTitle(track.optString("title", ""))
@@ -535,34 +598,59 @@ public final class BackgroundAudioPlugin extends Plugin {
                 .setAlbumTitle(track.optString("album", ""));
         String artwork = track.optString("artwork", "");
         if (!artwork.isBlank()) metadata.setArtworkUri(Uri.parse(artwork));
+        recordTrack(
+            NativeAudioCache.getInstance(getContext()),
+            cacheKey,
+            track,
+            mediaId
+        );
         return configureCacheKey(
             new MediaItem.Builder()
                 .setMediaId(mediaId)
                 .setUri(source)
                 .setMediaMetadata(metadata.build()),
-            mediaId
+            cacheKey
         ).build();
     }
 
     private MediaItem.Builder configureCacheKey(
         MediaItem.Builder builder,
-        String mediaId
+        String cacheKey
     ) {
-        if (!mediaId.isBlank()) {
-            builder.setCustomCacheKey(NativeAudioCache.keyFor(mediaId));
+        if (cacheKey != null && !cacheKey.isBlank()) {
+            builder.setCustomCacheKey(cacheKey);
         }
         return builder;
     }
 
+    private void recordTrack(
+        NativeAudioCache audioCache,
+        String cacheKey,
+        JSObject track,
+        String fallbackMediaId
+    ) {
+        String mediaId = track.optString("id", fallbackMediaId);
+        audioCache.record(
+            cacheKey,
+            mediaId,
+            track.optString("quality", "exhigh"),
+            track.optString("title", ""),
+            track.optString("artist", ""),
+            track.optString("album", ""),
+            track.optString("artwork", "")
+        );
+    }
+
     private JSObject cacheStatus() {
-        NativeAudioCache.CacheStatus current =
-            NativeAudioCache.getInstance(getContext()).status();
+        NativeAudioCache audioCache = NativeAudioCache.getInstance(getContext());
+        NativeAudioCache.CacheStatus current = audioCache.status();
         JSObject state = new JSObject();
         state.put("bytes", current.bytes);
         state.put("length", current.length);
         state.put("completed", current.completed);
         state.put("active", cacheWriters.size());
         state.put("maxBytes", NativeAudioCache.MAX_CACHE_BYTES);
+        state.put("enabled", audioCache.isWriteThroughEnabled());
         return state;
     }
 

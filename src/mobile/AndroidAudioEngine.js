@@ -100,18 +100,82 @@ function rememberPlaybackError(error) {
   return diagnostic;
 }
 
+function getCacheSettings() {
+  const runtimeSettings = globalThis?.yesplaymusicStore?.state?.settings;
+  if (runtimeSettings) return runtimeSettings;
+  try {
+    return JSON.parse(localStorage.getItem('settings')) || {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeCacheQuality(value) {
+  if (value === 999000 || value === '999000') return 'jymaster';
+  if (value === 350000 || value === '350000' || value === 'flac') {
+    return 'lossless';
+  }
+  if (value === 320000 || value === '320000' || value === 'higher') {
+    return 'exhigh';
+  }
+  if (
+    value === 192000 ||
+    value === '192000' ||
+    value === 128000 ||
+    value === '128000'
+  ) {
+    return 'standard';
+  }
+  const quality = String(value || 'exhigh').trim().toLowerCase();
+  if (
+    [
+      'standard',
+      'exhigh',
+      'lossless',
+      'hires',
+      'jyeffect',
+      'sky',
+      'jymaster',
+    ].includes(quality)
+  ) {
+    return quality;
+  }
+  return quality.replace(/[^a-z0-9_-]/g, '_') || 'exhigh';
+}
+
+function getTrackCachePolicy(track = {}) {
+  const settings = getCacheSettings();
+  const quality = normalizeCacheQuality(
+    track.cacheQuality ?? track.quality ?? settings.musicQuality ?? 'exhigh'
+  );
+  const cacheEnabled =
+    typeof track.cacheEnabled === 'boolean'
+      ? track.cacheEnabled
+      : settings.automaticallyCacheSongs !== false;
+  return { quality, cacheEnabled };
+}
+
+function cacheKeyFor(trackId, quality) {
+  return `track:v2:${String(trackId)}:${normalizeCacheQuality(quality)}`;
+}
+
 function toNativeTrack(track = {}) {
   const artists = (track.ar || track.artists || [])
     .map(artist => artist?.name)
     .filter(Boolean)
     .join(', ');
+  const id = String(track.id || '');
+  const { quality, cacheEnabled } = getTrackCachePolicy(track);
   return {
-    id: String(track.id || ''),
+    id,
     title: track.title || track.name || '',
     artist: track.artist || artists,
     album: track.album?.name || track.al?.name || track.album || '',
     artwork: track.artwork || track.al?.picUrl || track.album?.picUrl || '',
     duration: Number(track.duration) || Number(track.dt) / 1000 || 0,
+    quality,
+    cacheEnabled,
+    cacheKey: id ? cacheKeyFor(id, quality) : '',
   };
 }
 
@@ -233,11 +297,13 @@ export default class AndroidAudioEngine {
   load(source, token = this.token + 1, track = {}) {
     const reuseActiveSession = this._firstLoad;
     const reuseIfSame = this._firstLoad;
+    const nativeTrack = toNativeTrack(track);
     this._firstLoad = false;
     this.token = token;
     this._playing = false;
     this._position = 0;
     this._duration = Number(track.duration) || 0;
+    this._currentMediaId = nativeTrack.id;
     this._currentSource = source || '';
     this._loadFailed = false;
     if (track?.id) this._tracks.set(String(track.id), track);
@@ -246,7 +312,7 @@ export default class AndroidAudioEngine {
         BackgroundAudio.load({
           source,
           token,
-          track: toNativeTrack(track),
+          track: nativeTrack,
           reuseIfSame,
           reuseActiveSession,
         })
@@ -309,13 +375,33 @@ export default class AndroidAudioEngine {
     return this._ready.then(() => BackgroundAudio.stop()).catch(() => {});
   }
 
+  setCacheEnabled(enabled) {
+    return this._ready
+      .then(() => BackgroundAudio.setCacheEnabled({ enabled: Boolean(enabled) }))
+      .catch(error => {
+        console.debug('[android-audio-cache] failed to update cache policy', error);
+        return null;
+      });
+  }
+
   cacheSource(source, track = {}) {
     if (!source || !track?.id) return Promise.resolve(null);
+    const nativeTrack = toNativeTrack(track);
+    if (!nativeTrack.cacheEnabled) return Promise.resolve(null);
+    if (
+      String(track.id) === this._currentMediaId &&
+      source === this._currentSource
+    ) {
+      // Playback itself writes this source into Media3's cache. Starting a
+      // CacheWriter here would download the current song a second time.
+      return Promise.resolve({ writeThrough: true, cacheKey: nativeTrack.cacheKey });
+    }
     return this._ready
       .then(() =>
         BackgroundAudio.cache({
           source,
-          cacheKey: `track:${track.id}`,
+          cacheKey: nativeTrack.cacheKey,
+          track: nativeTrack,
         })
       )
       .catch(error => {
