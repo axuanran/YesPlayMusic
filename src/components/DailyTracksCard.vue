@@ -5,14 +5,12 @@
       loading="eager"
       fetchpriority="high"
       decoding="async"
+      @error="handleCoverError"
     />
     <div class="container">
       <div class="title-box">
         <div class="title">
-          <span>每</span>
-          <span>日</span>
-          <span>推</span>
-          <span>荐</span>
+          <span>每</span><span>日</span><span>推</span><span>荐</span>
         </div>
       </div>
     </div>
@@ -28,6 +26,7 @@ import { mapMutations, mapState, mapActions } from 'vuex';
 import { dailyRecommendTracks } from '@/api/playlist';
 import { isAccountLoggedIn } from '@/utils/auth';
 import sample from 'lodash/sample';
+import { createSizedCoverUrl } from '@/utils/coverImageUrl';
 
 const DAILY_CARD_COVER_SIZE = 640;
 const defaultCovers = [
@@ -39,14 +38,17 @@ const defaultCovers = [
 export default {
   name: 'DailyTracksCard',
   data() {
-    return { useAnimation: false };
+    return { failedCover: false };
   },
   computed: {
     ...mapState(['dailyTracks']),
     coverUrl() {
-      return `${
-        this.dailyTracks[0]?.al.picUrl || sample(defaultCovers)
-      }?param=${DAILY_CARD_COVER_SIZE}y${DAILY_CARD_COVER_SIZE}`;
+      if (this.failedCover) return sample(defaultCovers);
+      const song = this.dailyTracks[0];
+      return createSizedCoverUrl(
+        song?.al?.picUrl || song?.album?.picUrl || sample(defaultCovers),
+        DAILY_CARD_COVER_SIZE
+      );
     },
   },
   created() {
@@ -55,13 +57,14 @@ export default {
   methods: {
     ...mapActions(['showToast']),
     ...mapMutations(['updateDailyTracks']),
+    handleCoverError() {
+      this.failedCover = true;
+    },
     loadDailyTracks() {
       if (!isAccountLoggedIn()) return;
-      dailyRecommendTracks()
-        .then(result => {
-          this.updateDailyTracks(result.data.dailySongs);
-        })
-        .catch(() => {});
+      dailyRecommendTracks().then(result => {
+        this.updateDailyTracks(result.data.dailySongs || []);
+      }).catch(() => {});
     },
     goToDailyTracks() {
       this.$router.push({ name: 'dailySongs' });
@@ -71,9 +74,8 @@ export default {
         this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
-      let trackIDs = this.dailyTracks.map(t => t.id);
       this.$store.state.player.replacePlaylist(
-        trackIDs,
+        this.dailyTracks.map(t => t.id),
         '/daily/songs',
         'url',
         this.dailyTracks[0].id
@@ -90,89 +92,41 @@ export default {
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  z-index: 1;
 }
-
 img {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
-  animation: move 38s infinite;
-  animation-direction: alternate;
-  z-index: -1;
+  height: 100%;
+  object-fit: cover;
 }
-
 .container {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.28));
   height: 198px;
   width: 50%;
   display: flex;
   align-items: center;
-  border-radius: 0.94rem;
+  background: linear-gradient(to left, transparent, rgba(0,0,0,.28));
 }
-
 .title-box {
+  margin-left: 25px;
+  color: white;
   height: 148px;
   width: 148px;
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-left: 25px;
-  user-select: none;
-  .title {
-    height: 100%;
-    width: 100%;
-    font-weight: 600;
-    font-size: 64px;
-    line-height: 48px;
-    opacity: 0.96;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    justify-items: center;
-    place-items: center;
-  }
 }
-
+.title {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  place-items: center;
+  height: 100%;
+  font-size: 64px;
+  font-weight: 600;
+}
 .play-button {
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: white;
   position: absolute;
   right: 1.6rem;
   bottom: 1.4rem;
-  background: rgba(255, 255, 255, 0.14);
   border-radius: 50%;
-  margin-bottom: 2px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 44px;
   width: 44px;
-  transition: 0.2s;
-  cursor: default;
-
-  .svg-icon {
-    margin-left: 4px;
-    height: 16px;
-    width: 16px;
-  }
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.44);
-  }
-  &:active {
-    transform: scale(0.94);
-  }
-}
-
-@keyframes move {
-  0% {
-    transform: translateY(0);
-  }
-  100% {
-    transform: translateY(-50%);
-  }
+  height: 44px;
 }
 </style>
