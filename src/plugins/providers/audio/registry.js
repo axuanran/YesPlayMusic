@@ -70,7 +70,7 @@ export function createAudioProviderRegistry({
   }
 
   function getCachedSource(cacheKey) {
-    if (!cacheKey || cacheTtl <= 0) return null;
+    if (!cacheKey) return null;
     const cached = sourceCache.get(cacheKey);
     if (!cached) return null;
     if (cached.expiresAt <= now()) {
@@ -85,12 +85,16 @@ export function createAudioProviderRegistry({
     return cached.playUrl;
   }
 
-  function setCachedSource(cacheKey, playUrl, providerId) {
-    if (!cacheKey || !playUrl || cacheTtl <= 0) return;
+  function setCachedSource(cacheKey, playUrl, providerId, cacheTtlOverride) {
+    const requestedTtl = Number(cacheTtlOverride);
+    const effectiveTtl = Number.isFinite(requestedTtl)
+      ? Math.max(0, requestedTtl)
+      : cacheTtl;
+    if (!cacheKey || !playUrl || effectiveTtl <= 0) return;
     sourceCache.set(cacheKey, {
       playUrl,
       providerId,
-      expiresAt: now() + cacheTtl,
+      expiresAt: now() + effectiveTtl,
     });
   }
 
@@ -174,7 +178,12 @@ export function createAudioProviderRegistry({
           quality,
           providerId: provider.id,
         });
-        setCachedSource(cacheKey, normalizedResult.playUrl, provider.id);
+        setCachedSource(
+          cacheKey,
+          normalizedResult.playUrl,
+          provider.id,
+          normalizedResult.cacheTtlMs
+        );
         return normalizedResult.playUrl;
       } catch (error) {
         const message = error?.message || String(error);
