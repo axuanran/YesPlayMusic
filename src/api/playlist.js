@@ -1,6 +1,57 @@
 import request from '@/utils/request';
 import { mapTrackPlayableStatus } from '@/utils/common';
 
+const PLAYLIST_SUBSCRIPTION_OVERRIDE_TTL = 15000;
+const playlistSubscriptionOverrides = new Map();
+
+function rememberPlaylistSubscription(id, subscribed) {
+  playlistSubscriptionOverrides.set(String(id), {
+    subscribed,
+    expiresAt: Date.now() + PLAYLIST_SUBSCRIPTION_OVERRIDE_TTL,
+  });
+}
+
+function applyPlaylistSubscriptionOverride(id, playlist) {
+  if (!playlist) return playlist;
+  const key = String(id ?? playlist.id ?? '');
+  const override = playlistSubscriptionOverrides.get(key);
+  if (!override) return playlist;
+  if (Date.now() > override.expiresAt) {
+    playlistSubscriptionOverrides.delete(key);
+    return playlist;
+  }
+  playlist.subscribed = override.subscribed;
+  return playlist;
+}
+
+function reportPlaylistSubscriptionResult(params, result, error) {
+  const diagnostic = {
+    at: new Date().toISOString(),
+    id: params.id,
+    action: Number(params.t) === 1 ? 'subscribe' : 'unsubscribe',
+    code: result?.code,
+    message:
+      result?.msg || result?.message || error?.message || String(error || ''),
+    native: result?.__android || undefined,
+  };
+  globalThis.__yesplaymusicLastPlaylistSubscription__ = diagnostic;
+
+  if (result?.code === 200 && !error) return;
+  const details = [
+    diagnostic.code ? `code ${diagnostic.code}` : '',
+    diagnostic.message,
+    diagnostic.native?.antiCheatTokenPresent === false
+      ? 'anti-cheat token missing'
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  globalThis?.yesplaymusicStore?.dispatch?.(
+    'showToast',
+    `歌单收藏操作失败${details ? `：${details}` : ''}`
+  );
+}
+
 /**
  * 推荐歌单
  * 说明 : 调用此接口 , 可获取推荐歌单
@@ -55,6 +106,7 @@ export function getPlaylistDetail(id, noCache = false) {
         data.playlist.tracks,
         data.privileges || []
       );
+      applyPlaylistSubscriptionOverride(id, data.playlist);
     }
     return data;
   });
@@ -63,7 +115,7 @@ export function getPlaylistDetail(id, noCache = false) {
  * 获取精品歌单
  * 说明 : 调用此接口 , 可获取精品歌单
  * - cat: tag, 比如 " 华语 "、" 古风 " 、" 欧美 "、" 流行 ", 默认为 "全部", 可从精品歌单标签列表接口获取(/playlist/highquality/tags)
- * - limit: 取出歌单数量 , 默认为 20
+ * - limit: 取出数量 , 默认为 20
  * - before: 分页参数,取上一页最后一个歌单的 updateTime 获取下一页数据
  * @param {Object} params
  * @param {string} params.cat
@@ -83,7 +135,7 @@ export function highQualityPlaylist(params) {
  * 说明 : 调用此接口 , 可获取网友精选碟歌单
  * - order: 可选值为 'new' 和 'hot', 分别对应最新和最热 , 默认为 'hot'
  * - cat: tag, 比如 " 华语 "、" 古风 " 、" 欧美 "、" 流行 ", 默认为 "全部",可从歌单分类接口获取(/playlist/catlist)
- * - limit: 取出歌单数量 , 默认为 50
+ * - limit: 取出数量 , 默认为 50
  * @param {Object} params
  * @param {string} params.order
  * @param {string} params.cat
@@ -129,12 +181,39 @@ export function toplists() {
  * @param {number} params.id
  */
 export function subscribePlaylist(params) {
-  params.timestamp = new Date().getTime();
+  const requestParams = {
+    ...params,
+    timestamp: new Date().getTime(),
+  };
   return request({
     url: '/playlist/subscribe',
     method: 'post',
-    params,
-  });
+    params: requestParams,
+  })
+    .then(result => {
+      reportPlaylistSubscriptionResult(requestParams, result);
+      if (result?.code === 200) {
+        rememberPlaylistSubscription(
+          requestParams.id,
+          Number(requestParams.t) === 1
+        );
+        queueMicrotask(() => {
+          globalThis?.yesplaymusicStore?.dispatch?.('fetchLikedPlaylist').catch(
+            error => {
+              console.warn(
+                '[playlist] failed to refresh subscribed playlists',
+                error
+              );
+            }
+          );
+        });
+      }
+      return result;
+    })
+    .catch(error => {
+      reportPlaylistSubscriptionResult(requestParams, undefined, error);
+      throw error;
+    });
 }
 
 /**
