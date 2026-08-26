@@ -1,5 +1,36 @@
 <template>
   <div v-show="show" class="search-page">
+    <form
+      v-if="isCapacitor"
+      class="mobile-search-bar"
+      role="search"
+      @submit.prevent="submitMobileSearch"
+    >
+      <svg-icon class="mobile-search-icon" icon-class="search" />
+      <input
+        ref="mobileSearchInput"
+        v-model="searchInput"
+        class="mobile-search-input"
+        type="search"
+        inputmode="search"
+        enterkeyhint="search"
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+        :placeholder="$t('nav.search')"
+        :aria-label="$t('nav.search')"
+      />
+      <button
+        v-if="searchInput"
+        class="mobile-search-clear"
+        type="button"
+        aria-label="Clear search"
+        @click="clearMobileSearch"
+      >
+        ×
+      </button>
+    </form>
+
     <div v-show="artists.length > 0 || albums.length > 0" class="row">
       <div v-show="artists.length > 0" class="artists">
         <div v-show="artists.length > 0" class="section-title"
@@ -105,6 +136,7 @@
 import { mapActions } from 'vuex';
 import { getTrackDetail } from '@/api/track';
 import { search } from '@/api/others';
+import { isCapacitor } from '@/utils/env';
 import NProgress from 'nprogress';
 
 import TrackList from '@/components/TrackList.vue';
@@ -130,6 +162,8 @@ export default {
   },
   data() {
     return {
+      isCapacitor,
+      searchInput: this.$route.params.keywords ?? '',
       show: false,
       tracks: [],
       artists: [],
@@ -160,12 +194,16 @@ export default {
     },
   },
   watch: {
-    keywords() {
+    keywords(value) {
+      this.searchInput = value ?? '';
       this.getData();
     },
   },
   created() {
     this.getData();
+  },
+  activated() {
+    if (this.isCapacitor) this.focusMobileSearch();
   },
   beforeUnmount() {
     clearTimeout(this.progressTimer);
@@ -174,6 +212,28 @@ export default {
   },
   methods: {
     ...mapActions(['showToast']),
+    focusMobileSearch() {
+      this.$nextTick(() => this.$refs.mobileSearchInput?.focus());
+    },
+    submitMobileSearch() {
+      const keywords = this.searchInput.trim();
+      if (!keywords) {
+        if (this.keywords) this.$router.push({ name: 'search' });
+        return;
+      }
+
+      if (keywords === this.keywords.trim()) {
+        this.getData();
+      } else {
+        this.$router.push({ name: 'search', params: { keywords } });
+      }
+      this.$refs.mobileSearchInput?.blur();
+    },
+    clearMobileSearch() {
+      this.searchInput = '';
+      if (this.keywords) this.$router.push({ name: 'search' });
+      this.focusMobileSearch();
+    },
     playTrackInSearchResult(id) {
       let track = this.tracks.find(t => t.id === id);
       this.$store.state.player.appendTrackToPlayerList(track, true);
@@ -322,6 +382,62 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+.mobile-search-bar {
+  position: sticky;
+  top: calc(56px + env(safe-area-inset-top));
+  z-index: 30;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  border-radius: 14px;
+  background: var(--color-navbar-bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  backdrop-filter: saturate(180%) blur(18px);
+}
+
+.mobile-search-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--color-text);
+  opacity: 0.56;
+}
+
+.mobile-search-input {
+  min-width: 0;
+  flex: 1;
+  padding: 4px 0;
+  border: 0;
+  outline: 0;
+  color: var(--color-text);
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+
+  &::placeholder {
+    color: var(--color-text);
+    opacity: 0.42;
+  }
+}
+
+.mobile-search-clear {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: var(--color-text);
+  background: rgba(128, 128, 128, 0.14);
+  font-size: 21px;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .section-title {
   font-weight: 600;
   font-size: 22px;
@@ -372,6 +488,7 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+  pointer-events: none;
   div {
     display: flex;
     align-items: center;
@@ -380,6 +497,34 @@ export default {
     height: 24px;
     width: 24px;
     margin-right: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .row {
+    gap: 30px;
+
+    .artists,
+    .albums {
+      min-width: 100%;
+      margin-right: 0;
+    }
+  }
+
+  .tracks,
+  .music-videos,
+  .playlists,
+  .podcasts {
+    margin-top: 32px;
+  }
+
+  .no-results {
+    top: calc(120px + env(safe-area-inset-top));
+    bottom: calc(120px + env(safe-area-inset-bottom));
+    padding: 0 24px;
+    box-sizing: border-box;
+    font-size: 18px;
+    text-align: center;
   }
 }
 </style>
