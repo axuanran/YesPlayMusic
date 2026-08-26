@@ -86,7 +86,9 @@ export function createAudioProviderRegistry({
   }
 
   function setCachedSource(cacheKey, playUrl, providerId, cacheTtlOverride) {
-    const requestedTtl = Number(cacheTtlOverride);
+    const hasTtlOverride =
+      cacheTtlOverride !== undefined && cacheTtlOverride !== null;
+    const requestedTtl = hasTtlOverride ? Number(cacheTtlOverride) : NaN;
     const effectiveTtl = Number.isFinite(requestedTtl)
       ? Math.max(0, requestedTtl)
       : cacheTtl;
