@@ -15,6 +15,7 @@ import '@/assets/css/global.scss';
 import '@/assets/css/mobile.scss';
 import '@/assets/css/mobile-adaptive.scss';
 import '@/assets/css/mobile-touch.scss';
+import '@/assets/css/mobile-lyrics-player.scss';
 import NProgress from 'nprogress';
 import '@/assets/css/nprogress.css';
 import { setupMobileShell } from '@/mobile/setupMobileShell';
