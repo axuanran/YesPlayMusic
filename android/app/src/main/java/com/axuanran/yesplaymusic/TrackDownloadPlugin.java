@@ -194,11 +194,29 @@ public class TrackDownloadPlugin extends Plugin {
 
     private void persistUriPermission(Intent data, Uri uri) {
         if (data == null || uri == null) return;
-        int flags = data.getFlags() &
-            (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        if (flags == 0) return;
+
+        int grantedFlags = data.getFlags();
+        boolean canRead = (grantedFlags & Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0;
+        boolean canWrite = (grantedFlags & Intent.FLAG_GRANT_WRITE_URI_PERMISSION) != 0;
+
         try {
-            getContext().getContentResolver().takePersistableUriPermission(uri, flags);
+            if (canRead && canWrite) {
+                getContext()
+                    .getContentResolver()
+                    .takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    );
+            } else if (canRead) {
+                getContext()
+                    .getContentResolver()
+                    .takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } else if (canWrite) {
+                getContext()
+                    .getContentResolver()
+                    .takePersistableUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            }
         } catch (SecurityException ignored) {
             // Some document providers only grant permission for the current app lifecycle.
         }
