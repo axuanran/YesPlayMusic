@@ -80,8 +80,9 @@
       </div>
 
       <div class="platform-note">
-        Android 不运行 Node Resolver，因此 LX、UnblockNeteaseMusic、流代理、缓存目录和
-        yt-dlp 属于 Electron / Docker 的完整 Resolver 配置，不会在手机端显示为无效开关。
+        Android 不运行 Node Resolver，因此
+        LX、UnblockNeteaseMusic、流代理、缓存目录和 yt-dlp 属于 Electron /
+        Docker 的完整 Resolver 配置，不会在手机端显示为无效开关。
       </div>
 
       <div class="config-actions">
@@ -135,7 +136,8 @@ export default {
           return;
         }
         const current = Number(this.config.audio.cacheTtl);
-        if (Number.isFinite(current) && current > 0) this.lastCacheTtl = current;
+        if (Number.isFinite(current) && current > 0)
+          this.lastCacheTtl = current;
         this.config.audio.cacheTtl = 0;
       },
     },
@@ -175,7 +177,9 @@ export default {
           nextConfig.audio.cacheTtl = 0;
         }
         const data = await updateResolverConfig(nextConfig);
-        this.config = normalizeEmbeddedResolverConfig(data?.config || nextConfig);
+        this.config = normalizeEmbeddedResolverConfig(
+          data?.config || nextConfig
+        );
         if (Number(this.config.audio.cacheTtl) > 0) {
           this.lastCacheTtl = Number(this.config.audio.cacheTtl);
         }
