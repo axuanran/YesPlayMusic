@@ -2,6 +2,7 @@ package com.axuanran.yesplaymusic;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.util.Base64;
 
 import androidx.activity.result.ActivityResult;
@@ -50,6 +51,9 @@ public class NeteaseApiPlugin extends Plugin {
     private static final String PRESET_KEY = "0CoJUm6Qyw8W8jud";
     private static final String EAPI_KEY = "e82ckenh8dichen8";
     private static final String BASE62 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final String HEX = "0123456789ABCDEF";
+    private static final String PREFS_NAME = "netease_api";
+    private static final String PREF_DEVICE_ID = "device_id";
     private static final String PUBLIC_KEY_DER =
         "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDgtQn2JZ34ZC28NWYpAUd98iZ37BUrX/aKzmFbt7clFSs6sXqHauqKWqdtLkF2KexO40H1YTX8z2lSgBBOAxLsvaklV8k4cBFK9snQXE9/DDaFt6Rr7iVZMldczhC0JNgTz+SHXT6CBHuX3e9SdB1Ua44oncaTWz7OBGLbCiK45wIDAQAB";
     private static final String WEB_USER_AGENT =
@@ -121,6 +125,7 @@ public class NeteaseApiPlugin extends Plugin {
         String target;
         JSONObject form;
         String requestCookie;
+        String antiCheatToken = "";
         if ("weapi".equals(crypto)) {
             data.put("csrf_token", readCookie(cookie, "__csrf"));
             target = MUSIC_DOMAIN + "/weapi/" + uri.substring(5);
@@ -131,7 +136,7 @@ public class NeteaseApiPlugin extends Plugin {
             form = data;
             requestCookie = buildRequestCookie(cookie);
         } else {
-            String antiCheatToken = requiresAntiCheatToken(uri)
+            antiCheatToken = requiresAntiCheatToken(uri)
                 ? NeteaseAntiCheatToken.fetch(getActivity(), timeout)
                 : "";
             JSONObject header = buildEapiHeader(cookie, antiCheatToken);
@@ -166,14 +171,23 @@ public class NeteaseApiPlugin extends Plugin {
         InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
         String responseBody = readStream(stream);
         JSObject response = new JSObject();
+        JSObject responseData;
         try {
-            response.put("data", new JSObject(responseBody));
+            responseData = new JSObject(responseBody);
         } catch (JSONException ignored) {
-            JSObject fallback = new JSObject();
-            fallback.put("code", status);
-            fallback.put("message", responseBody);
-            response.put("data", fallback);
+            responseData = new JSObject();
+            responseData.put("code", status);
+            responseData.put("message", responseBody);
         }
+        if (requiresAntiCheatToken(uri)) {
+            JSObject diagnostics = new JSObject();
+            diagnostics.put("httpStatus", status);
+            diagnostics.put("antiCheatTokenPresent", !antiCheatToken.isEmpty());
+            diagnostics.put("crypto", crypto);
+            diagnostics.put("eapiIdentity", "pc");
+            responseData.put("__android", diagnostics);
+        }
+        response.put("data", responseData);
         response.put("status", status);
         response.put("cookies", collectCookies(connection));
         connection.disconnect();
@@ -222,15 +236,19 @@ public class NeteaseApiPlugin extends Plugin {
 
     private JSONObject buildEapiHeader(String cookie, String antiCheatToken) throws JSONException {
         JSONObject header = new JSONObject();
-        header.put("osver", "14");
-        header.put("deviceId", "yesplaymusic-android");
-        header.put("os", "android");
-        header.put("appver", "9.1.65");
-        header.put("versioncode", "9001065");
+        header.put("osver", "Microsoft-Windows-10-Professional-build-19045-64bit");
+        header.put("deviceId", getOrCreateDeviceId());
+        header.put("os", "pc");
+        header.put("appver", "3.1.17.204416");
+        header.put("versioncode", "140");
+        header.put("mobilename", "");
         header.put("buildver", String.valueOf(System.currentTimeMillis() / 1000));
-        header.put("resolution", "1080x2400");
+        header.put("resolution", "1920x1080");
         header.put("channel", "netease");
-        header.put("requestId", System.currentTimeMillis() + "_" + secureRandom.nextInt(1000));
+        header.put(
+            "requestId",
+            System.currentTimeMillis() + "_" + String.format(Locale.ROOT, "%04d", secureRandom.nextInt(1000))
+        );
         header.put("__csrf", readCookie(cookie, "__csrf"));
         String musicU = readCookie(cookie, "MUSIC_U");
         String musicA = readCookie(cookie, "MUSIC_A");
@@ -242,6 +260,21 @@ public class NeteaseApiPlugin extends Plugin {
             header.put("X-antiCheatToken", antiCheatToken);
         }
         return header;
+    }
+
+    private String getOrCreateDeviceId() {
+        SharedPreferences preferences =
+            getContext().getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE);
+        String current = preferences.getString(PREF_DEVICE_ID, "");
+        if (current != null && current.length() == 52) return current;
+
+        StringBuilder generated = new StringBuilder(52);
+        for (int i = 0; i < 52; i++) {
+            generated.append(HEX.charAt(secureRandom.nextInt(HEX.length())));
+        }
+        String value = generated.toString();
+        preferences.edit().putString(PREF_DEVICE_ID, value).apply();
+        return value;
     }
 
     private boolean requiresAntiCheatToken(String uri) {
