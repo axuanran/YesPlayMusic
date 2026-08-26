@@ -117,7 +117,9 @@ public final class BackgroundAudioPlugin extends Plugin {
                 new ComponentName(getContext(), PlaybackService.class)
             );
         controllerFuture =
-            new MediaController.Builder(getContext(), sessionToken).buildAsync();
+            new MediaController.Builder(getContext(), sessionToken)
+                .setApplicationLooper(Looper.getMainLooper())
+                .buildAsync();
         controllerFuture.addListener(
             () -> {
                 try {
@@ -449,6 +451,10 @@ public final class BackgroundAudioPlugin extends Plugin {
     }
 
     private void withController(PluginCall call, ControllerAction action) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            progressHandler.post(() -> withController(call, action));
+            return;
+        }
         if (controller != null) {
             try {
                 action.run(controller);
