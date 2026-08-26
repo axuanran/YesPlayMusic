@@ -56,7 +56,14 @@ final class NeteaseAntiCheatToken {
             activity.runOnUiThread(destroyWebView);
         };
 
-        activity.runOnUiThread(() -> createTokenWebView(activity, webViewRef, callback));
+        activity.runOnUiThread(
+            () -> createTokenWebView(
+                activity,
+                webViewRef,
+                completed,
+                callback
+            )
+        );
 
         try {
             if (!latch.await(waitMs, TimeUnit.MILLISECONDS)) {
@@ -75,15 +82,24 @@ final class NeteaseAntiCheatToken {
     private static void createTokenWebView(
         Activity activity,
         AtomicReference<WebView> webViewRef,
+        AtomicBoolean completed,
         TokenCallback callback
     ) {
-        if (activity.isFinishing() || activity.isDestroyed()) {
-            callback.complete("");
+        if (
+            completed.get() ||
+            activity.isFinishing() ||
+            activity.isDestroyed()
+        ) {
             return;
         }
 
         WebView webView = new WebView(activity);
         webViewRef.set(webView);
+        if (completed.get()) {
+            webViewRef.compareAndSet(webView, null);
+            webView.destroy();
+            return;
+        }
 
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
