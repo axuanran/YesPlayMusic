@@ -13,7 +13,11 @@
         {{ $t('cachedTracks.empty') }}
       </div>
       <div v-else class="track-list">
-        <div v-for="track in tracks" :key="track.cacheKey || track.id" class="track">
+        <div
+          v-for="track in tracks"
+          :key="track.cacheKey || track.id"
+          class="track"
+        >
           <img
             v-if="track.cover"
             :src="resizeImage(track.cover, 112)"
@@ -131,9 +135,12 @@ export default {
     async bindNativeCacheListener() {
       try {
         const plugin = await this.getNativeAudioPlugin();
-        this.nativeCacheListener = await plugin.addListener('cacheChanged', () => {
-          if (this.show) this.load();
-        });
+        this.nativeCacheListener = await plugin.addListener(
+          'cacheChanged',
+          () => {
+            if (this.show) this.load();
+          }
+        );
       } catch (error) {
         console.error('[android-audio-cache] failed to listen', error);
       }
