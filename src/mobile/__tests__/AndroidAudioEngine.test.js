@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
       pause: vi.fn(() => Promise.resolve()),
       stop: vi.fn(() => Promise.resolve()),
       cache: vi.fn(() => Promise.resolve({ started: true })),
+      setCacheEnabled: vi.fn(() => Promise.resolve({ enabled: true })),
       queueNext: vi.fn(() => Promise.resolve({ queuedMediaId: '43' })),
       clearNext: vi.fn(() => Promise.resolve()),
       seek: vi.fn(() => Promise.resolve()),
@@ -40,13 +41,20 @@ describe('AndroidAudioEngine', () => {
     globalThis.yesplaymusicStore = undefined;
     globalThis.__yesplaymusicLastPlaybackError__ = undefined;
     try {
+      localStorage.setItem(
+        'settings',
+        JSON.stringify({
+          musicQuality: 'exhigh',
+          automaticallyCacheSongs: true,
+        })
+      );
       localStorage.removeItem('android-last-playback-error');
     } catch {
       // Some non-browser test environments do not expose localStorage.
     }
   });
 
-  it('loads metadata before starting native playback', async () => {
+  it('loads metadata and cache policy before starting native playback', async () => {
     const engine = new AndroidAudioEngine();
     engine.load('https://example.test/song.mp3', 7, {
       id: '42',
@@ -68,6 +76,9 @@ describe('AndroidAudioEngine', () => {
         album: '',
         artwork: '',
         duration: 180,
+        quality: 'exhigh',
+        cacheEnabled: true,
+        cacheKey: 'track:v2:42:exhigh',
       },
     });
     expect(mocks.plugin.play).toHaveBeenCalledOnce();
@@ -265,15 +276,80 @@ describe('AndroidAudioEngine', () => {
     );
   });
 
-  it('prefetches tracks with a stable native cache key', async () => {
+  it('prefetches tracks with a quality-scoped native cache key', async () => {
     const engine = new AndroidAudioEngine();
 
-    await engine.cacheSource('https://example.test/expiring.mp3', { id: 42 });
+    await engine.cacheSource('https://example.test/expiring.mp3', {
+      id: 42,
+      name: 'Track',
+      cacheQuality: 'lossless',
+    });
 
     expect(mocks.plugin.cache).toHaveBeenCalledWith({
       source: 'https://example.test/expiring.mp3',
-      cacheKey: 'track:42',
+      cacheKey: 'track:v2:42:lossless',
+      track: expect.objectContaining({
+        id: '42',
+        quality: 'lossless',
+        cacheKey: 'track:v2:42:lossless',
+      }),
     });
+  });
+
+  it('uses different cache keys for different qualities of the same track', async () => {
+    const engine = new AndroidAudioEngine();
+
+    await engine.cacheSource('https://example.test/standard.mp3', {
+      id: 42,
+      cacheQuality: 'standard',
+    });
+    await engine.cacheSource('https://example.test/lossless.flac', {
+      id: 42,
+      cacheQuality: 'lossless',
+    });
+
+    expect(mocks.plugin.cache).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ cacheKey: 'track:v2:42:standard' })
+    );
+    expect(mocks.plugin.cache).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ cacheKey: 'track:v2:42:lossless' })
+    );
+  });
+
+  it('does not start a second download for the currently playing source', async () => {
+    const engine = new AndroidAudioEngine();
+    const track = { id: 42, name: 'Track' };
+
+    engine.load('https://example.test/song.mp3', 7, track);
+    const result = await engine.cacheSource(
+      'https://example.test/song.mp3',
+      track
+    );
+
+    expect(result).toEqual({
+      writeThrough: true,
+      cacheKey: 'track:v2:42:exhigh',
+    });
+    expect(mocks.plugin.cache).not.toHaveBeenCalled();
+  });
+
+  it('skips native prefetch when automatic caching is disabled', async () => {
+    try {
+      localStorage.setItem(
+        'settings',
+        JSON.stringify({
+          musicQuality: 'exhigh',
+          automaticallyCacheSongs: false,
+        })
+      );
+    } catch {}
+    const engine = new AndroidAudioEngine();
+
+    await engine.cacheSource('https://example.test/song.mp3', { id: 42 });
+
+    expect(mocks.plugin.cache).not.toHaveBeenCalled();
   });
 
   it('skips native prefetch when the track has no stable id', async () => {
@@ -284,7 +360,7 @@ describe('AndroidAudioEngine', () => {
     expect(mocks.plugin.cache).not.toHaveBeenCalled();
   });
 
-  it('queues the next resolved source with native metadata', async () => {
+  it('queues the next resolved source with native metadata and cache identity', async () => {
     const engine = new AndroidAudioEngine();
     const track = {
       id: 43,
@@ -305,6 +381,9 @@ describe('AndroidAudioEngine', () => {
         album: 'Next Album',
         artwork: 'https://example.test/cover.jpg',
         duration: 210,
+        quality: 'exhigh',
+        cacheEnabled: true,
+        cacheKey: 'track:v2:43:exhigh',
       },
     });
   });
