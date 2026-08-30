@@ -710,7 +710,7 @@ h1 {
 }
 
 .local-only {
-  margin-top: 0;
+  margin-top: 24px;
 }
 
 .local-empty {

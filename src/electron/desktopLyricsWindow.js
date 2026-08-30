@@ -10,6 +10,7 @@ const SETTINGS_CHANNEL = 'desktop-lyrics:settings';
 const WINDOW_MARGIN = 16;
 const WINDOW_BOTTOM_OFFSET = 96;
 const SAVE_BOUNDS_DELAY = 250;
+const WM_MOUSEWHEEL = 0x020a;
 const MIN_WINDOW_WIDTH = 360;
 const MIN_WINDOW_HEIGHT = 92;
 const MAX_WINDOW_WIDTH = 1920;
@@ -98,14 +99,17 @@ export function buildDesktopLyricsHtml() {
       #lyrics {
         z-index: 1;
         width: 100%;
-        padding: 12px 24px 36px;
+        padding: 20px 32px 44px;
+        filter:
+          drop-shadow(0 2px 5px rgba(0,0,0,.95))
+          drop-shadow(0 0 12px rgba(0,0,0,.75));
         text-align: var(--lyrics-text-align);
       }
       #line, #translation {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        text-shadow: 0 2px 5px rgba(0,0,0,.95), 0 0 12px rgba(0,0,0,.75);
+        text-shadow: none;
       }
       .wrap-lines #line, .wrap-lines #translation {
         overflow-wrap: anywhere;
@@ -227,6 +231,7 @@ export class DesktopLyricsWindow {
     WindowClass = BrowserWindow,
     getCursorPoint = () => screen.getCursorScreenPoint(),
     getDisplays = () => screen.getAllDisplays(),
+    platform = process.platform,
     preloadPath,
     store = null,
     mainWindow = null,
@@ -234,12 +239,14 @@ export class DesktopLyricsWindow {
     this.WindowClass = WindowClass;
     this.getCursorPoint = getCursorPoint;
     this.getDisplays = getDisplays;
+    this.platform = platform;
     this.preloadPath = preloadPath;
     this.store = store;
     this.mainWindow = mainWindow;
     this.window = null;
     this.saveBoundsTimer = null;
     this.resizeState = null;
+    this.lastWheelInput = null;
     this.currentLyrics = {
       line: '',
       translation: '',
@@ -468,10 +475,19 @@ export class DesktopLyricsWindow {
     lyricsWindow.on('move', () => this.queueBoundsSave());
     lyricsWindow.on('resize', () => this.queueBoundsSave());
     lyricsWindow.on('will-resize', event => event.preventDefault());
-    lyricsWindow.webContents.on('input-event', (_event, input) => {
-      if (input?.type !== 'mouseWheel') return;
-      this.handleWheelDelta(-Number(input.deltaY));
-    });
+    if (
+      this.platform === 'win32' &&
+      typeof lyricsWindow.hookWindowMessage === 'function'
+    ) {
+      lyricsWindow.hookWindowMessage(WM_MOUSEWHEEL, wParam => {
+        if (!Buffer.isBuffer(wParam) || wParam.length < 4) return;
+        const value = wParam.readUInt32LE(0);
+        const unsignedDelta = (value >>> 16) & 0xffff;
+        const delta =
+          unsignedDelta & 0x8000 ? unsignedDelta - 0x10000 : unsignedDelta;
+        this.handleWheelDelta(delta, 'native');
+      });
+    }
     lyricsWindow.on('closed', () => {
       if (this.window === lyricsWindow) this.window = null;
     });
@@ -561,9 +577,7 @@ export class DesktopLyricsWindow {
         }
         break;
       case 'adjustBackgroundOpacity':
-        if (!this.settings.locked && Number.isFinite(command.value)) {
-          this.adjustBackgroundOpacity(command.value);
-        }
+        this.handleWheelDelta(command.value, 'renderer');
         break;
       case 'startResize':
         this.startResize(command.value);
@@ -588,6 +602,22 @@ export class DesktopLyricsWindow {
     }
   }
 
+  handleWheelDelta(delta, source) {
+    if (this.settings.locked || !Number.isFinite(delta) || delta === 0) return;
+    const direction = Math.sign(delta);
+    const now = Date.now();
+    if (
+      this.lastWheelInput &&
+      this.lastWheelInput.source !== source &&
+      this.lastWheelInput.direction === direction &&
+      now - this.lastWheelInput.at <= 50
+    ) {
+      return;
+    }
+    this.lastWheelInput = { at: now, direction, source };
+    this.adjustBackgroundOpacity(direction);
+  }
+
   adjustBackgroundOpacity(direction) {
     const normalizedDirection = Math.sign(Number(direction));
     if (normalizedDirection === 0) return;
@@ -597,11 +627,6 @@ export class DesktopLyricsWindow {
           (this.settings.backgroundOpacity + normalizedDirection * 0.1) * 10
         ) / 10,
     });
-  }
-
-  handleWheelDelta(delta) {
-    if (this.settings.locked || !Number.isFinite(delta) || delta === 0) return;
-    this.adjustBackgroundOpacity(Math.sign(delta));
   }
 
   startResize(edge) {

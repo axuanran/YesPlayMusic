@@ -84,6 +84,9 @@ describe('desktop lyrics window', () => {
     expect(html).toContain('-webkit-app-region: drag');
     expect(html).toContain('.wrap-lines #line');
     expect(html).toContain('align-items: var(--lyrics-vertical-align)');
+    expect(html).toContain('drop-shadow(0 0 12px');
+    expect(html).toContain('padding: 20px 32px 44px');
+    expect(html).not.toContain('text-shadow: 0 2px 5px rgba(0,0,0,.95)');
     expect(
       html.match(/<div class="resize-handle" data-resize-edge=/g)
     ).toHaveLength(8);
@@ -193,6 +196,25 @@ describe('desktop lyrics window', () => {
     });
     expect(controller.settings.backgroundOpacity).toBe(0.1);
   });
+  it('routes the native Windows wheel message without double adjustment', () => {
+    const controller = createController({
+      platform: 'win32',
+      store: disabledUnlockedStore(),
+    });
+    controller.setEnabled(true);
+    const [, handleNativeWheel] =
+      controller.window.hookWindowMessage.mock.calls[0];
+    const wParam = Buffer.alloc(4);
+    wParam.writeInt16LE(120, 2);
+
+    handleNativeWheel(wParam);
+    controller.handleCommand({
+      type: 'adjustBackgroundOpacity',
+      value: 120,
+    });
+
+    expect(controller.settings.backgroundOpacity).toBe(0.2);
+  });
 
   it('uses native dragging while disabling native resizing', () => {
     const controller = createController();
@@ -238,28 +260,6 @@ describe('desktop lyrics window', () => {
     cursorPoint = { x: 0, y: 0 };
     controller.handleCommand({ type: 'moveResize' });
     expect(win.setBounds).toHaveBeenCalledOnce();
-  });
-
-  it('adjusts opacity from native wheel input', () => {
-    const controller = createController({ store: disabledUnlockedStore() });
-    controller.setEnabled(true);
-
-    controller.handleWheelDelta(120);
-
-    expect(controller.settings.backgroundOpacity).toBe(0.2);
-  });
-
-  it('routes real window wheel input to background opacity adjustment', () => {
-    const controller = createController({ store: disabledUnlockedStore() });
-    controller.setEnabled(true);
-
-    controller.window.webContents.emit(
-      'input-event',
-      { preventDefault: vi.fn() },
-      { deltaY: -120, type: 'mouseWheel' }
-    );
-
-    expect(controller.settings.backgroundOpacity).toBe(0.2);
   });
 
   it('blocks native resize attempts for the frameless window', () => {

@@ -213,6 +213,14 @@ export default {
     secondaryLyricTranslationShort: '译',
     secondaryLyricPronunciationShort: '音',
     secondaryLyricHiddenShort: '关',
+    lyricsBehavior: '歌词行为',
+    lyricsBehaviorShort: '歌词',
+    lyricsAutoFollow: '自动跟随播放',
+    lyricsCenterCurrentLine: '当前歌词居中',
+    lyricsClickToSeek: '点击歌词跳转',
+    lyricsAutoResume: '手动滚动后 {seconds} 秒恢复跟随',
+    lyricsResumeFollow: '回到当前歌词并继续跟随',
+    lyricsResumeFollowShort: '回到当前歌词',
   },
   modal: {
     close: '关闭',
@@ -332,7 +340,6 @@ export default {
       text: '无动作后回到当前歌词',
       off: '关闭',
     },
-    lyricsAutoResumeWhenVisible: '当前歌词可见时自动恢复跟随',
     showLyricsTime: '显示当前时间',
     closeAppOption: {
       text: '关闭主面板时...',

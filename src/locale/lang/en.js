@@ -217,6 +217,14 @@ export default {
     secondaryLyricTranslationShort: 'TR',
     secondaryLyricPronunciationShort: 'PR',
     secondaryLyricHiddenShort: 'OFF',
+    lyricsBehavior: 'Lyrics behavior',
+    lyricsBehaviorShort: 'Lyrics',
+    lyricsAutoFollow: 'Follow playback automatically',
+    lyricsCenterCurrentLine: 'Center current lyric',
+    lyricsClickToSeek: 'Click lyric to seek',
+    lyricsAutoResume: 'Resume following {seconds}s after manual scrolling',
+    lyricsResumeFollow: 'Return to current lyric and resume following',
+    lyricsResumeFollowShort: 'Return to current lyric',
   },
   modal: {
     close: 'Close',
@@ -339,8 +347,6 @@ export default {
       text: 'Return to current lyric after inactivity',
       off: 'Off',
     },
-    lyricsAutoResumeWhenVisible:
-      'Resume following automatically when current lyric is visible',
     closeAppOption: {
       text: 'Close App...',
       ask: 'Ask',

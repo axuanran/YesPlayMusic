@@ -2,6 +2,18 @@ import clc from 'cli-color';
 import { ensureAnonymousToken } from '../utils/checkAuthToken';
 
 export const NETEASE_API_PORT = 10754;
+export function createNeteaseApiGate(apiReady) {
+  return async (_req, res, next) => {
+    if (await apiReady) {
+      next();
+      return;
+    }
+    res.status(503).json({
+      code: 'NETEASE_API_UNAVAILABLE',
+      message: 'NetEase API failed to start',
+    });
+  };
+}
 
 export async function startNeteaseMusicApi() {
   ensureAnonymousToken();

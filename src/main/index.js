@@ -2,7 +2,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import net from 'node:net';
 import {
   app,
   protocol,
@@ -20,7 +19,11 @@ import {
   isDevelopment,
   isCreateTray,
 } from '@/utils/platform';
-import { NETEASE_API_PORT, startNeteaseMusicApi } from '../electron/services';
+import {
+  createNeteaseApiGate,
+  NETEASE_API_PORT,
+  startNeteaseMusicApi,
+} from '../electron/services';
 import { registerProvider } from '../../server/resolver/providerManager.js';
 import * as neteaseProvider from '../../server/providers/netease.js';
 import * as lxProvider from '../../server/providers/lx.js';
@@ -169,40 +172,6 @@ const log = text => {
   console.log(`${clc.blueBright('[main]')} ${text}`);
 };
 
-const waitForTcpPort = (port, host = '127.0.0.1', timeout = 8000) =>
-  new Promise(resolve => {
-    const startedAt = Date.now();
-    let done = false;
-
-    const tryConnect = () => {
-      const socket = net.createConnection({ host, port });
-      socket.setTimeout(1000);
-
-      socket.once('connect', () => {
-        done = true;
-        socket.destroy();
-        resolve(true);
-      });
-      socket.once('timeout', () => {
-        socket.destroy();
-      });
-      socket.once('error', () => {
-        socket.destroy();
-      });
-      socket.once('close', () => {
-        if (done) return;
-        if (Date.now() - startedAt >= timeout) {
-          done = true;
-          resolve(false);
-        } else {
-          setTimeout(tryConnect, 250);
-        }
-      });
-    };
-
-    tryConnect();
-  });
-
 const closeOnLinux = (e, win, store) => {
   let closeOpt = store.get('settings.closeAppOption');
   if (closeOpt !== 'exit') {
@@ -286,11 +255,15 @@ class Background {
     // Make sure the app is singleton.
     if (!app.requestSingleInstanceLock()) return app.quit();
 
-    // start netease music api
-    this.neteaseMusicAPI = startNeteaseMusicApi().catch(err => {
-      log(`Failed to start NetEase API: ${err.message}`);
-      console.error(err);
-    });
+    // Start the API in parallel. Renderer requests wait at the proxy boundary,
+    // but a slow token/config initialization must not delay the first window.
+    this.neteaseMusicAPI = startNeteaseMusicApi()
+      .then(() => true)
+      .catch(err => {
+        log(`Failed to start NetEase API: ${err.message}`);
+        console.error(err);
+        return false;
+      });
 
     // Register audio resolver providers
     registerProvider(neteaseProvider);
@@ -359,6 +332,8 @@ class Background {
     // Serve the resolver admin panel from the same prefix as its API.
     const adminDir = path.join(__dirname, '../../admin');
     expressApp.use('/resolver-api/admin', express.static(adminDir));
+
+    expressApp.use('/api', createNeteaseApiGate(this.neteaseMusicAPI));
 
     expressApp.use(
       '/api',
@@ -649,11 +624,8 @@ class Background {
         this.initDevtools();
       }
 
-      const apiReady = await waitForTcpPort(NETEASE_API_PORT);
-      if (!apiReady) {
-        log(`NetEase API not ready on 127.0.0.1:${NETEASE_API_PORT}`);
-      }
-
+      // The local API starts in parallel. Its proxy gates API requests without
+      // blocking BrowserWindow creation and first paint.
       await this.expressReady;
 
       // create window

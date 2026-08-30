@@ -101,6 +101,17 @@ window.addEventListener('DOMContentLoaded', () => {
     const value = Number(event.target.value) / 100;
     if (Number.isFinite(value)) sendCommand('setVolume', value);
   });
+  window.addEventListener(
+    'wheel',
+    event => {
+      if (appliedSettings.locked === true) return;
+      const deltaY = Number(event.deltaY);
+      if (!Number.isFinite(deltaY) || deltaY === 0) return;
+      event.preventDefault();
+      sendCommand('adjustBackgroundOpacity', -deltaY);
+    },
+    { capture: true, passive: false }
+  );
   document.addEventListener('pointerdown', event => {
     const handle = event.target?.closest?.('[data-resize-edge]');
     if (!handle || appliedSettings.locked === true || event.button !== 0) {

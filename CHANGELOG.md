@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Coalesced player and settings persistence, flushed final state on lifecycle boundaries, and reported storage failures without rolling back effective state.
 - Deferred context-menu measurement and expensive cover effects until needed.
 - Limited route keep-alive caching, loaded Library collections once per account with stale-response guards, and paused hidden-window animations.
+- Separated lyrics behavior and translation tools from the centered playback controls, with configurable follow, centering, click-to-seek, and auto-resume behavior.
 
 ### Fixed
 
@@ -30,6 +31,10 @@ All notable changes to this project will be documented in this file.
 - Hid instrumental and no-lyrics placeholders from the desktop-lyrics overlay.
 - Prevented echoed desktop-lyrics settings from repeatedly resizing the overlay window.
 - Restored the transparent mobile search input inside its rounded search bar.
+- Restored desktop-lyrics wheel opacity adjustment over draggable regions.
+- Prevented desktop-lyrics shadows from being clipped by line overflow.
+- Kept the logged-out local-playlist import control below the desktop title bar.
+- Stopped slow local API initialization from blocking the first application window.
 
 ## v0.1.0-alpha.3 - 2026-06-29
 

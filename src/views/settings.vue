@@ -373,24 +373,6 @@
           </select>
         </div>
       </div>
-      <div class="item">
-        <div class="left">
-          <div class="title">
-            {{ $t('settings.lyricsAutoResumeWhenVisible') }}
-          </div>
-        </div>
-        <div class="right">
-          <div class="toggle">
-            <input
-              id="lyrics-auto-resume-when-visible"
-              v-model="lyricsAutoResumeWhenVisible"
-              type="checkbox"
-              name="lyrics-auto-resume-when-visible"
-            />
-            <label for="lyrics-auto-resume-when-visible"></label>
-          </div>
-        </div>
-      </div>
       <div v-if="isElectron" class="item">
         <div class="left">
           <div class="title">
@@ -1433,8 +1415,7 @@ export default {
     showLyricsTranslation: setting('showLyricsTranslation'),
     autoMatchLocalLyrics: setting('autoMatchLocalLyrics', true),
     lyricsBackground: setting('lyricsBackground', false),
-    lyricsAutoResumeDelay: setting('lyricsAutoResumeDelay', 5000),
-    lyricsAutoResumeWhenVisible: setting('lyricsAutoResumeWhenVisible', true),
+    lyricsAutoResumeDelay: setting('lyricsAutoResumeDelay', 3000),
     showLyricsTime: setting('showLyricsTime'),
     enableDesktopLyrics: {
       get() {

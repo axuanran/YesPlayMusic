@@ -1,0 +1,11 @@
+<svg
+  aria-hidden="true"
+  focusable="false"
+  viewBox="0 0 24 24"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+    <path d="M3 6h9M3 12h7M3 18h9" />
+    <path d="M18 4v16M15 7l3-3 3 3M15 17l3 3 3-3" />
+  </g>
+</svg>
