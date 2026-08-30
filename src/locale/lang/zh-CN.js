@@ -214,13 +214,11 @@ export default {
     secondaryLyricPronunciationShort: '音',
     secondaryLyricHiddenShort: '关',
     lyricsBehavior: '歌词行为',
-    lyricsBehaviorShort: '歌词',
     lyricsAutoFollow: '自动跟随播放',
     lyricsCenterCurrentLine: '当前歌词居中',
     lyricsClickToSeek: '点击歌词跳转',
     lyricsAutoResume: '手动滚动后 {seconds} 秒恢复跟随',
     lyricsResumeFollow: '回到当前歌词并继续跟随',
-    lyricsResumeFollowShort: '回到当前歌词',
   },
   modal: {
     close: '关闭',

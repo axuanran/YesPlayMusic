@@ -218,13 +218,11 @@ export default {
     secondaryLyricPronunciationShort: 'PR',
     secondaryLyricHiddenShort: 'OFF',
     lyricsBehavior: 'Lyrics behavior',
-    lyricsBehaviorShort: 'Lyrics',
     lyricsAutoFollow: 'Follow playback automatically',
     lyricsCenterCurrentLine: 'Center current lyric',
     lyricsClickToSeek: 'Click lyric to seek',
     lyricsAutoResume: 'Resume following {seconds}s after manual scrolling',
     lyricsResumeFollow: 'Return to current lyric and resume following',
-    lyricsResumeFollowShort: 'Return to current lyric',
   },
   modal: {
     close: 'Close',

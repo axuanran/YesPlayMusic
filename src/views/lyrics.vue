@@ -275,6 +275,7 @@
               restoring: lyricsAutoFollowEnabled && !shouldAutoScrollLyrics,
             }"
             :title="$t(lyricsBehaviorTriggerTitle)"
+            :aria-label="$t(lyricsBehaviorTriggerTitle)"
             type="button"
             @click="handleLyricBehaviorTrigger"
           >
@@ -285,19 +286,7 @@
                   : 'lyrics-behavior'
               "
             />
-            <span class="lyrics-tool-label">{{
-              $t(lyricsBehaviorTriggerLabel)
-            }}</span>
-            <span
-              v-if="!lyricsAutoFollowEnabled || shouldAutoScrollLyrics"
-              class="lyrics-tool-caret"
-              >⌄</span
-            >
           </button>
-          <span
-            v-if="isShowLyricTypeSwitch"
-            class="lyrics-tools-divider"
-          ></span>
           <button
             v-if="isShowLyricTypeSwitch"
             class="lyrics-translation-button"
@@ -559,11 +548,6 @@ export default {
     lyricsAutoResumeSeconds() {
       const delay = Number(this.settings.lyricsAutoResumeDelay ?? 3000);
       return Math.max(1, Math.round((delay > 0 ? delay : 3000) / 1000));
-    },
-    lyricsBehaviorTriggerLabel() {
-      return this.lyricsAutoFollowEnabled && !this.shouldAutoScrollLyrics
-        ? 'player.lyricsResumeFollowShort'
-        : 'player.lyricsBehaviorShort';
     },
     lyricsBehaviorTriggerTitle() {
       return this.lyricsAutoFollowEnabled && !this.shouldAutoScrollLyrics
@@ -1559,28 +1543,25 @@ export default {
     .lyrics-tools-segment {
       display: flex;
       align-items: center;
-      min-height: 40px;
-      padding: 3px;
-      border: 1px solid rgba(128, 128, 128, 0.12);
-      border-radius: 14px;
-      background: var(--color-secondary-bg-for-transparent);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-      backdrop-filter: blur(16px);
+      min-height: 30px;
+      gap: 2px;
     }
 
     button {
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 34px;
+      width: 30px;
+      height: 30px;
       border: 0;
-      border-radius: 10px;
-      padding: 0 10px;
+      border-radius: 8px;
+      padding: 0;
       color: var(--color-text);
       background: transparent;
       font: inherit;
       font-size: 13px;
       cursor: pointer;
+      opacity: 0.62;
       transition:
         color 0.2s,
         background 0.2s,
@@ -1590,49 +1571,28 @@ export default {
       &:focus-visible {
         color: var(--color-primary);
         background: var(--color-primary-bg-for-transparent);
+        opacity: 1;
         outline: none;
       }
     }
 
     .lyrics-behavior-button {
-      gap: 6px;
-
       .svg-icon {
-        width: 18px;
-        height: 18px;
-        opacity: 0.72;
+        width: 17px;
+        height: 17px;
       }
 
-      &.active {
-        color: var(--color-primary);
-        background: var(--color-primary-bg-for-transparent);
-      }
-
+      &.active,
       &.restoring {
         color: var(--color-primary);
+        opacity: 0.9;
       }
-    }
-
-    .lyrics-tool-label {
-      white-space: nowrap;
-    }
-
-    .lyrics-tool-caret {
-      margin-top: -3px;
-      font-size: 13px;
-      opacity: 0.58;
-    }
-
-    .lyrics-tools-divider {
-      width: 1px;
-      height: 20px;
-      background: currentColor;
-      opacity: 0.12;
     }
 
     .lyrics-translation-button {
-      min-width: 36px;
-      padding: 0 8px;
+      min-width: 30px;
+      width: auto;
+      padding: 0 5px;
     }
 
     .lyrics-behavior-panel {
@@ -1800,19 +1760,6 @@ export default {
 
   .right-side .lyrics-container {
     max-width: 100%;
-  }
-}
-@media screen and (max-width: 768px) {
-  .lyrics-tools {
-    .lyrics-behavior-button {
-      width: 36px;
-      padding: 0;
-    }
-
-    .lyrics-tool-label,
-    .lyrics-tool-caret {
-      display: none;
-    }
   }
 }
 

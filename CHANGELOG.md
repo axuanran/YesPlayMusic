@@ -22,7 +22,7 @@ All notable changes to this project will be documented in this file.
 - Coalesced player and settings persistence, flushed final state on lifecycle boundaries, and reported storage failures without rolling back effective state.
 - Deferred context-menu measurement and expensive cover effects until needed.
 - Limited route keep-alive caching, loaded Library collections once per account with stale-response guards, and paused hidden-window animations.
-- Separated lyrics behavior and translation tools from the centered playback controls, with configurable follow, centering, click-to-seek, and auto-resume behavior.
+- Kept centered playback controls independent from a compact, background-integrated lyrics-behavior icon and translation action, with configurable follow, centering, click-to-seek, and auto-resume behavior.
 
 ### Fixed
 

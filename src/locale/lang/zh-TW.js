@@ -210,13 +210,11 @@ export default {
     secondaryLyricPronunciationShort: '音',
     secondaryLyricHiddenShort: '關',
     lyricsBehavior: '歌詞行為',
-    lyricsBehaviorShort: '歌詞',
     lyricsAutoFollow: '自動跟隨播放',
     lyricsCenterCurrentLine: '目前歌詞置中',
     lyricsClickToSeek: '點擊歌詞跳轉',
     lyricsAutoResume: '手動捲動後 {seconds} 秒恢復跟隨',
     lyricsResumeFollow: '回到目前歌詞並繼續跟隨',
-    lyricsResumeFollowShort: '回到目前歌詞',
   },
   modal: {
     close: '關閉',
