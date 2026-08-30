@@ -257,6 +257,53 @@ describe('desktop lyrics window', () => {
     expect(event.preventDefault).toHaveBeenCalledOnce();
   });
 
+  it('clamps a partially visible saved position into the work area', () => {
+    const controller = createController();
+    const bounds = controller.resolveBounds({
+      ...controller.settings,
+      height: 120,
+      width: 960,
+      x: -900,
+      y: 760,
+    });
+
+    expect(bounds).toEqual({
+      height: 120,
+      width: 960,
+      x: 10,
+      y: 700,
+    });
+  });
+
+  it('snaps a moved window back into the work area before saving', () => {
+    vi.useFakeTimers();
+    try {
+      const controller = createController();
+      controller.setEnabled(true);
+      controller.window.bounds = {
+        height: 120,
+        width: 960,
+        x: -900,
+        y: 760,
+      };
+
+      controller.window.emit('move');
+      vi.advanceTimersByTime(250);
+
+      expect(controller.window.setBounds).toHaveBeenLastCalledWith(
+        {
+          height: 120,
+          width: 960,
+          x: 10,
+          y: 700,
+        },
+        false
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('recovers an off-screen saved position', () => {
     const controller = createController();
     const bounds = controller.resolveBounds({

@@ -19,11 +19,32 @@ const MAX_WINDOW_HEIGHT = 400;
 const normalizeText = value =>
   typeof value === 'string' ? value.slice(0, 2048) : '';
 
-const workAreaContains = (workArea, bounds) =>
-  bounds.x < workArea.x + workArea.width &&
-  bounds.x + bounds.width > workArea.x &&
-  bounds.y < workArea.y + workArea.height &&
-  bounds.y + bounds.height > workArea.y;
+const intersectionArea = (workArea, bounds) => {
+  const width =
+    Math.min(workArea.x + workArea.width, bounds.x + bounds.width) -
+    Math.max(workArea.x, bounds.x);
+  const height =
+    Math.min(workArea.y + workArea.height, bounds.y + bounds.height) -
+    Math.max(workArea.y, bounds.y);
+  return Math.max(0, width) * Math.max(0, height);
+};
+
+const clampBoundsToWorkArea = (workArea, bounds) => {
+  const width = Math.min(bounds.width, workArea.width);
+  const height = Math.min(bounds.height, workArea.height);
+  return {
+    width,
+    height,
+    x: Math.min(
+      Math.max(bounds.x, workArea.x),
+      workArea.x + workArea.width - width
+    ),
+    y: Math.min(
+      Math.max(bounds.y, workArea.y),
+      workArea.y + workArea.height - height
+    ),
+  };
+};
 
 export function buildDesktopLyricsHtml() {
   return `<!doctype html>
@@ -352,12 +373,16 @@ export class DesktopLyricsWindow {
       x: settings.x,
       y: settings.y,
     };
-    if (
-      Number.isFinite(saved.x) &&
-      Number.isFinite(saved.y) &&
-      displays.some(display => workAreaContains(display.workArea, saved))
-    ) {
-      return saved;
+    if (Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      const matchedDisplay = displays
+        .map(display => ({
+          display,
+          intersection: intersectionArea(display.workArea, saved),
+        }))
+        .sort((left, right) => right.intersection - left.intersection)[0];
+      if (matchedDisplay?.intersection > 0) {
+        return clampBoundsToWorkArea(matchedDisplay.display.workArea, saved);
+      }
     }
     return {
       width,
@@ -456,7 +481,18 @@ export class DesktopLyricsWindow {
     this.saveBoundsTimer = setTimeout(() => {
       if (!this.window || this.window.isDestroyed()) return;
       const bounds = this.window.getBounds();
-      this.settings = mergeDesktopLyricsSettings(this.settings, bounds);
+      const resolvedBounds = this.resolveBounds({
+        ...this.settings,
+        ...bounds,
+      });
+      if (
+        Object.keys(resolvedBounds).some(
+          key => resolvedBounds[key] !== bounds[key]
+        )
+      ) {
+        this.window.setBounds(resolvedBounds, false);
+      }
+      this.settings = mergeDesktopLyricsSettings(this.settings, resolvedBounds);
       this.persistSettings();
       this.notifyMainWindow();
     }, SAVE_BOUNDS_DELAY);
