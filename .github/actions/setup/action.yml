@@ -8,6 +8,9 @@ inputs:
   install-native-deps:
     description: Install cross-platform optional native packages required by release artifacts.
     default: 'true'
+  install-snapcraft:
+    description: Install Snapcraft when Linux snap packages are part of this run.
+    default: 'true'
   verify-rollup:
     description: Verify Rollup can be resolved after install.
     default: 'true'
@@ -35,7 +38,7 @@ runs:
         sudo apt-get install --no-install-recommends -y rpm libarchive-tools libopenjp2-tools
 
     - name: Install Snapcraft
-      if: runner.os == 'Linux' && inputs.install-package-deps == 'true'
+      if: runner.os == 'Linux' && inputs.install-snapcraft == 'true'
       uses: samuelmeuli/action-snapcraft@v3
 
     - name: Clean broken install state

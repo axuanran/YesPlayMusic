@@ -63,6 +63,7 @@ jobs:
         with:
           install-package-deps: 'true'
           install-native-deps: 'true'
+          install-snapcraft: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
           verify-rollup: 'true'
 
       - name: Prepare application version
@@ -107,12 +108,30 @@ jobs:
         if: runner.os == 'Windows' || runner.os == 'Linux'
         run: yarn tui:exe
 
-      - name: Package Electron app
-        if: runner.os != 'Windows'
+      - name: Package macOS app
+        if: runner.os == 'macOS'
         run: npx electron-builder --publish never
         env:
           GH_TOKEN: ${{ github.token }}
           EP_PRELEASE: ${{ steps.version.outputs.is_prerelease }}
+
+      - name: Package Linux app
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          FULL_LINUX_PACKAGES: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+          GH_TOKEN: ${{ github.token }}
+          EP_PRELEASE: ${{ steps.version.outputs.is_prerelease }}
+        run: |
+          set -euo pipefail
+          if [[ "$FULL_LINUX_PACKAGES" == "true" ]]; then
+            npx electron-builder --publish never
+          else
+            npx electron-builder \
+              --linux AppImage tar.gz deb \
+              --x64 \
+              --publish never
+          fi
 
       - name: Package Windows app
         if: runner.os == 'Windows'
@@ -195,6 +214,7 @@ jobs:
         with:
           name: XuMP-linux
           path: release_linux/*
+          compression-level: 0
           if-no-files-found: error
 
       - name: Upload macOS artifact
@@ -273,6 +293,7 @@ jobs:
           APP_VERSION: ${{ steps.version.outputs.app_version }}
           RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
           EXPECTED_PACMAN_ASSET: ${{ steps.version.outputs.pacman_asset }}
+          FULL_LINUX_PACKAGES: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
           EXPECTED_ANDROID_ASSET: ${{ steps.version.outputs.android_asset }}
         run: |
           set -euo pipefail
@@ -286,21 +307,23 @@ jobs:
           find artifacts -type f -print | sort
           test "$(find artifacts -type f | wc -l)" -gt 0
 
-          mapfile -t pacman_files < <(
-            find artifacts -maxdepth 1 -type f -name '*.pacman' -print
-          )
+          if [[ "$FULL_LINUX_PACKAGES" == "true" ]]; then
+            mapfile -t pacman_files < <(
+              find artifacts -maxdepth 1 -type f -name '*.pacman' -print
+            )
 
-          if [[ "${#pacman_files[@]}" -ne 1 ]]; then
-            echo "Expected exactly one pacman artifact, found ${#pacman_files[@]}" >&2
-            printf '%s\n' "${pacman_files[@]}"
-            exit 1
-          fi
+            if [[ "${#pacman_files[@]}" -ne 1 ]]; then
+              echo "Expected exactly one pacman artifact, found ${#pacman_files[@]}" >&2
+              printf '%s\n' "${pacman_files[@]}"
+              exit 1
+            fi
 
-          expected_path="artifacts/${EXPECTED_PACMAN_ASSET}"
-          if [[ "${pacman_files[0]}" != "$expected_path" ]]; then
-            echo "Unexpected Pacman asset: ${pacman_files[0]}" >&2
-            echo "Expected: $expected_path" >&2
-            exit 1
+            expected_path="artifacts/${EXPECTED_PACMAN_ASSET}"
+            if [[ "${pacman_files[0]}" != "$expected_path" ]]; then
+              echo "Unexpected Pacman asset: ${pacman_files[0]}" >&2
+              echo "Expected: $expected_path" >&2
+              exit 1
+            fi
           fi
 
           mapfile -t android_files < <(
