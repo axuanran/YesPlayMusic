@@ -10,7 +10,6 @@ const SETTINGS_CHANNEL = 'desktop-lyrics:settings';
 const WINDOW_MARGIN = 16;
 const WINDOW_BOTTOM_OFFSET = 96;
 const SAVE_BOUNDS_DELAY = 250;
-const WM_MOUSEWHEEL = 0x020a;
 const MIN_WINDOW_WIDTH = 360;
 const MIN_WINDOW_HEIGHT = 92;
 const MAX_WINDOW_WIDTH = 1920;
@@ -45,6 +44,8 @@ const clampBoundsToWorkArea = (workArea, bounds) => {
     ),
   };
 };
+const boundsEqual = (left, right) =>
+  ['x', 'y', 'width', 'height'].every(key => left[key] === right[key]);
 
 export function buildDesktopLyricsHtml() {
   return `<!doctype html>
@@ -60,13 +61,14 @@ export function buildDesktopLyricsHtml() {
         --lyrics-text-color: #fff;
         --lyrics-secondary-color: #d6e0ff;
         --lyrics-text-align: center;
+        --lyrics-vertical-align: center;
         --lyrics-background-opacity: 0;
       }
       * { box-sizing: border-box; }
       html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
       body {
         display: flex;
-        align-items: center;
+        align-items: var(--lyrics-vertical-align);
         justify-content: center;
         font-family: system-ui, sans-serif;
         user-select: none;
@@ -278,7 +280,7 @@ export class DesktopLyricsWindow {
     const shouldReposition =
       value &&
       typeof value === 'object' &&
-      ['positionPreset', 'x', 'y'].some(key =>
+      ['x', 'y', 'width', 'height'].some(key =>
         Object.prototype.hasOwnProperty.call(value, key)
       );
     this.settings = mergeDesktopLyricsSettings(this.settings, value);
@@ -290,7 +292,11 @@ export class DesktopLyricsWindow {
       return;
     }
     if (hadWindow && shouldReposition) {
-      this.window.setBounds(this.resolveBounds(this.settings), false);
+      const nextBounds = this.resolveBounds(this.settings);
+      const currentBounds = this.window.getBounds();
+      if (!boundsEqual(nextBounds, currentBounds)) {
+        this.window.setBounds(nextBounds, false);
+      }
     }
     if (!this.settings.visible) {
       this.window?.hide?.();
@@ -331,7 +337,12 @@ export class DesktopLyricsWindow {
   }
 
   resetPosition() {
-    this.patchSettings({ positionPreset: 'custom', x: null, y: null });
+    this.patchSettings({
+      enabled: true,
+      visible: true,
+      x: null,
+      y: null,
+    });
   }
 
   resetStyle() {
@@ -341,6 +352,7 @@ export class DesktopLyricsWindow {
       secondaryFontSize: defaults.secondaryFontSize,
       textAlign: defaults.textAlign,
       overflowMode: defaults.overflowMode,
+      verticalPosition: defaults.verticalPosition,
       textColor: defaults.textColor,
       secondaryColor: defaults.secondaryColor,
       backgroundOpacity: defaults.backgroundOpacity,
@@ -406,20 +418,6 @@ export class DesktopLyricsWindow {
       y: settings.y,
     };
 
-    if (settings.positionPreset !== 'custom') {
-      const right = settings.positionPreset.endsWith('right');
-      const bottom = settings.positionPreset.startsWith('bottom');
-      return {
-        width,
-        height,
-        x: right
-          ? workArea.x + workArea.width - width - WINDOW_MARGIN
-          : workArea.x + WINDOW_MARGIN,
-        y: bottom
-          ? workArea.y + workArea.height - height - WINDOW_MARGIN
-          : workArea.y + WINDOW_MARGIN,
-      };
-    }
     if (matchedDisplay?.intersection > 0) {
       return clampBoundsToWorkArea(workArea, saved);
     }
@@ -470,24 +468,10 @@ export class DesktopLyricsWindow {
     lyricsWindow.on('move', () => this.queueBoundsSave());
     lyricsWindow.on('resize', () => this.queueBoundsSave());
     lyricsWindow.on('will-resize', event => event.preventDefault());
-    if (
-      process.platform === 'win32' &&
-      typeof lyricsWindow.hookWindowMessage === 'function'
-    ) {
-      lyricsWindow.hookWindowMessage(WM_MOUSEWHEEL, wParam => {
-        if (this.settings.locked || !Buffer.isBuffer(wParam)) return;
-        const value = wParam.readUInt32LE(0);
-        const unsignedDelta = (value >>> 16) & 0xffff;
-        const delta =
-          unsignedDelta & 0x8000 ? unsignedDelta - 0x10000 : unsignedDelta;
-        this.handleWheelDelta(delta);
-      });
-    } else {
-      lyricsWindow.webContents.on('input-event', (_event, input) => {
-        if (input?.type !== 'mouseWheel') return;
-        this.handleWheelDelta(-Number(input.deltaY));
-      });
-    }
+    lyricsWindow.webContents.on('input-event', (_event, input) => {
+      if (input?.type !== 'mouseWheel') return;
+      this.handleWheelDelta(-Number(input.deltaY));
+    });
     lyricsWindow.on('closed', () => {
       if (this.window === lyricsWindow) this.window = null;
     });

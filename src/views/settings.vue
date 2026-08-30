@@ -416,6 +416,56 @@
         <div class="item">
           <div class="left">
             <div class="title">
+              {{ $t('settings.desktopLyrics.styleTemplates') }}
+            </div>
+            <div class="description">
+              {{ $t('settings.desktopLyrics.styleTemplatesDescription') }}
+            </div>
+          </div>
+          <div class="right desktop-lyrics-template-controls">
+            <select v-model="selectedDesktopLyricsStyleTemplate">
+              <option
+                v-for="template in desktopLyricsStyleTemplates"
+                :key="template.id"
+                :value="template.id"
+              >
+                {{ template.name }}
+              </option>
+            </select>
+            <button @click="applyDesktopLyricsStyleTemplate">
+              {{ $t('settings.desktopLyrics.applyTemplate') }}
+            </button>
+            <button
+              v-if="selectedDesktopLyricsStyleTemplate.startsWith('custom:')"
+              @click="deleteDesktopLyricsStyleTemplate"
+            >
+              {{ $t('settings.desktopLyrics.deleteTemplate') }}
+            </button>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.saveTemplate') }}
+            </div>
+          </div>
+          <div class="right desktop-lyrics-template-controls">
+            <input
+              v-model.trim="desktopLyricsStyleTemplateName"
+              class="text-input margin-right-0"
+              type="text"
+              maxlength="40"
+              :placeholder="$t('settings.desktopLyrics.templateName')"
+              @keyup.enter="saveDesktopLyricsStyleTemplate"
+            />
+            <button @click="saveDesktopLyricsStyleTemplate">
+              {{ $t('settings.desktopLyrics.saveTemplate') }}
+            </button>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
               {{ $t('settings.desktopLyrics.locked') }}
             </div>
           </div>
@@ -559,25 +609,19 @@
         <div class="item">
           <div class="left">
             <div class="title">
-              {{ $t('settings.desktopLyrics.position') }}
+              {{ $t('settings.desktopLyrics.verticalPosition') }}
             </div>
           </div>
           <div class="right">
-            <select v-model="desktopLyricsPositionPreset">
-              <option value="custom">{{
-                $t('settings.desktopLyrics.customPosition')
+            <select v-model="desktopLyricsVerticalPosition">
+              <option value="top">{{
+                $t('settings.desktopLyrics.top')
               }}</option>
-              <option value="top-left">{{
-                $t('settings.desktopLyrics.topLeft')
+              <option value="center">{{
+                $t('settings.desktopLyrics.center')
               }}</option>
-              <option value="top-right">{{
-                $t('settings.desktopLyrics.topRight')
-              }}</option>
-              <option value="bottom-left">{{
-                $t('settings.desktopLyrics.bottomLeft')
-              }}</option>
-              <option value="bottom-right">{{
-                $t('settings.desktopLyrics.bottomRight')
+              <option value="bottom">{{
+                $t('settings.desktopLyrics.bottom')
               }}</option>
             </select>
           </div>
@@ -605,8 +649,8 @@
             </div>
           </div>
           <div class="right desktop-lyrics-actions">
-            <button @click="resetDesktopLyricsPosition">
-              {{ $t('settings.desktopLyrics.resetPosition') }}
+            <button @click="restoreDesktopLyricsWindow">
+              {{ $t('settings.desktopLyrics.restoreWindow') }}
             </button>
             <button @click="resetDesktopLyricsStyle">
               {{ $t('settings.desktopLyrics.resetStyle') }}
@@ -1056,6 +1100,8 @@ import { isLinux, isMac } from '@/utils/platform';
 import { getBuiltinPlugins, setPluginEnabled, syncPlugins } from '@/plugins';
 import StreamingServerSettings from '@/components/StreamingServerSettings.vue';
 import {
+  BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES,
+  getDesktopLyricsStyle,
   mergeDesktopLyricsSettings,
   normalizeDesktopLyricsSettings,
 } from '@/utils/desktopLyricsSettings';
@@ -1164,6 +1210,8 @@ export default {
         scope: '',
         recording: false,
       },
+      selectedDesktopLyricsStyleTemplate: 'builtin:classic',
+      desktopLyricsStyleTemplateName: '',
       recordedShortcut: [],
       builtinPlugins: getBuiltinPlugins(),
     };
@@ -1181,6 +1229,21 @@ export default {
     },
     isLinux() {
       return isLinux;
+    },
+    desktopLyricsStyleTemplates() {
+      const builtins = BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES.map(template => ({
+        ...template,
+        id: `builtin:${template.id}`,
+        name: this.$t(`settings.desktopLyrics.builtinTemplates.${template.id}`),
+      }));
+      const custom = normalizeDesktopLyricsSettings(
+        this.settings.desktopLyrics,
+        this.settings.enableDesktopLyrics
+      ).styleTemplates.map(template => ({
+        ...template,
+        id: `custom:${template.id}`,
+      }));
+      return [...builtins, ...custom];
     },
     version() {
       return pkg.version;
@@ -1402,9 +1465,9 @@ export default {
     ),
     desktopLyricsTextAlign: desktopLyricsSetting('textAlign', 'center'),
     desktopLyricsOverflowMode: desktopLyricsSetting('overflowMode', 'ellipsis'),
-    desktopLyricsPositionPreset: desktopLyricsSetting(
-      'positionPreset',
-      'custom'
+    desktopLyricsVerticalPosition: desktopLyricsSetting(
+      'verticalPosition',
+      'center'
     ),
     desktopLyricsBackgroundOpacity: desktopLyricsSetting(
       'backgroundOpacity',
@@ -1545,7 +1608,61 @@ export default {
         });
       }
     },
-    resetDesktopLyricsPosition() {
+    applyDesktopLyricsStyleTemplate() {
+      const template = this.desktopLyricsStyleTemplates.find(
+        candidate => candidate.id === this.selectedDesktopLyricsStyleTemplate
+      );
+      if (!template) return;
+      this.updateDesktopLyricsSettings(template.style);
+      this.showToast(this.$t('settings.desktopLyrics.templateApplied'));
+    },
+    saveDesktopLyricsStyleTemplate() {
+      const name = this.desktopLyricsStyleTemplateName.trim();
+      if (!name) {
+        this.showToast(this.$t('settings.desktopLyrics.templateNameRequired'));
+        return;
+      }
+      const settings = normalizeDesktopLyricsSettings(
+        this.settings.desktopLyrics,
+        this.settings.enableDesktopLyrics
+      );
+      if (settings.styleTemplates.length >= 20) {
+        this.showToast(this.$t('settings.desktopLyrics.templateLimitReached'));
+        return;
+      }
+      const id = `style-${Date.now().toString(36)}`;
+      this.updateDesktopLyricsSettings({
+        styleTemplates: [
+          ...settings.styleTemplates,
+          {
+            id,
+            name,
+            style: getDesktopLyricsStyle(settings),
+          },
+        ],
+      });
+      this.selectedDesktopLyricsStyleTemplate = `custom:${id}`;
+      this.desktopLyricsStyleTemplateName = '';
+      this.showToast(this.$t('settings.desktopLyrics.templateSaved'));
+    },
+    deleteDesktopLyricsStyleTemplate() {
+      if (!this.selectedDesktopLyricsStyleTemplate.startsWith('custom:')) {
+        return;
+      }
+      const id = this.selectedDesktopLyricsStyleTemplate.slice(7);
+      const settings = normalizeDesktopLyricsSettings(
+        this.settings.desktopLyrics,
+        this.settings.enableDesktopLyrics
+      );
+      this.updateDesktopLyricsSettings({
+        styleTemplates: settings.styleTemplates.filter(
+          template => template.id !== id
+        ),
+      });
+      this.selectedDesktopLyricsStyleTemplate = 'builtin:classic';
+      this.showToast(this.$t('settings.desktopLyrics.templateDeleted'));
+    },
+    restoreDesktopLyricsWindow() {
       window.electronAPI?.desktopLyrics?.resetPosition();
     },
     resetDesktopLyricsStyle() {
@@ -1980,10 +2097,20 @@ button {
 }
 
 .desktop-lyrics-actions,
-.desktop-lyrics-colors {
+.desktop-lyrics-colors,
+.desktop-lyrics-template-controls {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.desktop-lyrics-template-controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.desktop-lyrics-template-controls input {
+  width: 180px;
 }
 
 .desktop-lyrics-colors input {
@@ -2253,7 +2380,8 @@ input[type='number'] {
   #proxy-form,
   #real-ip,
   .desktop-lyrics-actions,
-  .desktop-lyrics-colors {
+  .desktop-lyrics-colors,
+  .desktop-lyrics-template-controls {
     align-items: stretch;
     flex-direction: column;
   }

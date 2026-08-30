@@ -6,7 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Added configurable desktop-lyrics overflow handling and screen-corner position presets.
+- Added configurable desktop-lyrics overflow handling and top, center, or bottom lyric placement within the window.
+- Added built-in and user-saved desktop-lyrics style templates plus an off-screen window recovery action.
 - Exposed on-device playback history for signed-in users.
 - Marked incomplete Android audio-cache entries and prevented offline playback until complete.
 
@@ -27,6 +28,8 @@ All notable changes to this project will be documented in this file.
 - Restored the main window after dismissing or failing the update-available dialog.
 - Coalesced repeated cached-track refreshes.
 - Hid instrumental and no-lyrics placeholders from the desktop-lyrics overlay.
+- Prevented echoed desktop-lyrics settings from repeatedly resizing the overlay window.
+- Restored the transparent mobile search input inside its rounded search bar.
 
 ## v0.1.0-alpha.3 - 2026-06-29
 

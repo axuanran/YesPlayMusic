@@ -4,6 +4,11 @@ let appliedSettings = { locked: true };
 let opacityIndicatorTimer = null;
 let activeResizePointerId = null;
 let resizeMoveFrame = null;
+const VERTICAL_ALIGNMENTS = Object.freeze({
+  bottom: 'flex-end',
+  center: 'center',
+  top: 'flex-start',
+});
 
 const sendCommand = (type, value) => {
   const payload = value === undefined ? { type } : { type, value };
@@ -42,6 +47,10 @@ const applySettings = settings => {
   root.style.setProperty('--lyrics-text-color', settings.textColor);
   root.style.setProperty('--lyrics-secondary-color', settings.secondaryColor);
   root.style.setProperty('--lyrics-text-align', settings.textAlign);
+  root.style.setProperty(
+    '--lyrics-vertical-align',
+    VERTICAL_ALIGNMENTS[settings.verticalPosition] || VERTICAL_ALIGNMENTS.center
+  );
   root.style.setProperty(
     '--lyrics-background-opacity',
     String(settings.backgroundOpacity)

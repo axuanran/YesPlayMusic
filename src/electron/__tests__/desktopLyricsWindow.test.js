@@ -83,6 +83,7 @@ describe('desktop lyrics window', () => {
     expect(html).toContain('id="opacity-indicator"');
     expect(html).toContain('-webkit-app-region: drag');
     expect(html).toContain('.wrap-lines #line');
+    expect(html).toContain('align-items: var(--lyrics-vertical-align)');
     expect(
       html.match(/<div class="resize-handle" data-resize-edge=/g)
     ).toHaveLength(8);
@@ -248,6 +249,19 @@ describe('desktop lyrics window', () => {
     expect(controller.settings.backgroundOpacity).toBe(0.2);
   });
 
+  it('routes real window wheel input to background opacity adjustment', () => {
+    const controller = createController({ store: disabledUnlockedStore() });
+    controller.setEnabled(true);
+
+    controller.window.webContents.emit(
+      'input-event',
+      { preventDefault: vi.fn() },
+      { deltaY: -120, type: 'mouseWheel' }
+    );
+
+    expect(controller.settings.backgroundOpacity).toBe(0.2);
+  });
+
   it('blocks native resize attempts for the frameless window', () => {
     const controller = createController();
     controller.setEnabled(true);
@@ -258,46 +272,42 @@ describe('desktop lyrics window', () => {
     expect(event.preventDefault).toHaveBeenCalledOnce();
   });
 
-  it.each([
-    ['top-left', 26, 36],
-    ['top-right', 234, 36],
-    ['bottom-left', 26, 684],
-    ['bottom-right', 234, 684],
-  ])('anchors the window at the %s preset', (positionPreset, x, y) => {
-    const controller = createController();
-
-    expect(
-      controller.resolveBounds({
-        ...controller.settings,
-        height: 120,
-        positionPreset,
-        width: 960,
-        x: null,
-        y: null,
-      })
-    ).toEqual({
-      height: 120,
-      width: 960,
-      x,
-      y,
-    });
-  });
-
-  it('moves an existing window immediately when a preset changes', () => {
+  it('keeps the dragged window in place when lyric placement changes', () => {
     const controller = createController();
     controller.setEnabled(true);
+    controller.window.setBounds.mockClear();
 
-    controller.patchSettings({ positionPreset: 'top-right' });
+    controller.patchSettings({ verticalPosition: 'bottom' });
 
-    expect(controller.window.setBounds).toHaveBeenLastCalledWith(
-      {
-        height: 120,
-        width: 960,
-        x: 234,
-        y: 36,
-      },
-      false
-    );
+    expect(controller.settings.verticalPosition).toBe('bottom');
+    expect(controller.window.setBounds).not.toHaveBeenCalled();
+  });
+
+  it('does not resize an existing window for echoed identical settings', () => {
+    const controller = createController();
+    controller.setEnabled(true);
+    const initialBounds = controller.window.getBounds();
+    controller.window.setBounds.mockClear();
+
+    controller.applySettings({ ...controller.settings });
+
+    expect(controller.window.setBounds).not.toHaveBeenCalled();
+    expect(controller.window.getBounds()).toEqual(initialBounds);
+  });
+
+  it('restores a hidden desktop lyrics window to the default position', () => {
+    const controller = createController();
+
+    controller.resetPosition();
+
+    expect(controller.settings).toMatchObject({
+      enabled: true,
+      visible: true,
+      x: null,
+      y: null,
+    });
+    expect(controller.window).not.toBeNull();
+    expect(controller.window.showInactive).toHaveBeenCalled();
   });
 
   it('clamps a partially visible saved position into the work area', () => {

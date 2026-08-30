@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES,
   DEFAULT_DESKTOP_LYRICS_SETTINGS,
+  getDesktopLyricsStyle,
   mergeDesktopLyricsSettings,
   normalizeDesktopLyricsSettings,
 } from '../desktopLyricsSettings.js';
@@ -12,7 +14,7 @@ describe('desktop lyrics settings', () => {
       enabled: false,
       locked: true,
       overflowMode: 'ellipsis',
-      positionPreset: 'custom',
+      verticalPosition: 'center',
       visible: false,
     });
   });
@@ -31,7 +33,7 @@ describe('desktop lyrics settings', () => {
       secondaryFontSize: 1,
       textAlign: 'justify',
       overflowMode: 'scroll',
-      positionPreset: 'center',
+      verticalPosition: 'middle',
       textColor: 'red',
       x: '',
     });
@@ -42,21 +44,21 @@ describe('desktop lyrics settings', () => {
       secondaryFontSize: 12,
       textAlign: DEFAULT_DESKTOP_LYRICS_SETTINGS.textAlign,
       overflowMode: DEFAULT_DESKTOP_LYRICS_SETTINGS.overflowMode,
-      positionPreset: DEFAULT_DESKTOP_LYRICS_SETTINGS.positionPreset,
+      verticalPosition: DEFAULT_DESKTOP_LYRICS_SETTINGS.verticalPosition,
       textColor: DEFAULT_DESKTOP_LYRICS_SETTINGS.textColor,
       x: null,
     });
   });
 
-  it('accepts supported overflow and position modes', () => {
+  it('accepts supported overflow and vertical position modes', () => {
     expect(
       normalizeDesktopLyricsSettings({
         overflowMode: 'wrap',
-        positionPreset: 'top-right',
+        verticalPosition: 'top',
       })
     ).toMatchObject({
       overflowMode: 'wrap',
-      positionPreset: 'top-right',
+      verticalPosition: 'top',
     });
   });
 
@@ -72,5 +74,54 @@ describe('desktop lyrics settings', () => {
       locked: false,
       visible: true,
     });
+  });
+  it('provides multiple normalized built-in style templates', () => {
+    expect(BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES).toHaveLength(4);
+    expect(
+      BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES.map(template => template.id)
+    ).toEqual(['classic', 'karaoke', 'subtitle', 'minimal']);
+    for (const template of BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES) {
+      expect(getDesktopLyricsStyle(template.style)).toEqual(template.style);
+    }
+  });
+
+  it('normalizes and preserves valid custom style templates', () => {
+    const settings = normalizeDesktopLyricsSettings({
+      styleTemplates: [
+        {
+          id: 'my-style',
+          name: 'My Style',
+          style: {
+            fontSize: 48,
+            overflowMode: 'wrap',
+            textColor: '#abcdef',
+            verticalPosition: 'bottom',
+          },
+        },
+        {
+          id: 'my-style',
+          name: 'Duplicate',
+          style: {},
+        },
+        {
+          id: 'unsafe id',
+          name: 'Invalid',
+          style: {},
+        },
+      ],
+    });
+
+    expect(settings.styleTemplates).toEqual([
+      {
+        id: 'my-style',
+        name: 'My Style',
+        style: expect.objectContaining({
+          fontSize: 48,
+          overflowMode: 'wrap',
+          textColor: '#abcdef',
+          verticalPosition: 'bottom',
+        }),
+      },
+    ]);
   });
 });

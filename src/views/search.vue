@@ -407,14 +407,16 @@ export default {
   opacity: 0.56;
 }
 
-.mobile-search-input {
+.mobile-search-bar .mobile-search-input {
   min-width: 0;
   flex: 1;
   padding: 4px 0;
   border: 0;
   outline: 0;
+  appearance: none;
+  -webkit-appearance: none;
   color: var(--color-text);
-  background: transparent;
+  background-color: transparent;
   font: inherit;
   font-size: 16px;
   line-height: 24px;
