@@ -127,6 +127,13 @@
             >
               {{ $t('library.playHistory.title') }}
             </div>
+            <div
+              class="tab"
+              :class="{ active: currentTab === 'clientHistory' }"
+              @click="updateCurrentTab('clientHistory')"
+            >
+              {{ $t('library.clientHistory.title') }}
+            </div>
           </div>
           <div v-show="currentTab === 'playlists'" class="tab-actions">
             <button
@@ -224,6 +231,8 @@
             type="tracklist"
           />
         </div>
+
+        <LocalPlaybackHistory v-show="currentTab === 'clientHistory'" />
       </div>
 
       <input

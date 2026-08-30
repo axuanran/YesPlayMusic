@@ -33,6 +33,7 @@ import { createTray } from '@/electron/tray';
 import { createTouchBar } from '../electron/touchBar';
 import { createDockMenu } from '../electron/dockMenu';
 import { registerGlobalShortcuts } from '../electron/globalShortcut';
+import { showUpdateAvailableDialog } from './updateDialog.js';
 import { createMpris } from '../electron/mpris';
 import { autoUpdater } from 'electron-updater';
 import * as devtoolsInstaller from 'electron-devtools-installer';
@@ -553,27 +554,15 @@ class Background {
     log('checkForUpdates');
     autoUpdater.checkForUpdatesAndNotify();
 
-    const showNewVersionMessage = info => {
-      dialog
-        .showMessageBox({
-          title: '发现新版本 v' + info.version,
-          message: '发现新版本 v' + info.version,
-          detail: '是否前往 GitHub 下载新版本安装包？',
-          buttons: ['下载', '取消'],
-          type: 'question',
-          noLink: true,
-        })
-        .then(result => {
-          if (result.response === 0) {
-            shell.openExternal(
-              'https://github.com/axuanran/YesPlayMusic/releases'
-            );
-          }
-        });
-    };
-
     autoUpdater.on('update-available', info => {
-      showNewVersionMessage(info);
+      showUpdateAvailableDialog({
+        dialog,
+        mainWindow: this.window,
+        openExternal: url => shell.openExternal(url),
+        version: info.version,
+      }).catch(error => {
+        log(`update dialog failed: ${error?.message || String(error)}`);
+      });
     });
   }
 

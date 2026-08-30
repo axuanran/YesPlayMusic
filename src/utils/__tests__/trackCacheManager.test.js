@@ -119,6 +119,50 @@ describe('track cache manager', () => {
     expect(table.toArray).not.toHaveBeenCalled();
   });
 
+  it('does not wait for the startup source scan before listing IDs', async () => {
+    const table = createTable([
+      createTrack(1, 100, 10),
+      createTrack(2, 200, 20),
+    ]);
+    let finishScan;
+    table.toArray.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          finishScan = resolve;
+        })
+    );
+    const manager = createTrackCacheManager({
+      table,
+      getCacheLimit: () => false,
+    });
+
+    const initialization = manager.initialize();
+    while (!finishScan) await Promise.resolve();
+
+    await expect(manager.listIds()).resolves.toEqual([2, 1]);
+    finishScan([createTrack(1, 100, 10), createTrack(2, 200, 20)]);
+    await initialization;
+  });
+
+  it('reuses initialized totals for repeated counts', async () => {
+    const table = createTable([createTrack(1, 100), createTrack(2, 200)]);
+    const manager = createTrackCacheManager({
+      table,
+      getCacheLimit: () => false,
+    });
+
+    await manager.initialize();
+    await expect(manager.count()).resolves.toEqual({
+      bytes: 300,
+      length: 2,
+    });
+    await expect(manager.count()).resolves.toEqual({
+      bytes: 300,
+      length: 2,
+    });
+    expect(table.toArray).toHaveBeenCalledOnce();
+  });
+
   it('removes one cached track and updates logical totals', async () => {
     const table = createTable([createTrack(1, 100), createTrack(2, 200)]);
     const manager = createTrackCacheManager({

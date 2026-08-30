@@ -33,22 +33,38 @@
         >
       </div>
       <div class="right-part">
-        <div class="search-box">
+        <form class="search-box" role="search" @submit.prevent="doSearch">
           <div class="container" :class="{ active: inputFocus }">
-            <svg-icon icon-class="search" />
+            <button
+              class="search-submit"
+              type="submit"
+              :title="$t('nav.search')"
+            >
+              <svg-icon icon-class="search" />
+            </button>
             <div class="input">
               <input
                 ref="searchInput"
                 v-model="keywords"
                 type="search"
-                :placeholder="inputFocus ? '' : $t('nav.search')"
-                @keydown.enter="doSearch"
+                :placeholder="$t('nav.search')"
+                @keydown.esc.prevent="clearSearch"
                 @focus="inputFocus = true"
                 @blur="inputFocus = false"
               />
             </div>
+            <button
+              v-if="keywords"
+              class="search-clear"
+              type="button"
+              :title="$t('nav.clearSearch')"
+              @mousedown.prevent
+              @click="clearSearch"
+            >
+              ×
+            </button>
           </div>
-        </div>
+        </form>
         <button
           v-if="!isLooseLoggedIn"
           class="compact-login-button"
@@ -139,6 +155,19 @@ export default {
       return this.enableWin32Titlebar || this.enableLinuxTitlebar;
     },
   },
+  watch: {
+    '$route.params.keywords': {
+      immediate: true,
+      handler(value) {
+        if (
+          this.$route.name === 'search' ||
+          this.$route.name === 'searchType'
+        ) {
+          this.keywords = typeof value === 'string' ? value : '';
+        }
+      },
+    },
+  },
   created() {
     if (isWindows) {
       this.enableWin32Titlebar = true;
@@ -179,17 +208,29 @@ export default {
       else this.$router.go(1);
     },
     doSearch() {
-      if (!this.keywords) return;
+      const keywords = this.keywords.trim();
+      if (!keywords) return;
+      this.keywords = keywords;
       if (
         this.$route.name === 'search' &&
-        this.$route.params.keywords === this.keywords
+        this.$route.params.keywords === keywords
       ) {
         return;
       }
       this.$router.push({
         name: 'search',
-        params: { keywords: this.keywords },
+        params: { keywords },
       });
+    },
+    clearSearch() {
+      this.keywords = '';
+      if (
+        this.$route.name === 'searchType' ||
+        (this.$route.name === 'search' && this.$route.params.keywords)
+      ) {
+        this.$router.replace({ name: 'search' });
+      }
+      this.$refs.searchInput?.focus();
     },
     showUserProfileMenu(e) {
       this.$refs.userProfileMenu.openMenu(e);
@@ -321,33 +362,63 @@ nav.has-custom-titlebar {
     width: 200px;
   }
 
-  .svg-icon {
-    height: 15px;
-    width: 15px;
+  .search-submit,
+  .search-clear {
+    display: flex;
+    height: 28px;
+    flex: 0 0 28px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    padding: 0;
     color: var(--color-text);
-    opacity: 0.28;
-    margin: {
-      left: 8px;
-      right: 4px;
-    }
+    background: transparent;
+    opacity: 0.45;
+  }
+
+  .search-submit {
+    margin-left: 2px;
+  }
+
+  .search-clear {
+    margin-right: 2px;
+    border-radius: 6px;
+    font-size: 20px;
+    font-weight: 400;
+  }
+
+  .search-submit:hover,
+  .search-clear:hover {
+    opacity: 0.9;
+  }
+
+  .svg-icon {
+    width: 15px;
+    height: 15px;
+  }
+
+  .input {
+    min-width: 0;
+    flex: 1;
   }
 
   input {
-    font-size: 16px;
+    width: 100%;
     border: none;
-    background: transparent;
-    width: 96%;
-    font-weight: 600;
     margin-top: -1px;
     color: var(--color-text);
+    background: transparent;
+    font-size: 16px;
+    font-weight: 600;
   }
 
   .active {
     background: var(--color-primary-bg-for-transparent);
     input,
-    .svg-icon {
-      opacity: 1;
+    .search-submit,
+    .search-clear {
       color: var(--color-primary);
+      opacity: 1;
     }
   }
 }
@@ -356,7 +427,8 @@ nav.has-custom-titlebar {
   .search-box {
     .active {
       input,
-      .svg-icon {
+      .search-submit,
+      .search-clear {
         color: var(--color-text);
       }
     }

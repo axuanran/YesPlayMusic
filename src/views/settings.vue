@@ -542,6 +542,49 @@
         <div class="item">
           <div class="left">
             <div class="title">
+              {{ $t('settings.desktopLyrics.overflowBehavior') }}
+            </div>
+          </div>
+          <div class="right">
+            <select v-model="desktopLyricsOverflowMode">
+              <option value="ellipsis">{{
+                $t('settings.desktopLyrics.ellipsis')
+              }}</option>
+              <option value="wrap">{{
+                $t('settings.desktopLyrics.wrap')
+              }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.position') }}
+            </div>
+          </div>
+          <div class="right">
+            <select v-model="desktopLyricsPositionPreset">
+              <option value="custom">{{
+                $t('settings.desktopLyrics.customPosition')
+              }}</option>
+              <option value="top-left">{{
+                $t('settings.desktopLyrics.topLeft')
+              }}</option>
+              <option value="top-right">{{
+                $t('settings.desktopLyrics.topRight')
+              }}</option>
+              <option value="bottom-left">{{
+                $t('settings.desktopLyrics.bottomLeft')
+              }}</option>
+              <option value="bottom-right">{{
+                $t('settings.desktopLyrics.bottomRight')
+              }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
               {{ $t('settings.desktopLyrics.backgroundOpacity') }}
             </div>
           </div>
@@ -1358,6 +1401,11 @@ export default {
       '#d6e0ff'
     ),
     desktopLyricsTextAlign: desktopLyricsSetting('textAlign', 'center'),
+    desktopLyricsOverflowMode: desktopLyricsSetting('overflowMode', 'ellipsis'),
+    desktopLyricsPositionPreset: desktopLyricsSetting(
+      'positionPreset',
+      'custom'
+    ),
     desktopLyricsBackgroundOpacity: desktopLyricsSetting(
       'backgroundOpacity',
       0
@@ -1466,10 +1514,6 @@ export default {
     this.countDBSize('tracks');
     if (isElectron) this.getAllOutputDevices();
   },
-  activated() {
-    this.countDBSize('tracks');
-    if (isElectron) this.getAllOutputDevices();
-  },
   beforeUnmount() {
     this.removeTrackCacheListener?.();
     this.nativeCacheListener?.remove();
@@ -1494,11 +1538,12 @@ export default {
         key: 'desktopLyrics',
         value,
       });
-      this.$store.commit('updateSettings', {
-        key: 'enableDesktopLyrics',
-        value: value.enabled,
-      });
-      window.electronAPI?.desktopLyrics?.updateSettings(patch);
+      if (this.settings.enableDesktopLyrics !== value.enabled) {
+        this.$store.commit('updateSettings', {
+          key: 'enableDesktopLyrics',
+          value: value.enabled,
+        });
+      }
     },
     resetDesktopLyricsPosition() {
       window.electronAPI?.desktopLyrics?.resetPosition();

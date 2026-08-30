@@ -229,6 +229,7 @@ export async function listCachedTracks() {
         .filter(Boolean),
       album: track?.al?.name || track?.album?.name || '',
       cover: track?.al?.picUrl || track?.album?.picUrl || '',
+      completed: true,
     };
   });
 }

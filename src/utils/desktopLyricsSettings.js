@@ -7,6 +7,8 @@ export const DEFAULT_DESKTOP_LYRICS_SETTINGS = Object.freeze({
   fontSize: 32,
   secondaryFontSize: 18,
   textAlign: 'center',
+  overflowMode: 'ellipsis',
+  positionPreset: 'custom',
   textColor: '#ffffff',
   secondaryColor: '#d6e0ff',
   backgroundOpacity: 0,
@@ -17,6 +19,14 @@ export const DEFAULT_DESKTOP_LYRICS_SETTINGS = Object.freeze({
 });
 
 const ALIGNMENTS = new Set(['left', 'center', 'right']);
+const OVERFLOW_MODES = new Set(['ellipsis', 'wrap']);
+const POSITION_PRESETS = new Set([
+  'custom',
+  'top-left',
+  'top-right',
+  'bottom-left',
+  'bottom-right',
+]);
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
 const clamp = (value, min, max, fallback) => {
@@ -68,6 +78,12 @@ export function normalizeDesktopLyricsSettings(value = {}, legacyEnabled) {
     textAlign: ALIGNMENTS.has(source.textAlign)
       ? source.textAlign
       : defaults.textAlign,
+    overflowMode: OVERFLOW_MODES.has(source.overflowMode)
+      ? source.overflowMode
+      : defaults.overflowMode,
+    positionPreset: POSITION_PRESETS.has(source.positionPreset)
+      ? source.positionPreset
+      : defaults.positionPreset,
     textColor: color(source.textColor, defaults.textColor),
     secondaryColor: color(source.secondaryColor, defaults.secondaryColor),
     backgroundOpacity: clamp(

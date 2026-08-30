@@ -105,6 +105,11 @@ export function buildDesktopLyricsHtml() {
         white-space: nowrap;
         text-shadow: 0 2px 5px rgba(0,0,0,.95), 0 0 12px rgba(0,0,0,.75);
       }
+      .wrap-lines #line, .wrap-lines #translation {
+        overflow-wrap: anywhere;
+        text-overflow: clip;
+        white-space: normal;
+      }
       #line { color: var(--lyrics-text-color); font-size: var(--lyrics-font-size); font-weight: 750; line-height: 1.35; }
       #translation { margin-top: 3px; color: var(--lyrics-secondary-color); font-size: var(--lyrics-secondary-font-size); font-weight: 600; line-height: 1.3; }
       #translation:empty, .hide-secondary #translation { display: none; }
@@ -269,6 +274,13 @@ export class DesktopLyricsWindow {
   }
 
   applySettings(value, { persist = false, notify = false } = {}) {
+    const hadWindow = Boolean(this.window && !this.window.isDestroyed());
+    const shouldReposition =
+      value &&
+      typeof value === 'object' &&
+      ['positionPreset', 'x', 'y'].some(key =>
+        Object.prototype.hasOwnProperty.call(value, key)
+      );
     this.settings = mergeDesktopLyricsSettings(this.settings, value);
     if (persist) this.persistSettings();
     if (notify) this.notifyMainWindow();
@@ -276,6 +288,9 @@ export class DesktopLyricsWindow {
     if (!this.settings.enabled) {
       this.destroyWindow();
       return;
+    }
+    if (hadWindow && shouldReposition) {
+      this.window.setBounds(this.resolveBounds(this.settings), false);
     }
     if (!this.settings.visible) {
       this.window?.hide?.();
@@ -316,10 +331,7 @@ export class DesktopLyricsWindow {
   }
 
   resetPosition() {
-    this.patchSettings({ x: null, y: null });
-    if (this.window && !this.window.isDestroyed()) {
-      this.window.setBounds(this.resolveBounds(this.settings));
-    }
+    this.patchSettings({ positionPreset: 'custom', x: null, y: null });
   }
 
   resetStyle() {
@@ -328,6 +340,7 @@ export class DesktopLyricsWindow {
       fontSize: defaults.fontSize,
       secondaryFontSize: defaults.secondaryFontSize,
       textAlign: defaults.textAlign,
+      overflowMode: defaults.overflowMode,
       textColor: defaults.textColor,
       secondaryColor: defaults.secondaryColor,
       backgroundOpacity: defaults.backgroundOpacity,
@@ -359,13 +372,32 @@ export class DesktopLyricsWindow {
       width: settings.width,
       height: settings.height + WINDOW_BOTTOM_OFFSET,
     };
+    const candidateBounds = {
+      width: settings.width,
+      height: settings.height,
+      x: settings.x,
+      y: settings.y,
+    };
+    const matchedDisplay =
+      Number.isFinite(candidateBounds.x) && Number.isFinite(candidateBounds.y)
+        ? displays
+            .map(display => ({
+              display,
+              intersection: intersectionArea(display.workArea, candidateBounds),
+            }))
+            .sort((left, right) => right.intersection - left.intersection)[0]
+        : null;
+    const workArea =
+      matchedDisplay?.intersection > 0
+        ? matchedDisplay.display.workArea
+        : primary;
     const width = Math.min(
       settings.width,
-      Math.max(360, primary.width - WINDOW_MARGIN * 2)
+      Math.max(MIN_WINDOW_WIDTH, workArea.width - WINDOW_MARGIN * 2)
     );
     const height = Math.min(
       settings.height,
-      Math.max(92, primary.height - WINDOW_MARGIN * 2)
+      Math.max(MIN_WINDOW_HEIGHT, workArea.height - WINDOW_MARGIN * 2)
     );
     const saved = {
       width,
@@ -373,22 +405,31 @@ export class DesktopLyricsWindow {
       x: settings.x,
       y: settings.y,
     };
-    if (Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
-      const matchedDisplay = displays
-        .map(display => ({
-          display,
-          intersection: intersectionArea(display.workArea, saved),
-        }))
-        .sort((left, right) => right.intersection - left.intersection)[0];
-      if (matchedDisplay?.intersection > 0) {
-        return clampBoundsToWorkArea(matchedDisplay.display.workArea, saved);
-      }
+
+    if (settings.positionPreset !== 'custom') {
+      const right = settings.positionPreset.endsWith('right');
+      const bottom = settings.positionPreset.startsWith('bottom');
+      return {
+        width,
+        height,
+        x: right
+          ? workArea.x + workArea.width - width - WINDOW_MARGIN
+          : workArea.x + WINDOW_MARGIN,
+        y: bottom
+          ? workArea.y + workArea.height - height - WINDOW_MARGIN
+          : workArea.y + WINDOW_MARGIN,
+      };
+    }
+    if (matchedDisplay?.intersection > 0) {
+      return clampBoundsToWorkArea(workArea, saved);
     }
     return {
       width,
       height,
-      x: Math.round(primary.x + (primary.width - width) / 2),
-      y: Math.round(primary.y + primary.height - height - WINDOW_BOTTOM_OFFSET),
+      x: Math.round(workArea.x + (workArea.width - width) / 2),
+      y: Math.round(
+        workArea.y + workArea.height - height - WINDOW_BOTTOM_OFFSET
+      ),
     };
   }
 

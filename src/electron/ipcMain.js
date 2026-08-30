@@ -615,16 +615,43 @@ export function initIpcMain(
     });
   });
 
-  ipcMain.on('settings', (event, options) => {
-    if (!isRecord(options)) return;
+  ipcMain.on('settings:patch', (event, patch) => {
+    if (event.sender !== win.webContents || !isRecord(patch)) return;
+    const entries = Object.entries(patch).filter(
+      ([key]) =>
+        key.length > 0 &&
+        key.length <= 128 &&
+        !['__proto__', 'constructor', 'prototype'].includes(key)
+    );
+    if (entries.length === 0) return;
+
+    const changedKeys = new Set(entries.map(([key]) => key));
+    const options = {
+      ...(store.get('settings') || {}),
+      ...Object.fromEntries(entries),
+    };
     store.set('settings', options);
-    desktopLyrics?.applySettings(options.desktopLyrics, { persist: false });
-    setDiscordPresenceEnabled(options.enableDiscordRichPresence === true);
-    if (discordPresenceEnabled && pendingDiscordPresence) {
-      updateDiscordPresence(pendingDiscordPresence);
+    if (changedKeys.has('desktopLyrics')) {
+      desktopLyrics?.applySettings(options.desktopLyrics, { persist: false });
     }
-    updateWindowShadow(win, options);
-    registerGlobalShortcuts(win, store, desktopLyrics);
+    if (changedKeys.has('enableDiscordRichPresence')) {
+      setDiscordPresenceEnabled(options.enableDiscordRichPresence === true);
+      if (discordPresenceEnabled && pendingDiscordPresence) {
+        updateDiscordPresence(pendingDiscordPresence);
+      }
+    }
+    if (
+      changedKeys.has('performanceMode') ||
+      changedKeys.has('lowPerformanceMode')
+    ) {
+      updateWindowShadow(win, options);
+    }
+    if (
+      changedKeys.has('enableGlobalShortcut') ||
+      changedKeys.has('shortcuts')
+    ) {
+      registerGlobalShortcuts(win, store, desktopLyrics);
+    }
   });
 
   ipcMain.on('desktop-lyrics:update', (event, payload) => {

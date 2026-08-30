@@ -25,14 +25,29 @@
           />
           <div v-else class="cover-placeholder"></div>
           <div class="info">
-            <div class="name">{{ track.name }}</div>
+            <div class="name">
+              {{ track.name }}
+              <span v-if="!track.completed" class="partial">
+                {{ $t('cachedTracks.partial') }}
+              </span>
+            </div>
             <div class="metadata">
               {{ track.artists.join(', ') || $t('cachedTracks.unknownArtist') }}
               <span v-if="track.album"> · {{ track.album }}</span>
               <span v-if="track.quality"> · {{ track.quality }}</span>
             </div>
           </div>
-          <button :title="$t('cachedTracks.play')" @click="play(track)">
+          <button
+            :disabled="!track.completed"
+            :title="
+              $t(
+                track.completed
+                  ? 'cachedTracks.play'
+                  : 'cachedTracks.partialCannotPlay'
+              )
+            "
+            @click="play(track)"
+          >
             {{ $t('cachedTracks.play') }}
           </button>
           <button
@@ -73,6 +88,7 @@ function normalizeNativeTrack(track = {}) {
     cover: track.artwork || '',
     quality: track.quality || '',
     bytes: Number(track.bytes) || 0,
+    contentLength: Number(track.contentLength) || 0,
     completed: track.completed !== false,
   };
 }
@@ -84,6 +100,8 @@ export default {
     return {
       tracks: [],
       loading: false,
+      loadPromise: null,
+      loadQueued: false,
       removingIds: [],
       removeCacheListener: null,
       nativeCacheListener: null,
@@ -146,23 +164,40 @@ export default {
       }
     },
     async load() {
+      if (this.loadPromise) {
+        this.loadQueued = true;
+        return this.loadPromise;
+      }
+
       this.loading = true;
+      this.loadPromise = (async () => {
+        do {
+          this.loadQueued = false;
+          try {
+            if (isCapacitor) {
+              const plugin = await this.getNativeAudioPlugin();
+              const result = await plugin.listCachedTracks();
+              this.tracks = (result?.tracks || []).map(normalizeNativeTrack);
+            } else {
+              this.tracks = await listCachedTracks();
+            }
+          } catch (error) {
+            console.error('[track-cache] failed to list cached tracks', error);
+            this.showToast(this.$t('cachedTracks.loadFailed'));
+          }
+        } while (this.loadQueued && this.show);
+      })();
+
       try {
-        if (isCapacitor) {
-          const plugin = await this.getNativeAudioPlugin();
-          const result = await plugin.listCachedTracks();
-          this.tracks = (result?.tracks || []).map(normalizeNativeTrack);
-        } else {
-          this.tracks = await listCachedTracks();
-        }
-      } catch (error) {
-        console.error('[track-cache] failed to list cached tracks', error);
-        this.showToast(this.$t('cachedTracks.loadFailed'));
+        await this.loadPromise;
       } finally {
+        this.loadPromise = null;
+        this.loadQueued = false;
         this.loading = false;
       }
     },
     play(track) {
+      if (!track.completed) return;
       this.player.addTrackToPlayNext(track.id, true);
       this.close();
     },
@@ -246,6 +281,17 @@ export default {
     margin-top: 3px;
     font-size: 12px;
     opacity: 0.68;
+  }
+
+  .partial {
+    display: inline-block;
+    margin-left: 4px;
+    border-radius: 4px;
+    padding: 1px 4px;
+    color: #b26a00;
+    background: rgba(255, 166, 0, 0.16);
+    font-size: 10px;
+    vertical-align: 1px;
   }
 
   button {

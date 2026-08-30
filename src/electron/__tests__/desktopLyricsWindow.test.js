@@ -82,6 +82,7 @@ describe('desktop lyrics window', () => {
     expect(html).not.toContain('innerHTML');
     expect(html).toContain('id="opacity-indicator"');
     expect(html).toContain('-webkit-app-region: drag');
+    expect(html).toContain('.wrap-lines #line');
     expect(
       html.match(/<div class="resize-handle" data-resize-edge=/g)
     ).toHaveLength(8);
@@ -255,6 +256,48 @@ describe('desktop lyrics window', () => {
     controller.window.emit('will-resize', event);
 
     expect(event.preventDefault).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['top-left', 26, 36],
+    ['top-right', 234, 36],
+    ['bottom-left', 26, 684],
+    ['bottom-right', 234, 684],
+  ])('anchors the window at the %s preset', (positionPreset, x, y) => {
+    const controller = createController();
+
+    expect(
+      controller.resolveBounds({
+        ...controller.settings,
+        height: 120,
+        positionPreset,
+        width: 960,
+        x: null,
+        y: null,
+      })
+    ).toEqual({
+      height: 120,
+      width: 960,
+      x,
+      y,
+    });
+  });
+
+  it('moves an existing window immediately when a preset changes', () => {
+    const controller = createController();
+    controller.setEnabled(true);
+
+    controller.patchSettings({ positionPreset: 'top-right' });
+
+    expect(controller.window.setBounds).toHaveBeenLastCalledWith(
+      {
+        height: 120,
+        width: 960,
+        x: 234,
+        y: 36,
+      },
+      false
+    );
   });
 
   it('clamps a partially visible saved position into the work area', () => {

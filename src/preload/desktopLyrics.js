@@ -59,6 +59,10 @@ const applySettings = settings => {
     'hide-secondary',
     settings.showSecondary !== true
   );
+  document.body.classList.toggle(
+    'wrap-lines',
+    settings.overflowMode === 'wrap'
+  );
   setText('lock', settings.locked ? '解锁' : '锁定');
 };
 

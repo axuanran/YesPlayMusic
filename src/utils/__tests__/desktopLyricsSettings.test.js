@@ -11,6 +11,8 @@ describe('desktop lyrics settings', () => {
       backgroundOpacity: 0,
       enabled: true,
       locked: true,
+      overflowMode: 'ellipsis',
+      positionPreset: 'custom',
       visible: true,
     });
   });
@@ -28,6 +30,8 @@ describe('desktop lyrics settings', () => {
       fontSize: 1000,
       secondaryFontSize: 1,
       textAlign: 'justify',
+      overflowMode: 'scroll',
+      positionPreset: 'center',
       textColor: 'red',
       x: '',
     });
@@ -37,8 +41,22 @@ describe('desktop lyrics settings', () => {
       fontSize: 72,
       secondaryFontSize: 12,
       textAlign: DEFAULT_DESKTOP_LYRICS_SETTINGS.textAlign,
+      overflowMode: DEFAULT_DESKTOP_LYRICS_SETTINGS.overflowMode,
+      positionPreset: DEFAULT_DESKTOP_LYRICS_SETTINGS.positionPreset,
       textColor: DEFAULT_DESKTOP_LYRICS_SETTINGS.textColor,
       x: null,
+    });
+  });
+
+  it('accepts supported overflow and position modes', () => {
+    expect(
+      normalizeDesktopLyricsSettings({
+        overflowMode: 'wrap',
+        positionPreset: 'top-right',
+      })
+    ).toMatchObject({
+      overflowMode: 'wrap',
+      positionPreset: 'top-right',
     });
   });
 

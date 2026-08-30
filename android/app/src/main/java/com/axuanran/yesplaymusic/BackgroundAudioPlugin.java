@@ -426,9 +426,13 @@ public final class BackgroundAudioPlugin extends Plugin {
         cacheExecutor.execute(
             () -> {
                 try {
+                    NativeAudioCache audioCache =
+                        NativeAudioCache.getInstance(getContext());
                     List<NativeAudioCache.CacheEntry> entries =
-                        NativeAudioCache.getInstance(getContext()).entries();
+                        audioCache.entries();
                     JSArray tracks = new JSArray();
+                    long bytes = 0;
+                    int completed = 0;
                     for (NativeAudioCache.CacheEntry entry : entries) {
                         JSObject track = new JSObject();
                         track.put("cacheKey", entry.cacheKey);
@@ -443,8 +447,16 @@ public final class BackgroundAudioPlugin extends Plugin {
                         track.put("completed", entry.completed);
                         track.put("updatedAt", entry.updatedAt);
                         tracks.put(track);
+                        bytes += Math.max(0, entry.bytes);
+                        if (entry.completed) completed += 1;
                     }
-                    JSObject result = cacheStatus();
+                    JSObject result = new JSObject();
+                    result.put("bytes", bytes);
+                    result.put("length", entries.size());
+                    result.put("completed", completed);
+                    result.put("active", cacheWriters.size());
+                    result.put("maxBytes", NativeAudioCache.MAX_CACHE_BYTES);
+                    result.put("enabled", audioCache.isWriteThroughEnabled());
                     result.put("tracks", tracks);
                     postResolve(call, result);
                 } catch (Exception error) {

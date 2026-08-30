@@ -325,6 +325,7 @@ import {
   getNextLyricDisplayMode,
   LYRIC_DISPLAY_MODE,
 } from '@/utils/lyricDisplayMode';
+import { isDesktopLyricPlaceholder } from '@/utils/desktopLyricsText';
 import ButtonIcon from '@/components/ButtonIcon.vue';
 import { Vibrant } from 'node-vibrant/browser';
 import Color from 'color';
@@ -877,6 +878,7 @@ export default {
     publishDesktopLyrics() {
       if (!this.desktopLyricsEnabled) return;
       const lyric = this.lyric[this.highlightLyricIndex];
+      const line = lyric?.content || '';
       const secondaryLyrics =
         this.lyricType === LYRIC_DISPLAY_MODE.PRONUNCIATION
           ? this.romalyric
@@ -885,9 +887,15 @@ export default {
         ? secondaryLyrics.find(item => item.rawTime === lyric.rawTime)
             ?.content || ''
         : '';
+      const hideLine = isDesktopLyricPlaceholder(line);
       window.electronAPI?.desktopLyrics?.update({
-        line: lyric?.content || '',
-        translation: this.desktopLyricsTranslationEnabled ? secondaryLyric : '',
+        line: hideLine ? '' : line,
+        translation:
+          this.desktopLyricsTranslationEnabled &&
+          !hideLine &&
+          !isDesktopLyricPlaceholder(secondaryLyric)
+            ? secondaryLyric
+            : '',
         playing: this.player.playing,
         volume: this.player.volume,
       });

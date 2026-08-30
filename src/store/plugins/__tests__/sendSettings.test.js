@@ -40,26 +40,55 @@ describe('sendSettings store plugin', () => {
     expect(updateSettings).not.toHaveBeenCalled();
   });
 
-  it('sends settings only after the current task', () => {
-    subscriber({ type: 'updateSettings' }, state);
+  it('sends only the changed setting after the current task', () => {
+    subscriber(
+      { payload: { key: 'appearance' }, type: 'updateSettings' },
+      state
+    );
 
     expect(updateSettings).not.toHaveBeenCalled();
     vi.runAllTimers();
 
     expect(updateSettings).toHaveBeenCalledTimes(1);
-    expect(updateSettings).toHaveBeenCalledWith(state.settings);
+    expect(updateSettings).toHaveBeenCalledWith({ appearance: 'auto' });
   });
 
-  it('coalesces consecutive setting updates and sends the latest state', () => {
-    subscriber({ type: 'updateSettings' }, state);
+  it('coalesces changed keys and sends their latest values', () => {
+    subscriber(
+      { payload: { key: 'appearance' }, type: 'updateSettings' },
+      state
+    );
     state.settings.appearance = 'dark';
-    subscriber({ type: 'updateSettings' }, state);
+    subscriber(
+      { payload: { key: 'desktopLyrics' }, type: 'updateSettings' },
+      state
+    );
     vi.runAllTimers();
 
     expect(updateSettings).toHaveBeenCalledTimes(1);
     expect(updateSettings).toHaveBeenCalledWith({
       appearance: 'dark',
       desktopLyrics: { enabled: true },
+    });
+  });
+
+  it('includes the plugins object changed with the resolver switch', () => {
+    state.settings.useAudioResolver = true;
+    state.settings.plugins = {
+      'resolver-admin': { enabled: true },
+    };
+
+    subscriber(
+      { payload: { key: 'useAudioResolver' }, type: 'updateSettings' },
+      state
+    );
+    vi.runAllTimers();
+
+    expect(updateSettings).toHaveBeenCalledWith({
+      plugins: {
+        'resolver-admin': { enabled: true },
+      },
+      useAudioResolver: true,
     });
   });
 });

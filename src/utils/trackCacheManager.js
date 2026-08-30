@@ -18,7 +18,9 @@ export function createTrackCacheManager({
   onError = () => {},
 }) {
   let operationQueue = Promise.resolve();
+  let initialized = false;
   let trackedBytes = 0;
+  let trackedLength = 0;
 
   const serialize = (label, operation) => {
     const result = operationQueue.then(operation);
@@ -28,16 +30,20 @@ export function createTrackCacheManager({
     return result;
   };
 
-  const countUnlocked = async () => {
+  const snapshot = () => ({
+    bytes: trackedBytes,
+    length: trackedLength,
+  });
+
+  const ensureInitializedUnlocked = async () => {
+    if (initialized) return;
     const tracks = await table.toArray();
     trackedBytes = tracks.reduce(
       (total, track) => total + getTrackSourceBytes(track),
       0
     );
-    return {
-      bytes: trackedBytes,
-      length: tracks.length,
-    };
+    trackedLength = tracks.length;
+    initialized = true;
   };
 
   const evictUnlocked = async limitMiB => {
@@ -48,6 +54,7 @@ export function createTrackCacheManager({
       const oldestTrack = await table.orderBy('createTime').first();
       if (!oldestTrack) {
         trackedBytes = 0;
+        trackedLength = 0;
         break;
       }
 
@@ -56,26 +63,27 @@ export function createTrackCacheManager({
         0,
         trackedBytes - getTrackSourceBytes(oldestTrack)
       );
+      trackedLength = Math.max(0, trackedLength - 1);
       deleted += 1;
     }
 
     return {
-      bytes: trackedBytes,
+      ...snapshot(),
       deleted,
-      length: await table.count(),
     };
   };
 
   return {
     initialize() {
       return serialize('startup scan', async () => {
-        await countUnlocked();
+        if (!initialized) await ensureInitializedUnlocked();
         return evictUnlocked(getCacheLimit());
       });
     },
 
     put(track) {
       return serialize('cache write', async () => {
+        if (!initialized) await ensureInitializedUnlocked();
         const previousTrack = await table.get(track.id);
         await table.put(track);
         trackedBytes = Math.max(
@@ -84,43 +92,51 @@ export function createTrackCacheManager({
             getTrackSourceBytes(previousTrack) +
             getTrackSourceBytes(track)
         );
+        if (!previousTrack) trackedLength += 1;
         return evictUnlocked(getCacheLimit());
       });
     },
 
     count() {
-      return serialize('cache count', countUnlocked);
+      return serialize('cache count', async () => {
+        if (!initialized) await ensureInitializedUnlocked();
+        return snapshot();
+      });
     },
 
     listIds() {
-      return serialize('cache list', () =>
+      const result = Promise.resolve().then(() =>
         table.orderBy('createTime').reverse().primaryKeys()
       );
+      return result.catch(error => {
+        onError('cache list', error);
+        throw error;
+      });
     },
 
     remove(id) {
       return serialize('cache remove', async () => {
+        if (!initialized) await ensureInitializedUnlocked();
         const track = await table.get(id);
         if (!track) {
           return {
-            bytes: trackedBytes,
+            ...snapshot(),
             deleted: 0,
-            length: await table.count(),
           };
         }
         await table.delete(id);
         trackedBytes = Math.max(0, trackedBytes - getTrackSourceBytes(track));
+        trackedLength = Math.max(0, trackedLength - 1);
         return {
-          bytes: trackedBytes,
+          ...snapshot(),
           deleted: 1,
-          length: await table.count(),
         };
       });
     },
 
     enforceLimit(limitMiB = getCacheLimit()) {
       return serialize('cache eviction', async () => {
-        await countUnlocked();
+        if (!initialized) await ensureInitializedUnlocked();
         return evictUnlocked(limitMiB);
       });
     },
@@ -129,8 +145,10 @@ export function createTrackCacheManager({
       return serialize('cache clear', async () => {
         await Promise.all(tables.map(currentTable => currentTable.clear()));
         trackedBytes = 0;
+        trackedLength = 0;
+        initialized = true;
         closeDatabase?.();
-        return { bytes: 0, length: 0 };
+        return snapshot();
       });
     },
 
@@ -138,13 +156,15 @@ export function createTrackCacheManager({
       return serialize('disk cache clear', async () => {
         await Promise.all(tables.map(currentTable => currentTable.clear()));
         trackedBytes = 0;
+        trackedLength = 0;
+        initialized = true;
         closeDatabase();
         try {
           await clearDiskCache();
         } finally {
           await openDatabase();
         }
-        return countUnlocked();
+        return snapshot();
       });
     },
   };
