@@ -1,6 +1,6 @@
 export const DEFAULT_DESKTOP_LYRICS_SETTINGS = Object.freeze({
-  enabled: true,
-  visible: true,
+  enabled: false,
+  visible: false,
   locked: true,
   alwaysOnTop: true,
   showSecondary: true,

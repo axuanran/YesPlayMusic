@@ -29,7 +29,7 @@ let localStorage = {
     lyricsBackground: true,
     lyricsAutoResumeDelay: 5000,
     lyricsAutoResumeWhenVisible: true,
-    enableDesktopLyrics: true,
+    enableDesktopLyrics: false,
     desktopLyrics: { ...DEFAULT_DESKTOP_LYRICS_SETTINGS },
     enableOsdlyricsSupport: false,
     closeAppOption: 'ask',

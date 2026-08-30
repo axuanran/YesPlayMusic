@@ -75,6 +75,7 @@ vi.mock('@/store', () => ({
 vi.mock('@/utils/AudioEngine', () => ({
   default: vi.fn().mockImplementation(function AudioEngine(handlers) {
     const instance = {
+      cancelFade: vi.fn(),
       currentTime: vi.fn(() => 0),
       fade: vi.fn(() => Promise.resolve()),
       load: vi.fn(),
@@ -97,6 +98,7 @@ vi.mock('@/mobile/AndroidAudioEngine', () => ({
   default: vi.fn().mockImplementation(function AndroidAudioEngine(handlers) {
     const instance = {
       cacheSource: vi.fn(() => Promise.resolve()),
+      cancelFade: vi.fn(),
       clearNextSource: vi.fn(() => Promise.resolve()),
       currentTime: vi.fn(() => 0),
       fade: vi.fn(() => Promise.resolve()),
@@ -267,15 +269,18 @@ describe('Player audio source flow', () => {
   });
 
   it('persists playback rate and reapplies it when a source loads', async () => {
+    vi.useFakeTimers();
     const player = await createPlayer();
     const audio = mocks.audioInstances[0];
 
     player.playbackRate = 1.5;
     player._playAudioSource('track.mp3', false);
+    await vi.advanceTimersByTimeAsync(150);
 
     expect(player.playbackRate).toBe(1.5);
     expect(audio.playbackRate).toHaveBeenLastCalledWith(1.5);
     expect(JSON.parse(localStorage.getItem('player'))._playbackRate).toBe(1.5);
+    vi.useRealTimers();
   });
 
   it('publishes complete SMTC metadata and an accurate timeline', async () => {
@@ -491,7 +496,7 @@ describe('Player audio source flow', () => {
 
     player.playOrPause();
 
-    expect(player.playing).toBe(true);
+    expect(player.playing).toBe(false);
     expect(player.progress).toBe(24);
 
     await vi.advanceTimersByTimeAsync(300);
@@ -499,6 +504,137 @@ describe('Player audio source flow', () => {
     expect(audio.pause).toHaveBeenCalled();
     expect(player.playing).toBe(false);
     vi.useRealTimers();
+  });
+
+  it('shows playing state before the audio fade completes', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    let finishFade;
+    audio.fade.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          finishFade = resolve;
+        })
+    );
+
+    player.play();
+
+    expect(player.playing).toBe(true);
+    await vi.waitFor(() => expect(audio.fade).toHaveBeenCalledOnce());
+    expect(player.playing).toBe(true);
+    finishFade();
+  });
+
+  it('rolls back optimistic playing state when audio playback fails', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    const error = new Error('device unavailable');
+    audio.play.mockRejectedValue(error);
+    mocks.store.dispatch.mockClear();
+
+    player.play();
+
+    expect(player.playing).toBe(true);
+    await vi.waitFor(() => expect(player.playing).toBe(false));
+    expect(mocks.store.dispatch).toHaveBeenCalledWith(
+      'showToast',
+      '播放失败：device unavailable'
+    );
+  });
+
+  it('rolls back optimistic paused state when the device pause fails', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    audio.fade.mockResolvedValue();
+    audio.pause.mockImplementation(() => {
+      throw new Error('pause unavailable');
+    });
+    player._playing = true;
+    player._desiredPlaying = true;
+    mocks.store.dispatch.mockClear();
+
+    player.pause();
+
+    expect(player.playing).toBe(false);
+    await vi.waitFor(() => expect(player.playing).toBe(true));
+    expect(mocks.store.dispatch).toHaveBeenCalledWith(
+      'showToast',
+      '暂停失败：pause unavailable'
+    );
+  });
+
+  it('cancels a pending pause immediately when play is clicked again', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    audio.playing.mockReturnValue(true);
+    audio.fade.mockReturnValue(new Promise(() => {}));
+    player._playing = true;
+    player._desiredPlaying = true;
+
+    player.pause();
+    expect(player.playing).toBe(false);
+
+    player.play();
+
+    expect(player.playing).toBe(true);
+    expect(player._playbackIntentPending).toBe(false);
+    expect(audio.play).not.toHaveBeenCalled();
+  });
+
+  it('ignores a stale play completion after a newer pause intent', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    let resolvePlay;
+    audio.play.mockReturnValue(
+      new Promise(resolve => {
+        resolvePlay = resolve;
+      })
+    );
+
+    player.play();
+    player.pause();
+    resolvePlay();
+    await vi.waitFor(() => expect(audio.pause).toHaveBeenCalled());
+
+    expect(player.playing).toBe(false);
+    expect(player._desiredPlaying).toBe(false);
+    expect(mocks.mediaSession.playbackState).toBe('paused');
+  });
+
+  it('keeps the final intent after ten rapid play/pause clicks', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    const playResolvers = [];
+    audio.play.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          playResolvers.push(resolve);
+        })
+    );
+
+    for (let index = 0; index < 10; index += 1) {
+      player.playOrPause();
+      await Promise.resolve();
+    }
+    for (const resolve of playResolvers) resolve();
+    await vi.waitFor(() => expect(audio.pause).toHaveBeenCalled());
+
+    expect(player.playing).toBe(false);
+    expect(player._desiredPlaying).toBe(false);
+    expect(mocks.mediaSession.playbackState).toBe('paused');
+  });
+
+  it('flushes the AudioEngine position immediately when pausing', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    audio.currentTime.mockReturnValue(133.25);
+    player._currentTrack = { id: 1, dt: 180000 };
+    player._progress = 132;
+
+    player.pause();
+
+    expect(localStorage.getItem('playerCurrentTrackTime')).toBe('133.25');
+    await vi.waitFor(() => expect(audio.pause).toHaveBeenCalled());
   });
 
   it('syncs stale playing UI state when native audio pauses', async () => {
@@ -529,18 +665,133 @@ describe('Player audio source flow', () => {
     delete globalThis.yesplaymusicStore;
   });
 
-  it('bumps player version when progress syncs', async () => {
+  it('bumps only the progress version when progress syncs', async () => {
     const player = await createPlayer();
     const audio = mocks.audioInstances[0];
     audio.currentTime.mockReturnValue(12);
     player._currentTrack = { id: 1, dt: 180000 };
-    globalThis.yesplaymusicStore = mocks.store;
+    mocks.store.commit.mockClear();
 
     player._syncProgress(true);
 
     expect(player.progress).toBe(12);
+    expect(mocks.store.commit).toHaveBeenCalledWith(
+      'bumpPlayerProgressVersion'
+    );
+    expect(mocks.store.commit).not.toHaveBeenCalledWith('bumpPlayerVersion');
+  });
+
+  it('publishes automatic progress at most once per second', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    player._currentTrack = { id: 1, dt: 180000 };
+    audio.currentTime.mockReturnValue(10);
+    player._syncProgress();
+    mocks.store.commit.mockClear();
+
+    audio.currentTime.mockReturnValue(11);
+    await vi.advanceTimersByTimeAsync(999);
+    player._syncProgress();
+    expect(player.progress).toBe(10);
+    expect(mocks.store.commit).not.toHaveBeenCalledWith(
+      'bumpPlayerProgressVersion'
+    );
+
+    await vi.advanceTimersByTimeAsync(1);
+    player._syncProgress();
+    expect(player.progress).toBe(11);
+    expect(mocks.store.commit).toHaveBeenCalledWith(
+      'bumpPlayerProgressVersion'
+    );
+    vi.useRealTimers();
+  });
+
+  it('publishes a forced seek immediately', async () => {
+    const player = await createPlayer();
+    const audio = mocks.audioInstances[0];
+    player._currentTrack = { id: 1, dt: 180000 };
+    audio.currentTime.mockReturnValue(33);
+    player._lastProgressUiSyncAt = Date.now();
+    mocks.store.commit.mockClear();
+
+    player.seek(33);
+
+    expect(audio.seek).toHaveBeenCalledWith(33);
+    expect(player.progress).toBe(33);
+    expect(mocks.store.commit).toHaveBeenCalledWith(
+      'bumpPlayerProgressVersion'
+    );
+  });
+
+  it('uses semantic and track versions for a display-track transition', async () => {
+    const player = await createPlayer();
+    player._currentTrack = { id: 1 };
+    mocks.store.commit.mockClear();
+
+    player._setDisplayTrackTarget(2);
+
     expect(mocks.store.commit).toHaveBeenCalledWith('bumpPlayerVersion');
-    delete globalThis.yesplaymusicStore;
+    expect(mocks.store.commit).toHaveBeenCalledWith('bumpPlayerTrackVersion');
+    expect(mocks.store.commit).toHaveBeenCalledWith(
+      'bumpPlayerProgressVersion'
+    );
+  });
+
+  it('publishes semantic volume changes immediately', async () => {
+    const player = await createPlayer();
+    player._volume = 0.5;
+    mocks.store.commit.mockClear();
+
+    player.volume = 0.75;
+
+    expect(mocks.store.commit).toHaveBeenCalledWith('bumpPlayerVersion');
+    expect(mocks.store.commit).not.toHaveBeenCalledWith(
+      'bumpPlayerProgressVersion'
+    );
+  });
+
+  it('coalesces rapid semantic changes into one deferred persistence pass', async () => {
+    vi.useFakeTimers();
+    const player = await createPlayer();
+    const save = vi
+      .spyOn(player, 'saveSelfToLocalStorage')
+      .mockReturnValue(true);
+    const sync = vi.spyOn(player, 'sendSelfToIpcMain');
+
+    player.volume = 0.7;
+    player.volume = 0.5;
+    player.volume = 0.3;
+
+    expect(save).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(149);
+    expect(save).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(save).toHaveBeenCalledOnce();
+    expect(sync).toHaveBeenCalledOnce();
+    vi.useRealTimers();
+  });
+
+  it('keeps effective state and reports persistence failures', async () => {
+    vi.useFakeTimers();
+    const player = await createPlayer();
+    const storageError = new Error('storage unavailable');
+    const setItem = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw storageError;
+    });
+    mocks.store.dispatch.mockClear();
+
+    player.volume = 0.25;
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(player.volume).toBe(0.25);
+    expect(mocks.store.dispatch).toHaveBeenCalledWith(
+      'showToast',
+      expect.stringContaining('下次启动可能无法保留')
+    );
+    setItem.mockRestore();
+    vi.useRealTimers();
   });
 
   it('adopts an Android native queue transition without reloading audio', async () => {

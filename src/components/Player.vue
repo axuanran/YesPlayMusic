@@ -289,10 +289,16 @@ export default {
     };
   },
   computed: {
-    ...mapState(['player', 'playerVersion', 'settings', 'data']),
+    ...mapState([
+      'player',
+      'playerVersion',
+      'playerProgressVersion',
+      'playerTrackVersion',
+      'settings',
+      'data',
+    ]),
     currentTrack() {
-      const version = this.playerVersion;
-      if (version < 0) return this.player.displayTrack;
+      void this.playerTrackVersion;
       return this.player.displayTrack;
     },
     currentTrackCoverUrl() {
@@ -305,7 +311,7 @@ export default {
       return track?.simpleSong?.ar || [];
     },
     resolvedCurrentTrack() {
-      void this.playerVersion;
+      void this.playerTrackVersion;
       return this.player.currentTrack;
     },
     volume: {
@@ -321,7 +327,7 @@ export default {
       return this.player.playing;
     },
     progressValue() {
-      void this.playerVersion;
+      void this.playerProgressVersion;
       if (this.isProgressDragging) return this.localProgress;
       return Math.min(
         this.player.progress || 0,
@@ -385,7 +391,7 @@ export default {
       return this.isElectron && this.settings.enableAmllWsProtocol === true;
     },
     amllTrackSignature() {
-      void this.playerVersion;
+      void this.playerTrackVersion;
       const track = this.player.currentTrack;
       return JSON.stringify({
         id: track?.id ?? '',

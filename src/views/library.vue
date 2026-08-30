@@ -324,6 +324,7 @@ export default {
       importingLocalFolders: false,
       removeLocalMusicListener: null,
       loadDataPromise: null,
+      loadedLibraryUserId: '',
     };
   },
   computed: {
@@ -400,6 +401,11 @@ export default {
       return [];
     },
   },
+  watch: {
+    'data.loginMode'(loginMode) {
+      if (!loginMode) this.loadedLibraryUserId = '';
+    },
+  },
   created() {
     this.loadLocalFolders();
     if (this.isElectron && window.electronAPI?.localMusic) {
@@ -431,29 +437,37 @@ export default {
     ...mapMutations(['updateModal', 'updateData']),
     async loadData() {
       if (!this.loggedIn || this.loadDataPromise) return this.loadDataPromise;
+      const userId = String(this.data.user?.userId || '');
+      if (this.loadedLibraryUserId === userId) return Promise.resolve();
       this.loadDataPromise = (async () => {
         try {
           await this.$store.dispatch('fetchLikedPlaylist');
-          await this.$store.dispatch('fetchLikedSongsWithDetails');
+          await Promise.all([
+            this.$store.dispatch('fetchLikedSongsWithDetails'),
+            this.$store.dispatch('fetchLikedSongs'),
+            this.$store.dispatch('fetchLikedAlbums'),
+            this.$store.dispatch('fetchLikedArtists'),
+            this.$store.dispatch('fetchLikedMVs'),
+            this.$store.dispatch('fetchCloudDisk'),
+            this.$store.dispatch('fetchPlayHistory'),
+          ]);
+          if (
+            this.loggedIn &&
+            String(this.data.user?.userId || '') === userId
+          ) {
+            this.loadedLibraryUserId = userId;
+          }
           NProgress.done();
           this.show = true;
           this.getRandomLyric();
         } catch (error) {
           NProgress.done();
           this.show = true;
-          console.error('[library] Failed to load liked songs', error);
+          console.error('[library] Failed to load Library data', error);
         } finally {
           this.loadDataPromise = null;
         }
       })();
-      Promise.resolve(this.$store.dispatch('fetchLikedSongs')).catch(error => {
-        console.error('[library] Failed to load liked song IDs', error);
-      });
-      this.$store.dispatch('fetchLikedAlbums');
-      this.$store.dispatch('fetchLikedArtists');
-      this.$store.dispatch('fetchLikedMVs');
-      this.$store.dispatch('fetchCloudDisk');
-      this.$store.dispatch('fetchPlayHistory');
       return this.loadDataPromise;
     },
     playLikedSongs() {

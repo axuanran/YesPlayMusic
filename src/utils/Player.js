@@ -26,10 +26,9 @@ const RuntimeAudioEngine = isCapacitor ? AndroidAudioEngine : AudioEngine;
 
 const PLAY_PAUSE_FADE_DURATION = 200;
 const PROGRESS_PERSIST_INTERVAL = 5000;
-const PROGRESS_UI_INTERVAL = 16;
-const LOW_PERFORMANCE_PROGRESS_UI_INTERVAL = 40;
+const PROGRESS_UI_INTERVAL = 1000;
 const PROGRESS_STORAGE_INTERVAL = 1000;
-const PROGRESS_IMMEDIATE_DELTA = 0.005;
+const SEMANTIC_PERSIST_DELAY = 150;
 const MEDIA_SESSION_POSITION_SYNC_INTERVAL = 5000;
 const STALL_RECOVERY_TIMEOUT = 12000;
 const STALL_RECOVERY_MIN_REMAINING = 3;
@@ -93,16 +92,6 @@ function getRuntimeStore() {
   return globalThis?.yesplaymusicStore || null;
 }
 
-function getProgressUiInterval() {
-  const settings = store.state.settings;
-  const mode =
-    settings.performanceMode ||
-    (settings.lowPerformanceMode ? 'balanced' : 'off');
-  if (mode === 'aggressive') return 100;
-  if (mode === 'balanced') return LOW_PERFORMANCE_PROGRESS_UI_INTERVAL;
-  return PROGRESS_UI_INTERVAL;
-}
-
 function createPendingTrack(id) {
   return {
     id,
@@ -160,6 +149,11 @@ export default class {
     this._lastMediaSessionPositionSyncAt = 0;
     this._progressSyncTimer = null;
     this._progressPersistTimer = null;
+    this._semanticPersistTimer = null;
+    this._persistenceErrorNotified = false;
+    this._playbackIntentToken = 0;
+    this._desiredPlaying = false;
+    this._playbackIntentPending = false;
     this._playNextList = []; // 当这个list不为空时，会优先播放这个list的歌
     this._queue = new PlayerQueue();
     this._resolver = new PlayerResolver({
@@ -195,7 +189,7 @@ export default class {
         player._syncProgress();
       },
       onLoadedMetadata: () => {
-        this._getReactiveSelf()._syncProgress();
+        this._getReactiveSelf()._syncProgress(true);
       },
       onCanPlay: token => {
         const player = this._getReactiveSelf();
@@ -301,6 +295,21 @@ export default class {
     Object.defineProperty(this, '_progressPersistTimer', {
       enumerable: false,
     });
+    Object.defineProperty(this, '_semanticPersistTimer', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_persistenceErrorNotified', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_playbackIntentToken', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_desiredPlaying', {
+      enumerable: false,
+    });
+    Object.defineProperty(this, '_playbackIntentPending', {
+      enumerable: false,
+    });
 
     // init
     this._init();
@@ -386,9 +395,11 @@ export default class {
       console.warn("repeatMode: invalid args, must be 'on' | 'off' | 'one'");
       return;
     }
+    const changed = this.repeatMode !== mode;
     this._queue.repeatMode = mode;
     this._exportQueueState();
     this.persist();
+    if (changed) getRuntimeStore()?.commit('bumpPlayerVersion');
     if (isCapacitor) this._cacheNextTrack();
   }
   get shuffle() {
@@ -400,6 +411,7 @@ export default class {
       console.warn('shuffle: invalid args, must be Boolean');
       return;
     }
+    const changed = this.shuffle !== shuffle;
     this._queue.shuffleEnabled = shuffle;
     if (shuffle) {
       this._shuffleTheList();
@@ -408,6 +420,7 @@ export default class {
     this.current = this.list.indexOf(this.currentTrackID);
     this._exportQueueState();
     this.persist();
+    if (changed) getRuntimeStore()?.commit('bumpPlayerVersion');
     if (isCapacitor) this._cacheNextTrack();
   }
   get reversed() {
@@ -419,24 +432,30 @@ export default class {
       console.warn('reversed: invalid args, must be Boolean');
       return;
     }
+    const changed = this.reversed !== reversed;
     this._queue.reversed = reversed;
     this._exportQueueState();
     this.persist();
+    if (changed) getRuntimeStore()?.commit('bumpPlayerVersion');
     if (isCapacitor) this._cacheNextTrack();
   }
   get volume() {
     return this._volume;
   }
   set volume(volume) {
+    const changed = this._volume !== volume;
     this._volume = volume;
     this._audio?.volume(volume);
     this.persist();
+    if (changed) getRuntimeStore()?.commit('bumpPlayerVersion');
   }
   get playbackRate() {
     return this._playbackRate;
   }
   set playbackRate(value) {
-    this._playbackRate = normalizePlaybackRate(value);
+    const playbackRate = normalizePlaybackRate(value);
+    const changed = this._playbackRate !== playbackRate;
+    this._playbackRate = playbackRate;
     this._audio?.playbackRate(this._playbackRate);
     if (this._enabled) this._updateMediaSessionPositionState();
     if (this._playing) {
@@ -444,6 +463,7 @@ export default class {
     }
     this.updateMprisState({ rate: this._playbackRate });
     this.persist();
+    if (changed) getRuntimeStore()?.commit('bumpPlayerVersion');
   }
   get list() {
     return (
@@ -512,7 +532,7 @@ export default class {
   set progress(value) {
     if (this._audio) {
       this._audio.seek(value);
-      this._syncProgress();
+      this._syncProgress(true);
       if (this._playing) {
         this._playDiscordPresence(
           this._currentTrack,
@@ -531,9 +551,41 @@ export default class {
     return store.state.liked.songs.includes(this.displayTrackID);
   }
 
+  _persistNow() {
+    const saved = this.saveSelfToLocalStorage();
+    let synced = true;
+    try {
+      this.sendSelfToIpcMain();
+    } catch (error) {
+      synced = false;
+      this._reportPersistenceError(error);
+    }
+    if (saved && synced) this._persistenceErrorNotified = false;
+    return saved && synced;
+  }
+
   persist() {
-    this.saveSelfToLocalStorage();
-    this.sendSelfToIpcMain();
+    clearTimeout(this._semanticPersistTimer);
+    this._semanticPersistTimer = setTimeout(() => {
+      this._semanticPersistTimer = null;
+      this._persistNow();
+    }, SEMANTIC_PERSIST_DELAY);
+  }
+
+  flushPersistence() {
+    clearTimeout(this._semanticPersistTimer);
+    clearTimeout(this._progressPersistTimer);
+    clearTimeout(this._progressSyncTimer);
+    this._semanticPersistTimer = null;
+    this._progressPersistTimer = null;
+    this._progressSyncTimer = null;
+    this._syncProgress(true);
+    clearTimeout(this._progressPersistTimer);
+    clearTimeout(this._progressSyncTimer);
+    this._progressPersistTimer = null;
+    this._progressSyncTimer = null;
+    const positionSaved = this._saveProgressPosition();
+    return this._persistNow() && positionSaved;
   }
 
   syncPlaybackState() {
@@ -546,6 +598,27 @@ export default class {
       this._progressPersistTimer = null;
       this.saveSelfToLocalStorage();
     }, PROGRESS_PERSIST_INTERVAL);
+  }
+
+  _saveProgressPosition() {
+    try {
+      const position = this._audio?.currentTime?.() ?? this._progress;
+      localStorage.setItem('playerCurrentTrackTime', position);
+      return true;
+    } catch (error) {
+      this._reportPersistenceError(error);
+      return false;
+    }
+  }
+
+  _reportPersistenceError(error) {
+    console.error('Failed to persist player state', error);
+    if (this._persistenceErrorNotified) return;
+    this._persistenceErrorNotified = true;
+    store.dispatch(
+      'showToast',
+      '播放器设置保存失败，当前设置已生效，但下次启动可能无法保留'
+    );
   }
 
   _guardNotPersonalFM() {
@@ -592,14 +665,16 @@ export default class {
     if (changed) {
       getRuntimeStore()?.commit('bumpPlayerVersion');
     }
-    if (isCreateTray) {
-      electronPlayer?.updateTrayPlayState(this._playing);
-    }
+
     this._updateMediaSessionPlaybackState();
     this._updateMediaSessionPositionState();
   }
   _syncNativePlaybackState() {
-    const isPlaying = this._audio?.playing?.() ?? false;
+    const actualPlaying = this._audio?.playing?.() ?? false;
+    const isPlaying = this._playbackIntentPending
+      ? this._desiredPlaying
+      : actualPlaying;
+    if (!this._playbackIntentPending) this._desiredPlaying = actualPlaying;
     if (isPlaying !== this._playing) {
       this._setPlaying(isPlaying);
     }
@@ -623,6 +698,7 @@ export default class {
     if (runtimeStore) {
       this.persist();
       runtimeStore.commit('bumpPlayerVersion');
+      runtimeStore.commit('bumpPlayerTrackVersion');
     }
     emitPlayerEvent(PLAYER_EVENTS.TRACK_CHANGE, { track });
   }
@@ -634,28 +710,23 @@ export default class {
         : createPendingTrack(trackId);
     this._isTrackPending = this._currentTrack?.id !== trackId;
     this._progress = 0;
-    getRuntimeStore()?.commit('bumpPlayerVersion');
+    const runtimeStore = getRuntimeStore();
+    runtimeStore?.commit('bumpPlayerVersion');
+    runtimeStore?.commit('bumpPlayerTrackVersion');
+    runtimeStore?.commit('bumpPlayerProgressVersion');
   }
   _syncProgress(force = false) {
     if (!this._audio) return;
     const now = Date.now();
-    const progressUiInterval = getProgressUiInterval();
-    const duration = this.currentTrackDuration;
-    const currentTime = this._audio.currentTime();
-    const nextProgress = Math.min(currentTime, duration);
-    const progressDelta = Math.abs(nextProgress - (this._progress || 0));
-
-    if (
-      !force &&
-      progressDelta < PROGRESS_IMMEDIATE_DELTA &&
-      now - this._lastProgressUiSyncAt < progressUiInterval
-    ) {
+    if (!force && now - this._lastProgressUiSyncAt < PROGRESS_UI_INTERVAL) {
       return;
     }
 
+    const duration = this.currentTrackDuration;
+    const currentTime = this._audio.currentTime();
     this._lastProgressUiSyncAt = now;
-    this._progress = nextProgress;
-    getRuntimeStore()?.commit('bumpPlayerVersion');
+    this._progress = Math.min(currentTime, duration);
+    getRuntimeStore()?.commit('bumpPlayerProgressVersion');
     if (
       force ||
       now - this._lastMediaSessionPositionSyncAt >=
@@ -667,7 +738,7 @@ export default class {
     if (this._progressSyncTimer === null) {
       this._progressSyncTimer = setTimeout(() => {
         this._progressSyncTimer = null;
-        localStorage.setItem('playerCurrentTrackTime', this._progress);
+        this._saveProgressPosition();
       }, PROGRESS_STORAGE_INTERVAL);
     }
     this._schedulePersist();
@@ -690,12 +761,12 @@ export default class {
       const player = this._getReactiveSelf();
       player._syncProgress();
       if (player.playing) {
-        player._progressFrame = setTimeout(tick, getProgressUiInterval());
+        player._progressFrame = setTimeout(tick, PROGRESS_UI_INTERVAL);
         return;
       }
       player._stopProgressLoop();
     };
-    this._progressFrame = setTimeout(tick, getProgressUiInterval());
+    this._progressFrame = setTimeout(tick, PROGRESS_UI_INTERVAL);
   }
   _stopProgressLoop() {
     if (this._progressFrame === null) return;
@@ -908,6 +979,11 @@ export default class {
     autoplay = true,
     ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK
   ) {
+    this._playbackIntentToken += 1;
+    this._playbackIntentPending = false;
+    this._desiredPlaying = false;
+    this._audio?.cancelFade?.();
+    this.flushPersistence();
     if (this._trackSwitchTimer !== null) {
       clearTimeout(this._trackSwitchTimer);
     }
@@ -1206,6 +1282,12 @@ export default class {
         reason === 'auto'
       );
     }
+    this._playbackIntentToken += 1;
+    this._playbackIntentPending = false;
+    this._desiredPlaying = this._audio?.playing?.() ?? false;
+    this._audio?.cancelFade?.();
+    this._setDisplayTrackTarget(mediaId);
+    this._syncProgress(true);
 
     this._trackRequestToken += 1;
     this._prefetchToken += 1;
@@ -1391,57 +1473,103 @@ export default class {
     return true;
   }
   saveSelfToLocalStorage() {
-    let player = {};
-    for (let [key, value] of Object.entries(this)) {
-      if (excludeSaveKeys.includes(key)) continue;
-      player[key] = value;
+    try {
+      const player = {};
+      for (const [key, value] of Object.entries(this)) {
+        if (excludeSaveKeys.includes(key)) continue;
+        player[key] = value;
+      }
+      localStorage.setItem('player', JSON.stringify(player));
+      return true;
+    } catch (error) {
+      this._reportPersistenceError(error);
+      return false;
     }
-
-    localStorage.setItem('player', JSON.stringify(player));
   }
 
   pause() {
+    const intentToken = ++this._playbackIntentToken;
+    this._desiredPlaying = false;
+    this._playbackIntentPending = true;
     this._clearStallRecoveryTimer();
     this._stallRecoveryToken += 1;
-    this._audio?.fade(this.volume, 0, PLAY_PAUSE_FADE_DURATION).then(() => {
-      this._audio?.pause();
-      this._setPlaying(false);
-      this._stopProgressLoop();
-      if (this._progressSyncTimer !== null) {
-        clearTimeout(this._progressSyncTimer);
-        this._progressSyncTimer = null;
-      }
-      if (this._progressPersistTimer !== null) {
-        clearTimeout(this._progressPersistTimer);
-        this._progressPersistTimer = null;
-      }
-      localStorage.setItem('playerCurrentTrackTime', this._progress);
-      this.saveSelfToLocalStorage();
-      setTitle(null);
-      this._pauseDiscordPresence(this._currentTrack);
-      emitPlayerEvent(PLAYER_EVENTS.PLAYBACK_PAUSE, {
-        track: this._currentTrack,
+    this._setPlaying(false);
+    this._stopProgressLoop();
+    this.flushPersistence();
+
+    Promise.resolve(this._audio?.fade(this.volume, 0, PLAY_PAUSE_FADE_DURATION))
+      .catch(error => {
+        console.warn('Failed to fade audio before pause', error);
+      })
+      .then(() => {
+        if (intentToken !== this._playbackIntentToken) return;
+        return this._audio?.pause();
+      })
+      .then(() => {
+        if (intentToken !== this._playbackIntentToken) return;
+        this._playbackIntentPending = false;
+        setTitle(null);
+        this._pauseDiscordPresence(this._currentTrack);
+        emitPlayerEvent(PLAYER_EVENTS.PLAYBACK_PAUSE, {
+          track: this._currentTrack,
+        });
+      })
+      .catch(error => {
+        if (intentToken !== this._playbackIntentToken) return;
+        this._playbackIntentPending = false;
+        this._desiredPlaying = true;
+        this._setPlaying(true);
+        this._startProgressLoop();
+        console.error('Failed to pause audio', error);
+        store.dispatch(
+          'showToast',
+          `暂停失败：${error?.message || String(error)}`
+        );
       });
-    });
   }
   play() {
+    if (
+      this._playbackIntentPending &&
+      !this._desiredPlaying &&
+      this._audio?.playing()
+    ) {
+      this._playbackIntentToken += 1;
+      this._desiredPlaying = true;
+      this._playbackIntentPending = false;
+      this._setPlaying(true);
+      this._startProgressLoop();
+      Promise.resolve(
+        this._audio.fade(0, this.volume, PLAY_PAUSE_FADE_DURATION)
+      ).catch(error => {
+        console.warn(
+          'Failed to restore audio fade after pause cancellation',
+          error
+        );
+      });
+      return;
+    }
     if (this._audio?.playing()) {
       this._syncNativePlaybackState();
       return;
     }
 
-    // 播放时确保开启player.
-    // 避免因"忘记设置"导致在播放时播放器不显示的Bug
+    const intentToken = ++this._playbackIntentToken;
+    this._desiredPlaying = true;
+    this._playbackIntentPending = true;
     this._enabled = true;
-    this._audio
-      ?.play()
+    this._setPlaying(true);
+    this._startProgressLoop();
+    Promise.resolve()
+      .then(() => this._audio?.play())
       .then(() => {
+        if (intentToken !== this._playbackIntentToken) return;
+        this._playbackIntentPending = false;
         this._recordClientPlayback();
-        return this._audio?.fade(0, this.volume, PLAY_PAUSE_FADE_DURATION);
-      })
-      .then(() => {
-        this._setPlaying(true);
-        this._startProgressLoop();
+        Promise.resolve(
+          this._audio?.fade(0, this.volume, PLAY_PAUSE_FADE_DURATION)
+        ).catch(error => {
+          console.warn('Failed to fade audio after play', error);
+        });
         emitPlayerEvent(PLAYER_EVENTS.PLAYBACK_PLAY, {
           track: this._currentTrack,
         });
@@ -1460,19 +1588,25 @@ export default class {
         }
       })
       .catch(error => {
-        // AbortError: play() interrupted by pause()/load() during track switch. Normal, not a failure.
+        if (intentToken !== this._playbackIntentToken) return;
+        this._playbackIntentPending = false;
+        this._desiredPlaying = false;
+        this._setPlaying(false);
+        this._stopProgressLoop();
         if (error?.name === 'AbortError') return;
-        if (error?.name === 'NotSupportedError') {
-          console.debug('[debug][Player.js] unsupported audio source', error);
-          return;
-        }
         console.error('Failed to play audio', error);
-        store.dispatch('showToast', `播放失败`);
+        store.dispatch(
+          'showToast',
+          `播放失败：${error?.message || String(error)}`
+        );
       });
   }
   playOrPause() {
     this._syncNativePlaybackState();
-    if (this._audio?.playing()) {
+    const shouldPause = this._playbackIntentPending
+      ? this._desiredPlaying
+      : this._audio?.playing();
+    if (shouldPause) {
       this.pause();
     } else {
       this.play();
@@ -1481,12 +1615,7 @@ export default class {
   seek(time = null, sendMpris = true) {
     if (time !== null) {
       this._audio?.seek(time);
-      this._syncProgress();
-      if (this._progressSyncTimer !== null) {
-        clearTimeout(this._progressSyncTimer);
-        this._progressSyncTimer = null;
-      }
-      localStorage.setItem('playerCurrentTrackTime', this._progress);
+      this._syncProgress(true);
       this._updateMediaSessionPositionState(
         this._audio?.currentTime?.() ?? this._progress
       );
@@ -1614,6 +1743,9 @@ export default class {
       playing: this.playing,
       likedCurrentTrack: liked,
     });
+    if (isCreateTray) {
+      electronPlayer?.updateTrayPlayState(this._playing);
+    }
     this.updateMprisState({
       loopStatus: this.repeatMode,
       playing: this.playing,

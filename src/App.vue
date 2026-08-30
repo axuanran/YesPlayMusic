@@ -5,6 +5,7 @@
       'user-select-none': userSelectNone,
       'performance-mode-balanced': performanceMode === 'balanced',
       'performance-mode-aggressive': performanceMode === 'aggressive',
+      'window-hidden': windowHidden,
     }"
   >
     <Scrollbar v-show="!showLyrics" ref="scrollbar" />
@@ -16,7 +17,7 @@
       @scroll.passive="handleScroll"
     >
       <router-view v-slot="{ Component }">
-        <keep-alive :include="keepAliveComponents">
+        <keep-alive :include="keepAliveComponents" :max="4">
           <component :is="Component" />
         </keep-alive>
       </router-view>
@@ -71,6 +72,7 @@ export default {
       isElectron,
       isTrackDownloadEnabled,
       userSelectNone: false,
+      windowHidden: document.visibilityState === 'hidden',
       removeDesktopLyricsSettingsListener: null,
       // keep-alive :include matches component name (PascalCase), not route name
       keepAliveComponents: [
@@ -130,19 +132,36 @@ export default {
     }
     window.addEventListener('keydown', this.handleKeydown);
     window.addEventListener('focus', this.syncPlaybackState);
-    document.addEventListener('visibilitychange', this.syncPlaybackState);
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    window.addEventListener('beforeunload', this.flushPlayerPersistence);
     this.fetchData();
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
     window.removeEventListener('focus', this.syncPlaybackState);
-    document.removeEventListener('visibilitychange', this.syncPlaybackState);
+    document.removeEventListener(
+      'visibilitychange',
+      this.handleVisibilityChange
+    );
+    window.removeEventListener('beforeunload', this.flushPlayerPersistence);
     this.removeDesktopLyricsSettingsListener?.();
   },
   methods: {
+    flushPlayerPersistence() {
+      this.player.flushPersistence?.();
+    },
+
     syncPlaybackState() {
       if (document.visibilityState === 'hidden') return;
       this.player.syncPlaybackState?.();
+    },
+    handleVisibilityChange() {
+      this.windowHidden = document.visibilityState === 'hidden';
+      if (this.windowHidden) {
+        this.flushPlayerPersistence();
+        return;
+      }
+      this.syncPlaybackState();
     },
     handleKeydown(e) {
       if (e.code === 'Space') {
@@ -157,12 +176,6 @@ export default {
       this.$store.dispatch('fetchLikedSongs');
       this.$store.dispatch('fetchLikedSongsWithDetails');
       this.$store.dispatch('fetchLikedPlaylist');
-      if (isAccountLoggedIn()) {
-        this.$store.dispatch('fetchLikedAlbums');
-        this.$store.dispatch('fetchLikedArtists');
-        this.$store.dispatch('fetchLikedMVs');
-        this.$store.dispatch('fetchCloudDisk');
-      }
     },
     handleScroll() {
       this.$refs.scrollbar?.handleScroll?.();
@@ -177,6 +190,12 @@ export default {
   transition:
     background-color 0.4s,
     color 0.4s;
+}
+
+#app.window-hidden *,
+#app.window-hidden *::before,
+#app.window-hidden *::after {
+  animation-play-state: paused !important;
 }
 
 main {

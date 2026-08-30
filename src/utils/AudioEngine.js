@@ -17,6 +17,7 @@ export default class AudioEngine {
     this.token = 0;
     this.audio = new Audio();
     this.audio.preload = 'auto';
+    this._fadeGeneration = 0;
     this.audio.crossOrigin = 'anonymous';
     this.audio.addEventListener('ended', () => onEnded?.(this.token));
     this.audio.addEventListener('timeupdate', () => onTimeUpdate?.(this.token));
@@ -40,6 +41,7 @@ export default class AudioEngine {
   }
 
   load(source, token = this.token + 1) {
+    this.cancelFade();
     this.token = token;
     this.audio.pause();
     this.audio.src = this._rewriteOuterUrl(source);
@@ -107,7 +109,13 @@ export default class AudioEngine {
     return this.audio.playbackRate;
   }
 
+  cancelFade() {
+    this._fadeGeneration += 1;
+  }
+
   async fade(from, to, duration = 0) {
+    this.cancelFade();
+    const generation = this._fadeGeneration;
     this.volume(from);
     if (duration <= 0) {
       this.volume(to);
@@ -120,11 +128,15 @@ export default class AudioEngine {
       const finish = () => {
         if (finished) return;
         finished = true;
-        this.volume(to);
+        if (generation === this._fadeGeneration) this.volume(to);
         resolve();
       };
       const step = now => {
         if (finished) return;
+        if (generation !== this._fadeGeneration) {
+          finish();
+          return;
+        }
         const progress = clamp((now - start) / duration, 0, 1);
         this.volume(from + (to - from) * progress);
         if (progress >= 1) {

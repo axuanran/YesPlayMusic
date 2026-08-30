@@ -215,6 +215,7 @@ export default class AndroidAudioEngine {
     this._duration = 0;
     this._volume = 1;
     this._playbackRate = 1;
+    this._fadeGeneration = 0;
     this._firstLoad = true;
     this._currentMediaId = '';
     this._currentSource = '';
@@ -297,6 +298,7 @@ export default class AndroidAudioEngine {
   }
 
   load(source, token = this.token + 1, track = {}) {
+    this.cancelFade();
     const reuseActiveSession = this._firstLoad;
     const reuseIfSame = this._firstLoad;
     const nativeTrack = toNativeTrack(track);
@@ -494,7 +496,13 @@ export default class AndroidAudioEngine {
     return this._playbackRate;
   }
 
+  cancelFade() {
+    this._fadeGeneration += 1;
+  }
+
   async fade(from, to, duration = 0) {
+    this.cancelFade();
+    const generation = this._fadeGeneration;
     this.volume(from);
     if (duration <= 0) {
       this.volume(to);
@@ -503,6 +511,10 @@ export default class AndroidAudioEngine {
     const start = performance.now();
     await new Promise(resolve => {
       const step = now => {
+        if (generation !== this._fadeGeneration) {
+          resolve();
+          return;
+        }
         const progress = clamp((now - start) / duration, 0, 1);
         this.volume(from + (to - from) * progress);
         if (progress >= 1) {

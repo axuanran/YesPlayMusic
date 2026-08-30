@@ -326,6 +326,10 @@ import {
   LYRIC_DISPLAY_MODE,
 } from '@/utils/lyricDisplayMode';
 import { isDesktopLyricPlaceholder } from '@/utils/desktopLyricsText';
+import {
+  findActiveLyricIndex,
+  getLyricsClockInterval,
+} from '@/utils/lyricsClock';
 import ButtonIcon from '@/components/ButtonIcon.vue';
 import { Vibrant } from 'node-vibrant/browser';
 import Color from 'color';
@@ -365,13 +369,20 @@ export default {
       isFullscreen: !!document.fullscreenElement,
       rightClickLyric: null,
       updateLyricsEdgeSpacerOnResize: null,
+      updateLyricsClockOnVisibility: null,
     };
   },
   computed: {
-    ...mapState(['player', 'playerVersion', 'settings', 'showLyrics']),
+    ...mapState([
+      'player',
+      'playerVersion',
+      'playerProgressVersion',
+      'playerTrackVersion',
+      'settings',
+      'showLyrics',
+    ]),
     currentTrack() {
-      const version = this.playerVersion;
-      if (version < 0) return this.player.currentTrack;
+      void this.playerTrackVersion;
       return this.player.currentTrack;
     },
     volume: {
@@ -391,7 +402,7 @@ export default {
     },
     progress: {
       get() {
-        void this.playerVersion;
+        void this.playerProgressVersion;
         return this.player.progress;
       },
       set(value) {
@@ -436,10 +447,11 @@ export default {
       );
     },
     desktopLyricsEnabled() {
-      return (
-        this.settings.desktopLyrics?.enabled === true ||
-        this.settings.enableDesktopLyrics === true
-      );
+      const desktopLyrics = this.settings.desktopLyrics;
+      if (typeof desktopLyrics?.enabled === 'boolean') {
+        return desktopLyrics.enabled === true && desktopLyrics.visible === true;
+      }
+      return this.settings.enableDesktopLyrics === true;
     },
     desktopLyricsPlayerState() {
       void this.playerVersion;
@@ -579,23 +591,21 @@ export default {
           this.syncCurrentLyricPosition(true);
           this.resumeLyricsAutoScroll();
         });
-        this.setLyricsInterval();
         this.$store.commit('enableScrolling', false);
       } else {
-        if (!this.desktopLyricsEnabled) clearInterval(this.lyricsInterval);
         clearTimeout(this.lyricsAutoScrollTimer);
         clearTimeout(this.lyricsAutoResumeTimer);
         this.$store.commit('enableScrolling', true);
       }
+      this.configureLyricsClock();
     },
     desktopLyricsEnabled(enabled) {
       if (enabled) {
-        this.setLyricsInterval();
         this.syncCurrentLyricPosition(true);
       } else {
         this.clearDesktopLyrics();
-        if (!this.showLyrics) clearInterval(this.lyricsInterval);
       }
+      this.configureLyricsClock();
     },
     desktopLyricsTranslationEnabled() {
       this.publishDesktopLyrics();
@@ -615,7 +625,12 @@ export default {
   },
   created() {
     this.getLyric();
-    if (this.desktopLyricsEnabled) this.setLyricsInterval();
+    this.configureLyricsClock();
+    this.updateLyricsClockOnVisibility = () => this.configureLyricsClock();
+    document.addEventListener(
+      'visibilitychange',
+      this.updateLyricsClockOnVisibility
+    );
     this.getCoverColor();
     this.initDate();
     document.addEventListener('keydown', e => {
@@ -640,6 +655,10 @@ export default {
     clearInterval(this.lyricsInterval);
     clearTimeout(this.lyricsAutoScrollTimer);
     clearTimeout(this.lyricsAutoResumeTimer);
+    document.removeEventListener(
+      'visibilitychange',
+      this.updateLyricsClockOnVisibility
+    );
     window.removeEventListener('resize', this.updateLyricsEdgeSpacerOnResize);
   },
   methods: {
@@ -849,23 +868,30 @@ export default {
         }
       }
     },
-    setLyricsInterval() {
+    configureLyricsClock() {
       clearInterval(this.lyricsInterval);
+      this.lyricsInterval = null;
+      const interval = getLyricsClockInterval({
+        showLyrics: this.showLyrics,
+        desktopLyricsEnabled: this.desktopLyricsEnabled,
+        documentHidden: document.hidden,
+      });
+      if (interval === null) return;
+
       this.lyricsInterval = setInterval(() => {
-        if (this.syncCurrentLyricPosition()) {
+        if (
+          this.syncCurrentLyricPosition() &&
+          this.showLyrics &&
+          !document.hidden
+        ) {
           this.scrollCurrentLyricIntoCenter();
         }
-      }, 50);
+      }, interval);
     },
     syncCurrentLyricPosition(force = false) {
       const progress = this.player.seek(null, false) ?? 0;
       const oldHighlightLyricIndex = this.highlightLyricIndex;
-      this.highlightLyricIndex = this.lyric.findIndex((l, index) => {
-        const nextLyric = this.lyric[index + 1];
-        return (
-          progress >= l.time && (nextLyric ? progress < nextLyric.time : true)
-        );
-      });
+      this.highlightLyricIndex = findActiveLyricIndex(this.lyric, progress);
       const lyricChanged =
         force || oldHighlightLyricIndex !== this.highlightLyricIndex;
       if (lyricChanged) this.publishDesktopLyrics();

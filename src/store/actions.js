@@ -13,6 +13,52 @@ import {
   cloudDisk,
   userAccount,
 } from '@/api/user';
+const libraryCollectionLoads = new Map();
+const loadedLibraryCollections = new Set();
+let libraryGeneration = 0;
+
+function createLibraryRequestGuard(state) {
+  const userId = String(state.data.user?.userId || '');
+  const generation = libraryGeneration;
+  return () =>
+    generation === libraryGeneration &&
+    String(state.data.user?.userId || '') === userId;
+}
+
+function fetchLibraryCollection({ state, commit }, { name, request }) {
+  if (!isAccountLoggedIn()) return Promise.resolve();
+  const userId = String(state.data.user?.userId || '');
+  const generation = libraryGeneration;
+  if (!userId) return Promise.resolve();
+  const cacheKey = `${userId}:${name}`;
+  if (loadedLibraryCollections.has(cacheKey)) return Promise.resolve();
+  if (libraryCollectionLoads.has(cacheKey)) {
+    return libraryCollectionLoads.get(cacheKey);
+  }
+
+  const load = Promise.resolve()
+    .then(request)
+    .then(result => {
+      if (
+        generation !== libraryGeneration ||
+        String(state.data.user?.userId || '') !== userId
+      ) {
+        return result;
+      }
+      if (result?.data !== undefined) {
+        commit('updateLikedXXX', { name, data: result.data });
+        loadedLibraryCollections.add(cacheKey);
+      }
+      return result;
+    })
+    .finally(() => {
+      if (libraryCollectionLoads.get(cacheKey) === load) {
+        libraryCollectionLoads.delete(cacheKey);
+      }
+    });
+  libraryCollectionLoads.set(cacheKey, load);
+  return load;
+}
 
 export default {
   showToast({ state, commit }, text) {
@@ -62,9 +108,10 @@ export default {
   },
   fetchLikedSongs: ({ state, commit }) => {
     if (!isLooseLoggedIn()) return;
+    const isCurrentRequest = createLibraryRequestGuard(state);
     if (isAccountLoggedIn()) {
       return userLikedSongsIDs(state.data.user.userId).then(result => {
-        if (result.ids) {
+        if (isCurrentRequest() && result.ids) {
           commit('updateLikedXXX', {
             name: 'songs',
             data: result.ids,
@@ -77,19 +124,17 @@ export default {
   },
   fetchLikedSongsWithDetails: ({ state, commit }) => {
     if (!state.data.likedSongPlaylistID) return Promise.resolve();
+    const isCurrentRequest = createLibraryRequestGuard(state);
     return getPlaylistDetail(state.data.likedSongPlaylistID, true).then(
       result => {
-        if (!result.playlist?.trackIds?.length) {
-          return new Promise(resolve => {
-            resolve();
-          });
-        }
+        if (!result.playlist?.trackIds?.length) return;
         return getTrackDetail(
           result.playlist.trackIds
             .slice(0, 12)
             .map(t => t.id)
             .join(',')
         ).then(result => {
+          if (!isCurrentRequest()) return;
           commit('updateLikedXXX', {
             name: 'songsWithDetails',
             data: result.songs,
@@ -100,12 +145,14 @@ export default {
   },
   fetchLikedPlaylist: ({ state, commit }) => {
     if (!isLooseLoggedIn()) return;
+    const isCurrentRequest = createLibraryRequestGuard(state);
     if (isAccountLoggedIn()) {
       return userPlaylist({
         uid: state.data.user?.userId,
         limit: 2000, // 最多只加载2000个歌单（等有用户反馈问题再修）
         timestamp: new Date().getTime(),
       }).then(result => {
+        if (!isCurrentRequest()) return [];
         const playlists = Array.isArray(result.playlist) ? result.playlist : [];
         commit('updateLikedXXX', {
           name: 'playlists',
@@ -124,57 +171,54 @@ export default {
       // TODO:搜索ID登录的用户
     }
   },
-  fetchLikedAlbums: ({ commit }) => {
-    if (!isAccountLoggedIn()) return;
-    return likedAlbums({ limit: 2000 }).then(result => {
-      if (result.data) {
-        commit('updateLikedXXX', {
-          name: 'albums',
-          data: result.data,
-        });
-      }
-    });
-  },
-  fetchLikedArtists: ({ commit }) => {
-    if (!isAccountLoggedIn()) return;
-    return likedArtists({ limit: 2000 }).then(result => {
-      if (result.data) {
-        commit('updateLikedXXX', {
-          name: 'artists',
-          data: result.data,
-        });
-      }
-    });
-  },
-  fetchLikedMVs: ({ commit }) => {
-    if (!isAccountLoggedIn()) return;
-    return likedMVs({ limit: 1000 }).then(result => {
-      if (result.data) {
-        commit('updateLikedXXX', {
-          name: 'mvs',
-          data: result.data,
-        });
-      }
-    });
-  },
-  fetchCloudDisk: ({ commit }) => {
-    if (!isAccountLoggedIn()) return;
-    // FIXME: #1242
-    return cloudDisk({ limit: 1000 }).then(result => {
-      if (result.data) {
-        commit('updateLikedXXX', {
-          name: 'cloudDisk',
-          data: result.data,
-        });
-      }
-    });
+  fetchLikedAlbums: context =>
+    fetchLibraryCollection(context, {
+      name: 'albums',
+      request: () => likedAlbums({ limit: 2000 }),
+    }),
+  fetchLikedArtists: context =>
+    fetchLibraryCollection(context, {
+      name: 'artists',
+      request: () => likedArtists({ limit: 2000 }),
+    }),
+  fetchLikedMVs: context =>
+    fetchLibraryCollection(context, {
+      name: 'mvs',
+      request: () => likedMVs({ limit: 1000 }),
+    }),
+  fetchCloudDisk: context =>
+    fetchLibraryCollection(context, {
+      name: 'cloudDisk',
+      request: () => cloudDisk({ limit: 1000 }),
+    }),
+  resetLibraryData: ({ commit }) => {
+    libraryCollectionLoads.clear();
+    loadedLibraryCollections.clear();
+    libraryGeneration += 1;
+    for (const name of [
+      'songs',
+      'songsWithDetails',
+      'playlists',
+      'albums',
+      'artists',
+      'mvs',
+      'cloudDisk',
+      'playHistory',
+    ]) {
+      commit('updateLikedXXX', {
+        name,
+        data: name === 'playHistory' ? {} : [],
+      });
+    }
   },
   fetchPlayHistory: ({ state, commit }) => {
     if (!isAccountLoggedIn()) return;
+    const isCurrentRequest = createLibraryRequestGuard(state);
     return Promise.all([
       userPlayHistory({ uid: state.data.user?.userId, type: 0 }),
       userPlayHistory({ uid: state.data.user?.userId, type: 1 }),
     ]).then(result => {
+      if (!isCurrentRequest()) return;
       const data = {};
       const dataType = { 0: 'allData', 1: 'weekData' };
       if (result[0] && result[1]) {
@@ -188,7 +232,7 @@ export default {
         }
         commit('updateLikedXXX', {
           name: 'playHistory',
-          data: data,
+          data,
         });
       }
     });

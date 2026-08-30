@@ -345,7 +345,7 @@ export default {
       );
     },
     currentTrackID() {
-      void this.$store.state.playerVersion;
+      void this.$store.state.playerTrackVersion;
       return this.player.displayTrackID;
     },
     isCurrentPlaylist() {

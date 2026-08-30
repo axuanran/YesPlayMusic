@@ -17,6 +17,7 @@ export function getSendSettingsPlugin() {
     const changedKeys = new Set();
     let latestSettings = null;
     let flushScheduled = false;
+    let persistenceErrorNotified = false;
 
     const flush = () => {
       flushScheduled = false;
@@ -30,10 +31,30 @@ export function getSendSettingsPlugin() {
       }
       changedKeys.clear();
       const updateSettings = window.electronAPI?.settings?.updateSettings;
-      if (typeof updateSettings === 'function') {
+      if (typeof updateSettings !== 'function') return;
+      try {
         updateSettings(patch);
+        persistenceErrorNotified = false;
+      } catch (error) {
+        console.error('Failed to persist Electron settings', error);
+        if (!persistenceErrorNotified) {
+          persistenceErrorNotified = true;
+          store.dispatch?.(
+            'showToast',
+            '设置同步失败，当前更改已生效，但下次启动可能无法保留'
+          );
+        }
       }
     };
+    const flushWhenHidden = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', flushWhenHidden);
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener?.('beforeunload', flush);
+    }
 
     store.subscribe((mutation, state) => {
       if (mutation.type !== 'updateSettings') return;

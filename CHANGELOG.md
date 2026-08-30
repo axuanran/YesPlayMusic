@@ -15,6 +15,12 @@ All notable changes to this project will be documented in this file.
 - Reduced settings-update IPC work by sending coalesced key patches and running only affected main-process side effects.
 - Made cached-track listing independent from cache byte scans and reused initialized cache totals.
 - Improved navbar search with route synchronization, trimming, clear and Escape actions, and form semantics.
+- Split playback progress, track, and semantic reactivity so global progress updates run at 1 Hz without invalidating track rows.
+- Made lyric synchronization visibility-aware and disabled desktop lyrics by default for new users.
+- Applied playback controls immediately without waiting for audio fades, while canceling stale intents and rolling back device failures.
+- Coalesced player and settings persistence, flushed final state on lifecycle boundaries, and reported storage failures without rolling back effective state.
+- Deferred context-menu measurement and expensive cover effects until needed.
+- Limited route keep-alive caching, loaded Library collections once per account with stale-response guards, and paused hidden-window animations.
 
 ### Fixed
 

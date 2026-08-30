@@ -102,4 +102,10 @@ export default {
   bumpPlayerVersion(state) {
     state.playerVersion += 1;
   },
+  bumpPlayerProgressVersion(state) {
+    state.playerProgressVersion += 1;
+  },
+  bumpPlayerTrackVersion(state) {
+    state.playerTrackVersion += 1;
+  },
 };

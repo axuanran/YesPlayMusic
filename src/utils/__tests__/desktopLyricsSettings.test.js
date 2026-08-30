@@ -6,14 +6,14 @@ import {
 } from '../desktopLyricsSettings.js';
 
 describe('desktop lyrics settings', () => {
-  it('starts enabled, locked, and fully transparent', () => {
+  it('starts disabled, locked, and fully transparent', () => {
     expect(normalizeDesktopLyricsSettings()).toMatchObject({
       backgroundOpacity: 0,
-      enabled: true,
+      enabled: false,
       locked: true,
       overflowMode: 'ellipsis',
       positionPreset: 'custom',
-      visible: true,
+      visible: false,
     });
   });
 

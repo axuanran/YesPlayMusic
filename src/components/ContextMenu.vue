@@ -37,6 +37,7 @@ export default {
       left: '0px',
       maxHeight: 'none',
       maxWidth: '240px',
+      positioned: false,
       resizeObserver: null,
       repositionFrame: null,
     };
@@ -48,6 +49,7 @@ export default {
         left: this.left,
         maxHeight: this.maxHeight,
         maxWidth: this.maxWidth,
+        visibility: this.positioned ? 'visible' : 'hidden',
       };
     },
   },
@@ -105,6 +107,7 @@ export default {
       this.left = `${layout.left}px`;
       this.maxHeight = `${layout.maxHeight}px`;
       this.maxWidth = `${Math.min(layout.maxWidth, 240)}px`;
+      this.positioned = true;
     },
 
     schedulePositionUpdate() {
@@ -169,11 +172,20 @@ export default {
       e.preventDefault();
       this.anchorX = e.clientX ?? e.x;
       this.anchorY = e.clientY ?? e.y;
+      this.top = `${this.anchorY}px`;
+      this.left = `${this.anchorX}px`;
+      this.maxHeight = 'none';
+      this.maxWidth = '240px';
+      this.positioned = false;
       this.showMenu = true;
       this.$nextTick(() => {
-        this.setMenu();
-        this.startPositionTracking();
-        this.$refs.menu?.focus({ preventScroll: true });
+        this.repositionFrame = requestAnimationFrame(() => {
+          this.repositionFrame = null;
+          if (!this.showMenu) return;
+          this.setMenu();
+          this.$refs.menu?.focus({ preventScroll: true });
+          this.startPositionTracking();
+        });
       });
     },
   },

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
   const listeners = new Map();
@@ -52,6 +52,10 @@ describe('AndroidAudioEngine', () => {
     } catch {
       // Some non-browser test environments do not expose localStorage.
     }
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('loads metadata and cache policy before starting native playback', async () => {
@@ -436,5 +440,21 @@ describe('AndroidAudioEngine', () => {
       }),
       7
     );
+  });
+  it('prevents a stale fade from overwriting a newer volume intent', async () => {
+    const animationFrames = [];
+    vi.stubGlobal('requestAnimationFrame', callback => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+    vi.spyOn(performance, 'now').mockReturnValue(0);
+    const engine = new AndroidAudioEngine();
+    const staleFade = engine.fade(1, 0, 200);
+
+    await engine.fade(0, 0.8, 0);
+    animationFrames.shift()(200);
+    await staleFade;
+
+    expect(engine.volume()).toBe(0.8);
   });
 });

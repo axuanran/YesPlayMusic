@@ -195,23 +195,22 @@ img {
 }
 .play-button {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  color: white;
-  backdrop-filter: blur(8px);
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.08);
   height: 22%;
   width: 22%;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
   border-radius: 50%;
+  color: white;
+  background: transparent;
   cursor: default;
   opacity: 0;
+  pointer-events: auto;
   transform: scale(0.96);
   transition:
     opacity 0.2s,
     transform 0.2s,
     background 0.2s;
-  pointer-events: auto;
   .svg-icon {
     width: 50%;
     margin: {
@@ -227,29 +226,33 @@ img {
 }
 
 .cover-hover:hover .play-button,
-.cover-hover:focus-within .play-button {
+.cover-hover:focus-within .play-button,
+.cover-hover:active .play-button {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
   opacity: 1;
   transform: scale(1);
 }
 
 .shadow {
   position: absolute;
+  z-index: -1;
   top: 12px;
-  height: 100%;
+  display: none;
   width: 100%;
+  height: 100%;
+  border-radius: 0.75em;
+  background-size: cover;
   filter: blur(16px) opacity(0.6);
   transform: scale(0.92, 0.96);
-  z-index: -1;
-  background-size: cover;
-  border-radius: 0.75em;
   aspect-ratio: 1 / 1;
-  opacity: 0;
-  transition: opacity 0.3s;
 }
 
 .cover-hover:hover .shadow,
 .cover-hover:focus-within .shadow,
+.cover-hover:active .shadow,
 .shadow.always-show-shadow {
-  opacity: 1;
+  display: block;
 }
 </style>

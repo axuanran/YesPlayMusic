@@ -101,6 +101,7 @@ export function doLogout() {
   store.commit('updateData', { key: 'user', value: {} });
   // 更新状态仓库中的登录状态
   store.commit('updateData', { key: 'loginMode', value: null });
+  store.dispatch('resetLibraryData');
   // 更新状态仓库中的喜欢列表
   store.commit('updateData', { key: 'likedSongPlaylistID', value: undefined });
 }
