@@ -4,6 +4,9 @@ import store from '@/store';
 import { isElectron } from '@/utils/env';
 import { createTrackCacheManager } from '@/utils/trackCacheManager';
 import { toNumericDatabaseKey } from '@/utils/dbCacheKey';
+import { scheduleWhenIdle } from '@/utils/scheduleWhenIdle';
+import { mapCachedTrackDetails } from '@/utils/cachedTrackDetails';
+import { createCoverWarmup } from '@/utils/coverWarmup';
 // import pkg from "../../package.json";
 
 const db = new Dexie('yesplaymusic');
@@ -34,6 +37,7 @@ db.version(1).stores({
 const logCacheError = (operation, error) => {
   console.error(`[track-cache] ${operation} failed`, error);
 };
+const warmCoverCache = createCoverWarmup(url => axios.get(url));
 
 const trackCacheManager = createTrackCacheManager({
   table: db.trackSources,
@@ -86,7 +90,7 @@ async function initTracksCacheBytes() {
   }
 }
 
-setTimeout(initTracksCacheBytes, 0);
+scheduleWhenIdle(initTracksCacheBytes);
 
 export function enforceTrackCacheLimit(limitMiB) {
   return trackCacheManager.enforceLimit(limitMiB);
@@ -103,15 +107,9 @@ export function cacheTrackSource(trackInfo, url, bitRate, from = 'netease') {
     'Unknown';
   let cover = trackInfo.al?.picUrl || trackInfo.album?.picUrl || '';
   if (cover.startsWith('http:')) cover = `https:${cover.slice(5)}`;
-  const cacheCover = size => {
-    if (!cover) return;
-    axios.get(`${cover}?param=${size}y${size}`).catch(error => {
-      logCacheError(`cover ${size}px request`, error);
-    });
-  };
-  cacheCover(512);
-  cacheCover(224);
-  cacheCover(1024);
+  void warmCoverCache(cover).catch(error => {
+    logCacheError('cover warmup request', error);
+  });
   return axios
     .get(url, {
       responseType: 'arraybuffer',
@@ -146,32 +144,20 @@ export function getTrackSource(id) {
 }
 
 export function cacheTrackDetail(track, privileges) {
+  const key = toNumericDatabaseKey(track.id);
+  if (key === null) return;
   db.trackDetail.put({
-    id: track.id,
+    id: key,
     detail: track,
-    privileges: privileges,
+    privileges,
     updateTime: new Date().getTime(),
   });
 }
 
 export function getTrackDetailFromCache(ids) {
-  return db.trackDetail
-    .filter(track => {
-      return ids.includes(String(track.id));
-    })
-    .toArray()
-    .then(tracks => {
-      const result = { songs: [], privileges: [] };
-      ids.map(id => {
-        const one = tracks.find(t => String(t.id) === id);
-        result.songs.push(one?.detail);
-        result.privileges.push(one?.privileges);
-      });
-      if (result.songs.includes(undefined)) {
-        return undefined;
-      }
-      return result;
-    });
+  const keys = ids.map(toNumericDatabaseKey);
+  if (keys.some(key => key === null)) return Promise.resolve(undefined);
+  return db.trackDetail.bulkGet(keys).then(mapCachedTrackDetails);
 }
 
 export function cacheLyric(id, lyrics) {

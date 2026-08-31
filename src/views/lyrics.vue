@@ -397,8 +397,8 @@ import {
   getLyricsClockInterval,
 } from '@/utils/lyricsClock';
 import ButtonIcon from '@/components/ButtonIcon.vue';
-import { Vibrant } from 'node-vibrant/browser';
-import Color from 'color';
+import { loadCoverGradient } from '@/utils/coverGradient';
+import { createRequestGeneration } from '@/utils/requestGeneration';
 import { isAccountLoggedIn } from '@/utils/auth';
 import { hasListSource, getListSourcePath } from '@/utils/playList';
 import locale from '@/locale';
@@ -432,11 +432,14 @@ export default {
       showLyricsBehaviorPanel: false,
       minimize: true,
       background: '',
+      coverColorRequests: createRequestGeneration(),
       date: this.formatTime(new Date()),
       isFullscreen: !!document.fullscreenElement,
       rightClickLyric: null,
       updateLyricsEdgeSpacerOnResize: null,
       updateLyricsClockOnVisibility: null,
+      handleLyricsFullscreenShortcut: null,
+      handleLyricsFullscreenChange: null,
     };
   },
   computed: {
@@ -669,7 +672,11 @@ export default {
       Promise.resolve(this.getLyric()).then(() => {
         this.$nextTick(() => this.syncCurrentLyricPosition(true));
       });
-      this.getCoverColor();
+      if (this.showLyrics) {
+        this.getCoverColor();
+      } else {
+        this.coverColorRequests.invalidate();
+      }
     },
     showLyrics(show) {
       if (show) {
@@ -679,8 +686,10 @@ export default {
           this.syncCurrentLyricPosition(true);
           if (this.lyricsAutoFollowEnabled) this.resumeLyricsAutoScroll();
         });
+        this.getCoverColor();
         this.$store.commit('enableScrolling', false);
       } else {
+        this.coverColorRequests.invalidate();
         clearTimeout(this.lyricsAutoScrollTimer);
         clearTimeout(this.lyricsAutoResumeTimer);
         this.showLyricsBehaviorPanel = false;
@@ -720,17 +729,21 @@ export default {
       'visibilitychange',
       this.updateLyricsClockOnVisibility
     );
-    this.getCoverColor();
+    if (this.showLyrics) this.getCoverColor();
     this.initDate();
-    document.addEventListener('keydown', e => {
-      if (e.key === 'F11') {
-        e.preventDefault();
-        this.fullscreen();
-      }
-    });
-    document.addEventListener('fullscreenchange', () => {
+    this.handleLyricsFullscreenShortcut = event => {
+      if (event.key !== 'F11') return;
+      event.preventDefault();
+      this.fullscreen();
+    };
+    this.handleLyricsFullscreenChange = () => {
       this.isFullscreen = !!document.fullscreenElement;
-    });
+    };
+    document.addEventListener('keydown', this.handleLyricsFullscreenShortcut);
+    document.addEventListener(
+      'fullscreenchange',
+      this.handleLyricsFullscreenChange
+    );
     this.updateLyricsEdgeSpacerOnResize = () => this.updateLyricsEdgeSpacer();
     window.addEventListener('resize', this.updateLyricsEdgeSpacerOnResize);
     document.addEventListener(
@@ -745,6 +758,7 @@ export default {
     }
   },
   unmounted() {
+    this.coverColorRequests.invalidate();
     this.clearDesktopLyrics();
     clearInterval(this.lyricsInterval);
     clearTimeout(this.lyricsAutoScrollTimer);
@@ -758,6 +772,14 @@ export default {
       this.handleLyricsToolsOutsidePointer
     );
     document.removeEventListener('keydown', this.handleLyricsToolsKeydown);
+    document.removeEventListener(
+      'keydown',
+      this.handleLyricsFullscreenShortcut
+    );
+    document.removeEventListener(
+      'fullscreenchange',
+      this.handleLyricsFullscreenChange
+    );
     window.removeEventListener('resize', this.updateLyricsEdgeSpacerOnResize);
   },
   methods: {
@@ -1229,6 +1251,7 @@ export default {
       this.player.switchShuffle();
     },
     async getCoverColor() {
+      const requestId = this.coverColorRequests.next();
       if (this.settings.lyricsBackground !== true) return;
       let picUrl = resolveCoverImageUrl(this.currentTrack);
       if (this.currentTrack?.local && window.electronAPI?.localMusic) {
@@ -1236,28 +1259,29 @@ export default {
           const currentTrack = await window.electronAPI.localMusic.get(
             this.currentTrack.id
           );
+          if (!this.coverColorRequests.isCurrent(requestId)) return;
           picUrl = resolveCoverImageUrl(currentTrack) || picUrl;
         } catch {
           // Keep the existing artwork URL if the desktop service is restarting.
         }
       }
       if (!picUrl) {
-        this.background = '';
+        if (this.coverColorRequests.isCurrent(requestId)) this.background = '';
         return;
       }
-      const cover = createSizedCoverUrl(picUrl, 256);
-      Vibrant.from(cover, { colorCount: 1 })
-        .getPalette()
-        .then(palette => {
-          const originColor = Color.rgb(palette.DarkMuted._rgb);
-          const color = originColor.darken(0.1).rgb().string();
-          const color2 = originColor.lighten(0.28).rotate(-30).rgb().string();
-          this.background = `linear-gradient(to top left, ${color}, ${color2})`;
-        })
-        .catch(error => {
-          this.background = '';
-          console.warn('Failed to load lyrics cover colors', error);
-        });
+      try {
+        const background = await loadCoverGradient(
+          createSizedCoverUrl(picUrl, 256),
+          'darkMuted'
+        );
+        if (this.coverColorRequests.isCurrent(requestId)) {
+          this.background = background;
+        }
+      } catch (error) {
+        if (!this.coverColorRequests.isCurrent(requestId)) return;
+        this.background = '';
+        console.warn('Failed to load lyrics cover colors', error);
+      }
     },
     hasList() {
       return hasListSource();

@@ -212,7 +212,8 @@ export default {
   beforeRouteUpdate(to, from, next) {
     this.artist.img1v1Url =
       'https://p1.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg';
-    this.loadData(to.params.id, next);
+    this.loadData(to.params.id);
+    next();
   },
   data() {
     return {
@@ -237,6 +238,8 @@ export default {
       hasMoreMV: false,
       similarArtists: [],
       mvHover: false,
+      loadRequestId: 0,
+      progressTimer: null,
     };
   },
   computed: {
@@ -268,41 +271,110 @@ export default {
       this.$parent?.$refs?.scrollbar?.restorePosition?.();
     }
   },
+  deactivated() {
+    clearTimeout(this.progressTimer);
+    this.progressTimer = null;
+    NProgress.done();
+  },
+  beforeUnmount() {
+    this.loadRequestId += 1;
+    clearTimeout(this.progressTimer);
+    NProgress.done();
+  },
   methods: {
     ...mapMutations(['appendTrackToPlayerList']),
     ...mapActions(['playFirstTrackOnList', 'playTrackOnListByID', 'showToast']),
-    loadData(id, next = undefined) {
-      setTimeout(() => {
-        if (!this.show) NProgress.start();
+    loadData(id) {
+      const requestId = ++this.loadRequestId;
+      clearTimeout(this.progressTimer);
+      this.progressTimer = setTimeout(() => {
+        if (requestId === this.loadRequestId && !this.show) NProgress.start();
       }, 1000);
       this.show = false;
+      this.showMorePopTracks = false;
+      this.popularTracks = [];
+      this.albumsData = [];
+      this.mvs = [];
+      this.hasMoreMV = false;
+      this.similarArtists = [];
       this.$parent?.$refs?.main?.scrollTo?.({ top: 0 });
-      getArtist(id).then(data => {
-        this.artist = data.artist;
-        this.setPopularTracks(data.hotSongs);
-        if (next !== undefined) next();
-        NProgress.done();
-        this.show = true;
-      });
-      getArtistAlbum({ id: id, limit: 200 }).then(data => {
-        this.albumsData = data.hotAlbums;
-        this.latestRelease = data.hotAlbums[0];
-      });
-      artistMv({ id }).then(data => {
-        this.mvs = data.mvs;
-        this.hasMoreMV = data.hasMore;
-      });
-      if (isAccountLoggedIn()) {
-        similarArtists(id).then(data => {
-          this.similarArtists = data.artists;
+
+      const apply = (promise, callback, label) =>
+        promise
+          .then(data => {
+            if (requestId === this.loadRequestId) callback(data);
+          })
+          .catch(error => {
+            if (requestId === this.loadRequestId) {
+              console.error(`[artist] Failed to load ${label}`, error);
+            }
+          });
+
+      const primaryRequest = getArtist(id)
+        .then(data => {
+          if (requestId !== this.loadRequestId) return;
+          this.artist = data.artist;
+          this.setPopularTracks(data.hotSongs, requestId);
+        })
+        .catch(error => {
+          if (requestId !== this.loadRequestId) return;
+          console.error('[artist] Failed to load artist', error);
+          this.showToast(this.$t('artist.loadFailed'));
+        })
+        .finally(() => {
+          if (requestId !== this.loadRequestId) return;
+          clearTimeout(this.progressTimer);
+          this.progressTimer = null;
+          NProgress.done();
+          this.show = true;
         });
+
+      apply(
+        getArtistAlbum({ id, limit: 200 }),
+        data => {
+          this.albumsData = data.hotAlbums;
+          this.latestRelease = data.hotAlbums[0];
+        },
+        'albums'
+      );
+      apply(
+        artistMv({ id }),
+        data => {
+          this.mvs = data.mvs;
+          this.hasMoreMV = data.hasMore;
+        },
+        'videos'
+      );
+      if (isAccountLoggedIn()) {
+        apply(
+          similarArtists(id),
+          data => {
+            this.similarArtists = data.artists;
+          },
+          'similar artists'
+        );
+      } else {
+        this.similarArtists = [];
       }
+      return primaryRequest;
     },
-    setPopularTracks(hotSongs) {
-      const trackIDs = hotSongs.map(t => t.id);
-      getTrackDetail(trackIDs.join(',')).then(data => {
-        this.popularTracks = data.songs;
-      });
+    setPopularTracks(hotSongs, requestId = this.loadRequestId) {
+      const trackIDs = hotSongs.map(track => track.id);
+      if (trackIDs.length === 0) {
+        this.popularTracks = [];
+        return Promise.resolve();
+      }
+      return getTrackDetail(trackIDs.join(','))
+        .then(data => {
+          if (requestId === this.loadRequestId) {
+            this.popularTracks = data.songs;
+          }
+        })
+        .catch(error => {
+          if (requestId === this.loadRequestId) {
+            console.error('[artist] Failed to load track details', error);
+          }
+        });
     },
     goToAlbum(id) {
       this.$router.push({

@@ -26,21 +26,26 @@
       <Player v-if="enablePlayer" v-show="showPlayer" ref="player" />
     </transition>
     <Toast />
-    <ModalAddTrackToPlaylist v-if="isAccountLoggedIn" />
-    <ModalNewPlaylist v-if="isAccountLoggedIn" />
-    <ModalDownloadTrack v-if="isTrackDownloadEnabled" />
-    <ModalCachedTracks v-if="isElectron || isCapacitor" />
-    <transition v-if="enablePlayer" name="slide-up">
+    <ModalAddTrackToPlaylist
+      v-if="isAccountLoggedIn && modals.addTrackToPlaylistModal.show"
+    />
+    <ModalNewPlaylist
+      v-if="isAccountLoggedIn && modals.newPlaylistModal.show"
+    />
+    <ModalDownloadTrack
+      v-if="isTrackDownloadEnabled && modals.downloadTrackModal.show"
+    />
+    <ModalCachedTracks
+      v-if="(isElectron || isCapacitor) && modals.cachedTracksModal.show"
+    />
+    <transition v-if="enablePlayer && lyricsMounted" name="slide-up">
       <Lyrics v-show="showLyrics" />
     </transition>
   </div>
 </template>
 
 <script>
-import ModalAddTrackToPlaylist from './components/ModalAddTrackToPlaylist.vue';
-import ModalNewPlaylist from './components/ModalNewPlaylist.vue';
-import ModalDownloadTrack from './components/ModalDownloadTrack.vue';
-import ModalCachedTracks from './components/ModalCachedTracks.vue';
+import { defineAsyncComponent } from 'vue';
 import Scrollbar from './components/Scrollbar.vue';
 import Navbar from './components/Navbar.vue';
 import MobileNavigation from './components/MobileNavigation.vue';
@@ -48,9 +53,24 @@ import Player from './components/Player.vue';
 import Toast from './components/Toast.vue';
 import { ipcRenderer } from './electron/ipcRenderer';
 import { isAccountLoggedIn, isLooseLoggedIn } from '@/utils/auth';
-import Lyrics from './views/lyrics.vue';
 import { mapState } from 'vuex';
 import { isCapacitor, isElectron, isTrackDownloadEnabled } from '@/utils/env';
+import { scheduleAfterFirstPaint } from '@/utils/afterFirstPaint';
+import { shouldHandlePlaybackSpace } from '@/utils/keyboardShortcuts';
+
+const ModalAddTrackToPlaylist = defineAsyncComponent(
+  () => import('./components/ModalAddTrackToPlaylist.vue')
+);
+const ModalNewPlaylist = defineAsyncComponent(
+  () => import('./components/ModalNewPlaylist.vue')
+);
+const ModalDownloadTrack = defineAsyncComponent(
+  () => import('./components/ModalDownloadTrack.vue')
+);
+const ModalCachedTracks = defineAsyncComponent(
+  () => import('./components/ModalCachedTracks.vue')
+);
+const Lyrics = defineAsyncComponent(() => import('./views/lyrics.vue'));
 
 export default {
   name: 'App',
@@ -74,6 +94,8 @@ export default {
       userSelectNone: false,
       windowHidden: document.visibilityState === 'hidden',
       removeDesktopLyricsSettingsListener: null,
+      cancelStartupDataLoad: null,
+      lyricsMounted: false,
       // keep-alive :include matches component name (PascalCase), not route name
       keepAliveComponents: [
         'Home',
@@ -89,7 +111,13 @@ export default {
     };
   },
   computed: {
-    ...mapState(['showLyrics', 'settings', 'player', 'enableScrolling']),
+    ...mapState([
+      'showLyrics',
+      'settings',
+      'player',
+      'enableScrolling',
+      'modals',
+    ]),
     performanceMode() {
       if (this.settings.performanceMode) return this.settings.performanceMode;
       return this.settings.lowPerformanceMode ? 'balanced' : 'off';
@@ -115,6 +143,14 @@ export default {
       return this.$route.name !== 'lastfmCallback';
     },
   },
+  watch: {
+    showLyrics: {
+      immediate: true,
+      handler(value) {
+        if (value) this.lyricsMounted = true;
+      },
+    },
+  },
   created() {
     if (this.isElectron) {
       ipcRenderer(this);
@@ -134,7 +170,9 @@ export default {
     window.addEventListener('focus', this.syncPlaybackState);
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     window.addEventListener('beforeunload', this.flushPlayerPersistence);
-    this.fetchData();
+  },
+  mounted() {
+    this.cancelStartupDataLoad = scheduleAfterFirstPaint(this.fetchData);
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
@@ -144,6 +182,7 @@ export default {
       this.handleVisibilityChange
     );
     window.removeEventListener('beforeunload', this.flushPlayerPersistence);
+    this.cancelStartupDataLoad?.();
     this.removeDesktopLyricsSettingsListener?.();
   },
   methods: {
@@ -163,13 +202,10 @@ export default {
       }
       this.syncPlaybackState();
     },
-    handleKeydown(e) {
-      if (e.code === 'Space') {
-        if (e.target.tagName === 'INPUT') return false;
-        if (this.$route.name === 'mv') return false;
-        e.preventDefault();
-        this.player.playOrPause();
-      }
+    handleKeydown(event) {
+      if (!shouldHandlePlaybackSpace(event, this.$route.name)) return;
+      event.preventDefault();
+      this.player.playOrPause();
     },
     fetchData() {
       if (!isLooseLoggedIn()) return;

@@ -1,13 +1,22 @@
 <template>
   <div>
-    <nav :class="{ 'has-custom-titlebar': hasCustomTitlebar }">
+    <nav
+      :class="{ 'has-custom-titlebar': hasCustomTitlebar }"
+      :aria-label="$t('nav.primaryNavigation')"
+    >
       <Win32Titlebar v-if="enableWin32Titlebar" />
       <LinuxTitlebar v-if="enableLinuxTitlebar" />
       <div class="navigation-buttons">
-        <button-icon @click="go('back')"
+        <button-icon
+          :aria-label="$t('nav.back')"
+          :title="$t('nav.back')"
+          @click="go('back')"
           ><svg-icon icon-class="arrow-left"
         /></button-icon>
-        <button-icon @click="go('forward')"
+        <button-icon
+          :aria-label="$t('nav.forward')"
+          :title="$t('nav.forward')"
+          @click="go('forward')"
           ><svg-icon icon-class="arrow-right"
         /></button-icon>
       </div>
@@ -47,6 +56,7 @@
                 ref="searchInput"
                 v-model="keywords"
                 type="search"
+                :aria-label="$t('nav.search')"
                 :placeholder="$t('nav.search')"
                 @keydown.esc.prevent="clearSearch"
                 @focus="inputFocus = true"
@@ -57,6 +67,7 @@
               v-if="keywords"
               class="search-clear"
               type="button"
+              :aria-label="$t('nav.clearSearch')"
               :title="$t('nav.clearSearch')"
               @mousedown.prevent
               @click="clearSearch"
@@ -74,12 +85,15 @@
           <svg-icon icon-class="login" />
           <span>{{ $t('login.login') }}</span>
         </button>
-        <img
-          class="avatar"
-          :src="avatarUrl"
-          loading="lazy"
+        <button
+          class="avatar-button"
+          type="button"
+          :aria-label="$t('nav.accountMenu')"
+          :title="$t('nav.accountMenu')"
           @click="showUserProfileMenu"
-        />
+        >
+          <img class="avatar" :src="avatarUrl" alt="" loading="lazy" />
+        </button>
       </div>
     </nav>
 
@@ -461,18 +475,29 @@ nav.has-custom-titlebar {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  .avatar {
-    user-select: none;
-    height: 30px;
-    margin-left: 12px;
-    vertical-align: -7px;
+  .avatar-button {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    margin-left: 10px;
+    border: 0;
     border-radius: 50%;
-    cursor: pointer;
+    padding: 3px;
+    place-items: center;
+    background: transparent;
     -webkit-app-region: no-drag;
-    -webkit-user-drag: none;
+
     &:hover {
-      filter: brightness(80%);
+      background: var(--color-secondary-bg-for-transparent);
     }
+  }
+
+  .avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    user-select: none;
+    -webkit-user-drag: none;
   }
   .search-button {
     display: none;

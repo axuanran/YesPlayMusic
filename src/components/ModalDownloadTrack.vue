@@ -201,18 +201,23 @@ export default {
     },
   },
   watch: {
-    show(value) {
-      if (!value) return;
-      this.quality = normalizeTrackDownloadQuality(this.settings.musicQuality);
-      this.receivedBytes = 0;
-      this.totalBytes = 0;
-      this.currentTrackIndex = 0;
-      this.currentTrackName = '';
-      this.completedTracks = 0;
-      this.failedTracks = 0;
-      this.activeBatchId = '';
-      this.activeMobileRequestId = '';
-      this.downloadedTrack = null;
+    show: {
+      immediate: true,
+      handler(value) {
+        if (!value) return;
+        this.quality = normalizeTrackDownloadQuality(
+          this.settings.musicQuality
+        );
+        this.receivedBytes = 0;
+        this.totalBytes = 0;
+        this.currentTrackIndex = 0;
+        this.currentTrackName = '';
+        this.completedTracks = 0;
+        this.failedTracks = 0;
+        this.activeBatchId = '';
+        this.activeMobileRequestId = '';
+        this.downloadedTrack = null;
+      },
     },
   },
   mounted() {

@@ -12,6 +12,10 @@ export default {
     podcast: 'Podcasts',
     search: 'Search',
     clearSearch: 'Clear search',
+    back: 'Back',
+    forward: 'Forward',
+    primaryNavigation: 'Primary navigation',
+    accountMenu: 'Account menu',
     github: 'GitHub Repo',
   },
   footer: {
@@ -23,6 +27,8 @@ export default {
     newAlbum: 'Latest Albums',
     seeMore: 'SEE MORE',
     charts: 'Charts',
+    loadFailed: 'Some recommendations could not be loaded',
+    retry: 'Retry',
   },
   library: {
     sLibrary: "'s Library",
@@ -114,6 +120,8 @@ export default {
   explore: {
     explore: 'Explore',
     loadMore: 'Load More',
+    loadFailed: 'Could not load playlists',
+    retry: 'Retry',
   },
   podcast: {
     title: 'Podcasts',
@@ -140,16 +148,19 @@ export default {
     follow: 'Follow',
     similarArtists: 'Similar Artists',
     artistDesc: 'Artist Description',
+    loadFailed: 'Could not load artist details',
   },
   album: {
     released: 'Released',
     albumDesc: 'Album Description',
+    loadFailed: 'Could not load album details',
   },
   playlist: {
     playlist: 'Playlists',
     updatedAt: 'Updated at',
     search: 'Search in playlist',
     locateCurrentTrack: 'Go to current track',
+    loadFailed: 'Could not load playlist details',
   },
   login: {
     accessToAll: 'Access to all data',
@@ -207,6 +218,12 @@ export default {
     pause: 'Pause',
     playbackRate: 'Playback speed',
     mute: 'Mute',
+    unmute: 'Unmute',
+    dislike: 'Dislike',
+    openAlbum: 'Open album for {name}',
+    openArtist: 'Open artist {name}',
+    desktopLyrics: 'Desktop lyrics',
+    lyrics: 'Lyrics',
     lockDesktopLyrics: 'Lock desktop lyrics',
     unlockDesktopLyrics: 'Unlock desktop lyrics',
     progress: 'Playback progress',
@@ -239,6 +256,12 @@ export default {
   },
   settings: {
     settings: 'Settings',
+    sectionNavigation: 'Settings sections',
+    generalSection: 'General',
+    cacheSection: 'Cache',
+    pluginSection: 'Plugins',
+    proxySection: 'Proxy',
+    shortcutSection: 'Shortcuts',
     logout: 'LOGOUT',
     language: 'Languages',
     lyric: 'Lyric',
@@ -434,6 +457,7 @@ export default {
     loadFailed: 'Unable to load playlists. Try again later.',
   },
   contextMenu: {
+    label: 'Context menu',
     play: 'Play',
     addToQueue: 'Add to queue',
     saveToMyLikedSongs: 'Save to my Liked Songs',

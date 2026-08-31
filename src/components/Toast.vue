@@ -1,6 +1,14 @@
 <template>
   <transition name="fade">
-    <div v-show="toast.show" class="toast">{{ toast.text }}</div>
+    <div
+      v-show="toast.show"
+      class="toast"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      {{ toast.text }}
+    </div>
   </transition>
 </template>
 
@@ -18,7 +26,7 @@ export default {
 <style lang="scss" scoped>
 .toast {
   position: fixed;
-  bottom: 64px;
+  bottom: calc(64px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: 14px;
@@ -30,6 +38,9 @@ export default {
   border-radius: 8px;
   box-sizing: border-box;
   padding: 6px 12px;
+  max-width: min(420px, calc(100vw - 32px));
+  text-align: center;
+  overflow-wrap: anywhere;
   z-index: 1010;
 }
 
@@ -38,6 +49,12 @@ export default {
     background: rgba(46, 46, 46, 0.68);
     backdrop-filter: blur(16px) contrast(120%);
     border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+@media (max-width: 768px) {
+  .toast {
+    bottom: calc(144px + env(safe-area-inset-bottom));
   }
 }
 

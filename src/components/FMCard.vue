@@ -38,8 +38,8 @@
 import ButtonIcon from '@/components/ButtonIcon.vue';
 import ArtistsInLine from '@/components/ArtistsInLine.vue';
 import { mapState } from 'vuex';
-import { Vibrant } from 'node-vibrant/browser';
-import Color from 'color';
+import { loadCoverGradient } from '@/utils/coverGradient';
+import { createRequestGeneration } from '@/utils/requestGeneration';
 
 export default {
   name: 'FMCard',
@@ -47,6 +47,7 @@ export default {
   data() {
     return {
       background: '',
+      coverColorRequests: createRequestGeneration(),
     };
   },
   computed: {
@@ -75,7 +76,9 @@ export default {
   },
   created() {
     this.getColor();
-    window.ok = this.getColor;
+  },
+  beforeUnmount() {
+    this.coverColorRequests.invalidate();
   },
   methods: {
     play() {
@@ -91,26 +94,24 @@ export default {
     moveToFMTrash() {
       this.player.moveToFMTrash();
     },
-    getColor() {
-      if (!this.player.personalFMTrack?.album?.picUrl) return;
-      const cover = `${this.player.personalFMTrack.album.picUrl.replace(
-        'http://',
-        'https://'
-      )}?param=512y512`;
-      Vibrant.from(cover, { colorCount: 1 })
-        .getPalette()
-        .then(palette => {
-          const color = Color.rgb(palette.Vibrant._rgb)
-            .darken(0.1)
-            .rgb()
-            .string();
-          const color2 = Color.rgb(palette.Vibrant._rgb)
-            .lighten(0.28)
-            .rotate(-30)
-            .rgb()
-            .string();
-          this.background = `linear-gradient(to top left, ${color}, ${color2})`;
-        });
+    async getColor() {
+      const requestId = this.coverColorRequests.next();
+      const picUrl = this.player.personalFMTrack?.album?.picUrl;
+      if (!picUrl) {
+        this.background = '';
+        return;
+      }
+      const cover = `${picUrl.replace('http://', 'https://')}?param=512y512`;
+      try {
+        const background = await loadCoverGradient(cover, 'vibrant');
+        if (this.coverColorRequests.isCurrent(requestId)) {
+          this.background = background;
+        }
+      } catch (error) {
+        if (!this.coverColorRequests.isCurrent(requestId)) return;
+        this.background = '';
+        console.warn('Failed to load personal FM cover colors', error);
+      }
     },
   },
 };

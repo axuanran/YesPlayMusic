@@ -38,21 +38,46 @@
     <div class="controls">
       <div class="playing">
         <div class="container" @click.stop>
-          <img :src="currentTrackCoverUrl" loading="lazy" @click="goToAlbum" />
-          <div class="track-info" :title="audioSource">
-            <div
-              :class="['name', { 'has-list': hasList() }]"
-              @click="hasList() && goToList()"
+          <button
+            type="button"
+            class="cover-link"
+            :disabled="!currentAlbumId"
+            :aria-label="$t('player.openAlbum', { name: currentTrack.name })"
+            @click="goToAlbum"
+          >
+            <img :src="currentTrackCoverUrl" loading="lazy" alt="" />
+          </button>
+          <div
+            class="track-info"
+            :title="audioSource"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <button
+              v-if="currentTrack.name && hasList()"
+              type="button"
+              class="name metadata-link"
+              @click="goToList"
             >
               {{ currentTrack.name }}
-            </div>
+            </button>
+            <div v-else class="name">{{ currentTrack.name }}</div>
             <div class="artist">
               <span
                 v-for="(ar, index) in currentTrackArtists"
                 :key="ar.id || `${ar.name}-${index}`"
-                @click="ar.id && goToArtist(ar.id)"
+                class="artist-entry"
               >
-                <span :class="{ ar: ar.id }"> {{ ar.name }} </span
+                <button
+                  v-if="ar.id"
+                  type="button"
+                  class="metadata-link"
+                  :aria-label="$t('player.openArtist', { name: ar.name })"
+                  @click="goToArtist(ar.id)"
+                >
+                  {{ ar.name }}
+                </button>
+                <span v-else>{{ ar.name }}</span
                 ><span v-if="index !== currentTrackArtists.length - 1">, </span>
               </span>
             </div>
@@ -67,6 +92,8 @@
                   ? $t('player.unlike')
                   : $t('player.like')
               "
+              :disabled="!canAddCurrentTrackToPlaylist"
+              :aria-pressed="player.isCurrentTrackLiked"
               @click="likeCurrentTrack"
             >
               <svg-icon
@@ -80,6 +107,7 @@
             </button-icon>
             <button-icon
               :class="{ disabled: !canAddCurrentTrackToPlaylist }"
+              :disabled="!canAddCurrentTrackToPlaylist"
               :title="$t('player.addToPlaylist')"
               @click="addCurrentTrackToPlaylist"
             >
@@ -100,7 +128,7 @@
           /></button-icon>
           <button-icon
             v-show="player.isPersonalFM"
-            title="不喜欢"
+            :title="$t('player.dislike')"
             @click="moveToFMTrash"
             ><svg-icon icon-class="thumbs-down"
           /></button-icon>
@@ -125,6 +153,8 @@
         <div class="container" @click.stop>
           <button-icon
             :title="$t('player.nextUp')"
+            :aria-pressed="$route.name === 'next'"
+            :disabled="player.isPersonalFM"
             :class="{
               active: $route.name === 'next',
               disabled: player.isPersonalFM,
@@ -133,6 +163,8 @@
             ><svg-icon icon-class="list"
           /></button-icon>
           <button-icon
+            :aria-pressed="player.repeatMode !== 'off'"
+            :disabled="player.isPersonalFM"
             :class="{
               active: player.repeatMode !== 'off',
               disabled: player.isPersonalFM,
@@ -154,6 +186,8 @@
             />
           </button-icon>
           <button-icon
+            :aria-pressed="player.shuffle"
+            :disabled="player.isPersonalFM"
             :class="{ active: player.shuffle, disabled: player.isPersonalFM }"
             :title="$t('player.shuffle')"
             @click="switchShuffle"
@@ -161,6 +195,8 @@
           /></button-icon>
           <button-icon
             v-if="settings.enableReversedMode"
+            :aria-pressed="player.reversed"
+            :disabled="player.isPersonalFM"
             :class="{ active: player.reversed, disabled: player.isPersonalFM }"
             :title="$t('player.reversed')"
             @click="switchReversed"
@@ -193,7 +229,10 @@
             </div>
           </details>
           <div class="volume-control" @wheel.prevent="handleVolumeWheel">
-            <button-icon :title="$t('player.mute')" @click="mute">
+            <button-icon
+              :title="$t(volume === 0 ? 'player.unmute' : 'player.mute')"
+              @click="mute"
+            >
               <svg-icon v-show="volume > 0.5" icon-class="volume" />
               <svg-icon v-show="volume === 0" icon-class="volume-mute" />
               <svg-icon
@@ -218,7 +257,8 @@
           <button-icon
             v-if="isElectron"
             :class="{ active: desktopLyricsVisible }"
-            title="桌面歌词"
+            :aria-pressed="desktopLyricsVisible"
+            :title="$t('player.desktopLyrics')"
             style="margin-left: 12px"
             @click="toggleDesktopLyrics"
           >
@@ -241,7 +281,8 @@
           </button-icon>
           <button-icon
             class="lyrics-button"
-            title="歌词"
+            :aria-pressed="showLyrics"
+            :title="$t('player.lyrics')"
             style="margin-left: 12px"
             @click="toggleLyrics"
             ><svg-icon icon-class="arrow-up"
@@ -296,6 +337,7 @@ export default {
       'playerTrackVersion',
       'settings',
       'data',
+      'showLyrics',
     ]),
     currentTrack() {
       void this.playerTrackVersion;
@@ -303,6 +345,14 @@ export default {
     },
     currentTrackCoverUrl() {
       return createSizedCoverUrl(this.currentTrack, 224);
+    },
+    currentAlbumId() {
+      if (this.player.isTrackPending) return null;
+      return (
+        this.player.currentTrack?.al?.id ||
+        this.player.currentTrack?.album?.id ||
+        null
+      );
     },
     currentTrackArtists() {
       const track = this.currentTrack;
@@ -313,6 +363,19 @@ export default {
     resolvedCurrentTrack() {
       void this.playerTrackVersion;
       return this.player.currentTrack;
+    },
+    canAddCurrentTrackToPlaylist() {
+      const displayedTrackID = this.currentTrack?.id;
+      const resolvedTrackID = this.resolvedCurrentTrack?.id;
+      return (
+        displayedTrackID != null &&
+        displayedTrackID !== 0 &&
+        displayedTrackID !== '0' &&
+        resolvedTrackID != null &&
+        String(displayedTrackID) === String(resolvedTrackID) &&
+        !this.resolvedCurrentTrack.local &&
+        !this.resolvedCurrentTrack.streaming
+      );
     },
     volume: {
       get() {
@@ -352,17 +415,6 @@ export default {
       return this.player.currentAudioSource?.includes('kuwo.cn')
         ? '音源来自酷我音乐'
         : '';
-    },
-    canAddCurrentTrackToPlaylist() {
-      const displayedTrackID = this.currentTrack?.id;
-      const resolvedTrackID = this.resolvedCurrentTrack?.id;
-      return (
-        displayedTrackID != null &&
-        resolvedTrackID != null &&
-        String(displayedTrackID) === String(resolvedTrackID) &&
-        !this.resolvedCurrentTrack.local &&
-        !this.resolvedCurrentTrack.streaming
-      );
     },
     desktopLyricsVisible() {
       const value = this.settings.desktopLyrics;
@@ -659,11 +711,8 @@ export default {
       goToListSource();
     },
     goToAlbum() {
-      if (this.player.isTrackPending) return;
-      const albumId =
-        this.player.currentTrack?.al?.id || this.player.currentTrack?.album?.id;
-      if (!albumId) return;
-      this.$router.push({ path: '/album/' + albumId });
+      if (!this.currentAlbumId) return;
+      this.$router.push({ path: `/album/${this.currentAlbumId}` });
     },
     goToArtist(id) {
       this.$router.push({ path: '/artist/' + id });
@@ -827,12 +876,6 @@ export default {
   }
 }
 
-@media (max-width: 1336px) {
-  .controls {
-    padding: 0 5vw;
-  }
-}
-
 .blank {
   flex-grow: 1;
 }
@@ -847,8 +890,18 @@ export default {
   align-items: center;
   min-width: 0;
   overflow: hidden;
-  img {
+  .cover-link {
     flex-shrink: 0;
+    display: flex;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    &:disabled {
+      cursor: default;
+      opacity: 1;
+    }
+  }
+  img {
     height: 46px;
     border-radius: 5px;
     box-shadow: 0 6px 8px -2px rgba(0, 0, 0, 0.16);
@@ -863,7 +916,21 @@ export default {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    .metadata-link {
+      min-width: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      &:hover {
+        text-decoration: underline;
+      }
+    }
     .name {
+      width: 100%;
       font-weight: 600;
       font-size: 16px;
       opacity: 0.88;
@@ -875,12 +942,6 @@ export default {
       overflow: hidden;
       word-break: break-all;
     }
-    .has-list {
-      cursor: pointer;
-      &:hover {
-        text-decoration: underline;
-      }
-    }
     .artist {
       font-size: 12px;
       opacity: 0.58;
@@ -890,11 +951,8 @@ export default {
       -webkit-line-clamp: 1;
       overflow: hidden;
       word-break: break-all;
-      span.ar {
-        cursor: pointer;
-        &:hover {
-          text-decoration: underline;
-        }
+      .metadata-link {
+        display: inline;
       }
     }
   }

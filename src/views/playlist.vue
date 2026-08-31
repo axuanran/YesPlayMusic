@@ -257,6 +257,7 @@ import { isAccountLoggedIn } from '@/utils/auth';
 import nativeAlert from '@/utils/nativeAlert';
 import locale from '@/locale';
 import { isDownloadEnabled, isElectron } from '@/utils/env';
+import { createRequestGeneration } from '@/utils/requestGeneration';
 
 import ButtonTwoTone from '@/components/ButtonTwoTone.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
@@ -302,6 +303,12 @@ export default {
       },
     },
   },
+  beforeRouteUpdate(to, from, next) {
+    const id =
+      to.name === 'likedSongs' ? this.data.likedSongPlaylistID : to.params.id;
+    this.loadData(id);
+    next();
+  },
   data() {
     return {
       show: false,
@@ -326,6 +333,8 @@ export default {
       locatingCurrentTrack: false,
       currentTrackVisible: false,
       currentTrackVisibilityObserver: null,
+      requestGeneration: createRequestGeneration(),
+      progressTimer: null,
       isElectron,
       isDownloadEnabled,
     };
@@ -388,14 +397,11 @@ export default {
     },
   },
   created() {
-    if (this.$route.name === 'likedSongs') {
-      this.loadData(this.data.likedSongPlaylistID);
-    } else {
-      this.loadData(this.$route.params.id);
-    }
-    setTimeout(() => {
-      if (!this.show) NProgress.start();
-    }, 1000);
+    const id =
+      this.$route.name === 'likedSongs'
+        ? this.data.likedSongPlaylistID
+        : this.$route.params.id;
+    this.loadData(id);
   },
   mounted() {
     this.refreshCurrentTrackVisibility();
@@ -403,6 +409,9 @@ export default {
   beforeUnmount() {
     this.currentTrackVisibilityObserver?.disconnect();
     if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
+    this.requestGeneration.invalidate();
+    clearTimeout(this.progressTimer);
+    NProgress.done();
   },
   methods: {
     ...mapMutations(['appendTrackToPlayerList', 'updateModal']),
@@ -422,6 +431,7 @@ export default {
         this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
+      const requestId = this.requestGeneration.current();
       subscribePlaylist({
         id: this.playlist.id,
         t: this.playlist.subscribed ? 2 : 1,
@@ -435,53 +445,87 @@ export default {
           }
         }
         getPlaylistDetail(this.id, true).then(data => {
-          this.playlist = data.playlist;
+          if (this.requestGeneration.isCurrent(requestId)) {
+            this.playlist = data.playlist;
+          }
         });
       });
     },
     loadData(id, next = undefined) {
+      const requestId = this.requestGeneration.next();
+      clearTimeout(this.progressTimer);
       this.id = id;
-      getPlaylistDetail(this.id, true)
+      this.show = false;
+      this.tracks = [];
+      this.loadingMore = false;
+      this.hasMore = false;
+      this.loadMorePromise = null;
+      this.lastLoadedTrackIndex = -1;
+      this.progressTimer = setTimeout(() => {
+        if (this.requestGeneration.isCurrent(requestId) && !this.show) {
+          NProgress.start();
+        }
+      }, 1000);
+
+      return getPlaylistDetail(this.id, true)
         .then(data => {
+          if (!this.requestGeneration.isCurrent(requestId)) return false;
           this.playlist = data.playlist;
           this.tracks = data.playlist.tracks;
-          NProgress.done();
           if (next !== undefined) next();
           this.show = true;
           this.lastLoadedTrackIndex = data.playlist.tracks.length - 1;
-          return data;
-        })
-        .then(() => {
           if (this.playlist.trackCount > this.tracks.length) {
-            this.loadingMore = true;
             this.loadMore();
           }
+          return true;
+        })
+        .catch(error => {
+          if (!this.requestGeneration.isCurrent(requestId)) return false;
+          console.error('[playlist] Failed to load playlist', error);
+          this.showToast(this.$t('playlist.loadFailed'));
+          return false;
+        })
+        .finally(() => {
+          if (!this.requestGeneration.isCurrent(requestId)) return;
+          clearTimeout(this.progressTimer);
+          this.progressTimer = null;
+          NProgress.done();
         });
     },
     loadMore(loadNum = 100) {
       if (this.loadMorePromise) return this.loadMorePromise;
-      let trackIDs = this.playlist.trackIds.filter((t, index) => {
+      const requestId = this.requestGeneration.current();
+      let trackIDs = this.playlist.trackIds.filter((track, index) => {
         return (
           index > this.lastLoadedTrackIndex &&
           index <= this.lastLoadedTrackIndex + loadNum
         );
       });
-      trackIDs = trackIDs.map(t => t.id);
+      trackIDs = trackIDs.map(track => track.id);
       if (trackIDs.length === 0) return Promise.resolve();
 
       this.loadingMore = true;
-      this.loadMorePromise = getTrackDetail(trackIDs.join(','))
+      const loadPromise = getTrackDetail(trackIDs.join(','))
         .then(data => {
+          if (!this.requestGeneration.isCurrent(requestId)) return;
           this.tracks.push(...data.songs);
           this.lastLoadedTrackIndex += trackIDs.length;
           this.hasMore =
             this.lastLoadedTrackIndex + 1 !== this.playlist.trackIds.length;
         })
+        .catch(error => {
+          if (this.requestGeneration.isCurrent(requestId)) {
+            console.error('[playlist] Failed to load more tracks', error);
+          }
+        })
         .finally(() => {
+          if (this.loadMorePromise !== loadPromise) return;
           this.loadingMore = false;
           this.loadMorePromise = null;
         });
-      return this.loadMorePromise;
+      this.loadMorePromise = loadPromise;
+      return loadPromise;
     },
     async scrollToCurrentTrack() {
       const targetIndex = this.currentTrackIndex;

@@ -27,16 +27,29 @@ export default store => {
   let flushScheduled = false;
   let latestState = store.state;
   let persistenceErrorNotified = false;
+  const successfulValues = new Map();
+  for (const key of ['settings', 'data']) {
+    try {
+      const value = localStorage.getItem(key);
+      if (value !== null) successfulValues.set(key, value);
+    } catch {
+      // A failed read must not prevent a later write attempt.
+    }
+  }
 
   const flush = () => {
     flushScheduled = false;
     let attempted = false;
     let succeeded = true;
     const persist = (key, value) => {
-      attempted = true;
       try {
-        localStorage.setItem(key, JSON.stringify(value));
+        const serialized = JSON.stringify(value);
+        if (successfulValues.get(key) === serialized) return;
+        attempted = true;
+        localStorage.setItem(key, serialized);
+        successfulValues.set(key, serialized);
       } catch (error) {
+        attempted = true;
         succeeded = false;
         console.error(`Failed to persist ${key}`, error);
         if (!persistenceErrorNotified) {

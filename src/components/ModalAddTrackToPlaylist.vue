@@ -90,8 +90,11 @@ export default {
     },
   },
   watch: {
-    show(value) {
-      if (value) this.loadPlaylists();
+    show: {
+      immediate: true,
+      handler(value) {
+        if (value) this.loadPlaylists();
+      },
     },
   },
   methods: {

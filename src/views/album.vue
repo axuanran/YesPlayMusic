@@ -151,6 +151,7 @@ import { splitSoundtrackAlbumTitle, splitAlbumTitle } from '@/utils/common';
 import NProgress from 'nprogress';
 import { isAccountLoggedIn } from '@/utils/auth';
 import { groupBy, toPairs, sortBy } from 'lodash';
+import { createRequestGeneration } from '@/utils/requestGeneration';
 
 import ExplicitSymbol from '@/components/ExplicitSymbol.vue';
 import ButtonTwoTone from '@/components/ButtonTwoTone.vue';
@@ -192,6 +193,8 @@ export default {
       dynamicDetail: {},
       subtitle: '',
       title: '',
+      requestGeneration: createRequestGeneration(),
+      progressTimer: null,
     };
   },
   computed: {
@@ -229,6 +232,11 @@ export default {
   },
   created() {
     this.loadData(this.$route.params.id);
+  },
+  beforeUnmount() {
+    this.requestGeneration.invalidate();
+    clearTimeout(this.progressTimer);
+    NProgress.done();
   },
   methods: {
     ...mapMutations(['appendTrackToPlayerList']),
@@ -272,30 +280,67 @@ export default {
       }
     },
     loadData(id) {
-      setTimeout(() => {
-        if (!this.show) NProgress.start();
+      const requestId = this.requestGeneration.next();
+      clearTimeout(this.progressTimer);
+      this.show = false;
+      this.progressTimer = setTimeout(() => {
+        if (this.requestGeneration.isCurrent(requestId) && !this.show) {
+          NProgress.start();
+        }
       }, 1000);
-      getAlbum(id).then(data => {
-        this.album = data.album;
-        this.tracks = data.songs;
-        this.formatTitle();
-        NProgress.done();
-        this.show = true;
 
-        // to get explicit mark
-        let trackIDs = this.tracks.map(t => t.id);
-        getTrackDetail(trackIDs.join(',')).then(data => {
+      getAlbum(id)
+        .then(data => {
+          if (!this.requestGeneration.isCurrent(requestId)) return;
+          this.album = data.album;
           this.tracks = data.songs;
+          this.formatTitle();
+          this.show = true;
+
+          const trackIDs = this.tracks.map(track => track.id);
+          if (trackIDs.length > 0) {
+            getTrackDetail(trackIDs.join(','))
+              .then(detail => {
+                if (this.requestGeneration.isCurrent(requestId)) {
+                  this.tracks = detail.songs;
+                }
+              })
+              .catch(error => {
+                console.error('[album] Failed to load track details', error);
+              });
+          }
+
+          getArtistAlbum({ id: this.album.artist.id, limit: 100 })
+            .then(result => {
+              if (this.requestGeneration.isCurrent(requestId)) {
+                this.moreAlbums = result.hotAlbums;
+              }
+            })
+            .catch(error => {
+              console.error('[album] Failed to load related albums', error);
+            });
+        })
+        .catch(error => {
+          if (!this.requestGeneration.isCurrent(requestId)) return;
+          console.error('[album] Failed to load album', error);
+          this.showToast(this.$t('album.loadFailed'));
+        })
+        .finally(() => {
+          if (!this.requestGeneration.isCurrent(requestId)) return;
+          clearTimeout(this.progressTimer);
+          this.progressTimer = null;
+          NProgress.done();
         });
 
-        // get more album by this artist
-        getArtistAlbum({ id: this.album.artist.id, limit: 100 }).then(data => {
-          this.moreAlbums = data.hotAlbums;
+      albumDynamicDetail(id)
+        .then(data => {
+          if (this.requestGeneration.isCurrent(requestId)) {
+            this.dynamicDetail = data;
+          }
+        })
+        .catch(error => {
+          console.error('[album] Failed to load dynamic details', error);
         });
-      });
-      albumDynamicDetail(id).then(data => {
-        this.dynamicDetail = data;
-      });
     },
     toggleFullDescription() {
       this.showFullDescription = !this.showFullDescription;

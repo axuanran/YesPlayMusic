@@ -8,6 +8,21 @@ import {
   getLyricFromCache,
 } from '@/utils/db';
 import { toNumericDatabaseKey } from '@/utils/dbCacheKey';
+const lyricRequests = new Map();
+
+function fetchLyricOnce(key, fetcher) {
+  const pending = lyricRequests.get(key);
+  if (pending) return pending;
+  const requestPromise = Promise.resolve()
+    .then(fetcher)
+    .finally(() => {
+      if (lyricRequests.get(key) === requestPromise) {
+        lyricRequests.delete(key);
+      }
+    });
+  lyricRequests.set(key, requestPromise);
+  return requestPromise;
+}
 
 /**
  * 获取音乐 url
@@ -96,18 +111,19 @@ export function getTrackDetail(ids, options = {}) {
 export function getLyric(id) {
   const lyricId = toNumericDatabaseKey(id);
   if (lyricId === null) return Promise.resolve(undefined);
-  const fetchLatest = () => {
-    return request({
-      url: '/lyric',
-      method: 'get',
-      params: {
-        id: lyricId,
-      },
-    }).then(result => {
-      cacheLyric(lyricId, result);
-      return result;
-    });
-  };
+  const fetchLatest = () =>
+    fetchLyricOnce(`lyric:${lyricId}`, () =>
+      request({
+        url: '/lyric',
+        method: 'get',
+        params: {
+          id: lyricId,
+        },
+      }).then(result => {
+        cacheLyric(lyricId, result);
+        return result;
+      })
+    );
 
   void fetchLatest().catch(() => undefined);
 

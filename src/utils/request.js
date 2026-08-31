@@ -11,23 +11,38 @@ import {
   syncCookieToResolverWithRetry,
 } from '@/api/audioResolver';
 import { env, isCapacitor } from '@/utils/env';
-import { requestNeteaseOnAndroid } from '@/mobile/neteaseApi';
-import store from '@/store';
 import axios from 'axios';
 
 // Token refresh state: prevents concurrent refreshes.
 let refreshPromise = null;
+let androidApiModulePromise = null;
+let cachedSettingsRaw;
+let cachedSettings = {};
+
+function getAndroidApiModule() {
+  androidApiModulePromise ??= import('@/mobile/neteaseApi');
+  return androidApiModulePromise;
+}
 
 function getRequestUrl(config) {
   return config.url || '';
 }
 
-function readSettings() {
+export function readSettings() {
+  let raw;
   try {
-    return JSON.parse(localStorage.getItem('settings')) || {};
+    raw = localStorage.getItem('settings');
   } catch {
     return {};
   }
+  if (raw === cachedSettingsRaw) return cachedSettings;
+  cachedSettingsRaw = raw;
+  try {
+    cachedSettings = JSON.parse(raw) || {};
+  } catch {
+    cachedSettings = {};
+  }
+  return cachedSettings;
 }
 
 function normalizeNeteaseApiUrl(value) {
@@ -91,7 +106,10 @@ function runTokenRefresh() {
       console.log('[refresh] Token refreshed successfully');
     } catch (error) {
       console.warn('[refresh] Token refresh failed, logging out', error);
-      store.dispatch('showToast', '登录已过期，请重新登录');
+      globalThis?.yesplaymusicStore?.dispatch?.(
+        'showToast',
+        '登录已过期，请重新登录'
+      );
       doLogout();
       if (env.IS_ELECTRON) {
         router.push({ name: 'loginAccount' });
@@ -233,6 +251,7 @@ async function request(config) {
   if (!isCapacitor || getCustomNeteaseApiUrl()) return service(config);
 
   try {
+    const { requestNeteaseOnAndroid } = await getAndroidApiModule();
     const data = await requestNeteaseOnAndroid(config);
     if (
       data?.code === 301 &&

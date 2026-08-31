@@ -94,7 +94,7 @@
         :track-no="index + 1"
         :highlight-playing-track="highlightPlayingTrack"
         :list-type="type"
-        :liked-song-ids="liked.songs"
+        :liked-song-ids="likedSongIds"
         :right-clicked-track-id="rightClickedTrack.id"
         :album-object="albumObject"
         @dblclick="playThisList(track.id || track.songId)"
@@ -200,8 +200,11 @@ export default {
   },
   computed: {
     ...mapState(['liked', 'player']),
+    likedSongIds() {
+      return new Set(this.liked.songs);
+    },
     isRightClickedTrackLiked() {
-      return this.liked.songs.includes(this.rightClickedTrack?.id);
+      return this.likedSongIds.has(this.rightClickedTrack?.id);
     },
     isExternalMusic() {
       return ['localMusic', 'streaming'].includes(this.type);

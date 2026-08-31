@@ -120,8 +120,8 @@ export default {
       default: 'tracklist',
     },
     likedSongIds: {
-      type: Array,
-      default: () => [],
+      type: Set,
+      default: () => new Set(),
     },
     rightClickedTrackId: {
       type: [Number, String],
@@ -196,7 +196,7 @@ export default {
       return this.type === 'playlist';
     },
     isLiked() {
-      return this.likedSongIds.includes(this.track?.id);
+      return this.likedSongIds.has(this.track?.id);
     },
     isPlaying() {
       void this.$store.state.playerTrackVersion;
@@ -295,6 +295,8 @@ button {
   padding: 8px;
   border-radius: 12px;
   user-select: none;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
 
   .no {
     display: flex;
@@ -419,7 +421,7 @@ button {
 }
 
 .track.focus {
-  transition: all 0.3s;
+  transition: background-color 0.3s;
   background: var(--color-secondary-bg);
 }
 

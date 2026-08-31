@@ -10,7 +10,9 @@ import './registerServiceWorker';
 import { dailyTask } from '@/utils/common';
 import { installDevErrorReporter } from '@/utils/devErrorReporter';
 import { hydrateCookiesToDocument } from '@/utils/auth';
+import { isCapacitor } from '@/utils/env';
 import { createPluginContext, installPlugins } from '@/plugins';
+import { scheduleAfterFirstPaint } from '@/utils/afterFirstPaint';
 import '@/assets/css/global.scss';
 import '@/assets/css/mobile.scss';
 import '@/assets/css/mobile-adaptive.scss';
@@ -19,7 +21,6 @@ import '@/assets/css/mobile-lyrics-player.scss';
 import '@/assets/css/mobile-lyrics-player-interactions.scss';
 import NProgress from 'nprogress';
 import '@/assets/css/nprogress.css';
-import { setupMobileShell } from '@/mobile/setupMobileShell';
 
 window.resetApp = () => {
   localStorage.clear();
@@ -41,8 +42,6 @@ NProgress.configure({ showSpinner: false, trickleSpeed: 100 });
 installDevErrorReporter();
 hydrateCookiesToDocument();
 
-dailyTask();
-
 const app = createApp(App);
 
 app.use(store);
@@ -60,8 +59,14 @@ window.yesplaymusicPluginContext = pluginContext;
 installPlugins(pluginContext);
 
 app.mount('#app');
+scheduleAfterFirstPaint(dailyTask);
 
-router
-  .isReady()
-  .then(() => setupMobileShell(router))
-  .catch(error => console.error('[mobile] Failed to set up shell', error));
+if (isCapacitor) {
+  router
+    .isReady()
+    .then(async () => {
+      const { setupMobileShell } = await import('@/mobile/setupMobileShell');
+      return setupMobileShell(router);
+    })
+    .catch(error => console.error('[mobile] Failed to set up shell', error));
+}

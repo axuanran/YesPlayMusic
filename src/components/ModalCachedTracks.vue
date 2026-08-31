@@ -123,8 +123,11 @@ export default {
     },
   },
   watch: {
-    show(value) {
-      if (value) this.load();
+    show: {
+      immediate: true,
+      handler(value) {
+        if (value) this.load();
+      },
     },
   },
   mounted() {

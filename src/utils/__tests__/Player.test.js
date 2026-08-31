@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   audioHandlers: [],
@@ -187,14 +187,27 @@ function installBrowserGlobals() {
   globalThis.cancelAnimationFrame = vi.fn();
 }
 
-async function createPlayer() {
+let WebPlayerClass;
+let AndroidPlayerClass;
+
+function createPlayer() {
   installBrowserGlobals();
-  vi.resetModules();
-  const { default: Player } = await import('../Player');
-  return new Player();
+  const PlayerClass = mocks.isCapacitor ? AndroidPlayerClass : WebPlayerClass;
+  return new PlayerClass();
 }
 
 describe('Player audio source flow', () => {
+  beforeAll(async () => {
+    installBrowserGlobals();
+    mocks.isCapacitor = false;
+    vi.resetModules();
+    WebPlayerClass = (await import('../Player')).default;
+    mocks.isCapacitor = true;
+    vi.resetModules();
+    AndroidPlayerClass = (await import('../Player')).default;
+    mocks.isCapacitor = false;
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();

@@ -79,12 +79,13 @@ async function loadRequestInterceptors() {
   vi.resetModules();
   mocks.requestHandlers.length = 0;
   mocks.responseHandlers.length = 0;
-  await import('../request');
+  const requestModule = await import('../request');
 
   return {
     request: mocks.requestHandlers[0],
     responseSuccess: mocks.responseHandlers[0].successHandler,
     responseError: mocks.responseHandlers[0].errorHandler,
+    readSettings: requestModule.readSettings,
   };
 }
 
@@ -96,6 +97,20 @@ describe('request service', () => {
     mocks.isResolverEnabled.mockReturnValue(false);
     mocks.refreshCookie.mockResolvedValue({ code: 200 });
     mocks.syncCookieToResolverWithRetry.mockResolvedValue(true);
+  });
+
+  it('reuses parsed settings until the stored JSON changes', async () => {
+    localStorage.setItem('settings', JSON.stringify({ appearance: 'dark' }));
+    const { readSettings } = await loadRequestInterceptors();
+
+    const first = readSettings();
+    const second = readSettings();
+    expect(second).toBe(first);
+
+    localStorage.setItem('settings', JSON.stringify({ appearance: 'light' }));
+    const updated = readSettings();
+    expect(updated).not.toBe(first);
+    expect(updated.appearance).toBe('light');
   });
 
   it('does not throw when settings are missing', async () => {

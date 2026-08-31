@@ -69,6 +69,32 @@ describe('localStorage store plugin', () => {
     );
   });
 
+  it('skips a repeated successful value', () => {
+    state.settings.appearance = 'dark';
+    subscriber({ type: 'updateSettings' }, state);
+    vi.runAllTimers();
+    subscriber({ type: 'updateSettings' }, state);
+    vi.runAllTimers();
+
+    expect(localStorage.setItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries an unchanged value after a failed write', () => {
+    vi.mocked(localStorage.setItem)
+      .mockImplementationOnce(() => {
+        throw new Error('quota exceeded');
+      })
+      .mockImplementation(() => {});
+    state.settings.appearance = 'dark';
+
+    subscriber({ type: 'updateSettings' }, state);
+    vi.runAllTimers();
+    subscriber({ type: 'updateSettings' }, state);
+    vi.runAllTimers();
+
+    expect(localStorage.setItem).toHaveBeenCalledTimes(2);
+  });
+
   it('writes data only when data changes', () => {
     subscriber({ type: 'updateData' }, state);
     vi.runAllTimers();

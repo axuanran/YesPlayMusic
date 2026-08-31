@@ -78,6 +78,42 @@ describe('sendSettings store plugin', () => {
     });
   });
 
+  it('skips keys whose serialized value was already sent', () => {
+    subscriber(
+      { payload: { key: 'appearance' }, type: 'updateSettings' },
+      state
+    );
+    vi.runAllTimers();
+    subscriber(
+      { payload: { key: 'appearance' }, type: 'updateSettings' },
+      state
+    );
+    vi.runAllTimers();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries an unchanged value after a failed send', () => {
+    updateSettings
+      .mockImplementationOnce(() => {
+        throw new Error('ipc unavailable');
+      })
+      .mockImplementation(() => {});
+
+    subscriber(
+      { payload: { key: 'appearance' }, type: 'updateSettings' },
+      state
+    );
+    vi.runAllTimers();
+    subscriber(
+      { payload: { key: 'appearance' }, type: 'updateSettings' },
+      state
+    );
+    vi.runAllTimers();
+
+    expect(updateSettings).toHaveBeenCalledTimes(2);
+  });
+
   it('includes the plugins object changed with the resolver switch', () => {
     state.settings.useAudioResolver = true;
     state.settings.plugins = {

@@ -1,5 +1,11 @@
 <template>
-  <button class="button-icon"><slot></slot></button>
+  <button
+    type="button"
+    class="button-icon"
+    :aria-label="$attrs['aria-label'] || $attrs.title"
+  >
+    <slot></slot>
+  </button>
 </template>
 
 <script>
@@ -31,6 +37,11 @@ button {
   }
   &:active {
     transform: scale(0.92);
+  }
+  &:disabled {
+    cursor: default;
+    opacity: 0.38;
+    pointer-events: none;
   }
 }
 </style>

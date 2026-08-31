@@ -1,6 +1,23 @@
 <template>
   <div class="settings-page" @click="clickOutside">
     <div class="container">
+      <header class="settings-header">
+        <h1 id="settings-general">{{ $t('settings.settings') }}</h1>
+        <nav
+          class="settings-section-nav"
+          :aria-label="$t('settings.sectionNavigation')"
+        >
+          <button
+            v-for="section in settingsSections"
+            :key="section.id"
+            type="button"
+            @click="scrollToSettingsSection(section.id)"
+          >
+            {{ section.label }}
+          </button>
+        </nav>
+      </header>
+
       <div v-if="showUserInfo" class="user">
         <div class="left">
           <img class="avatar" :src="data.user.avatarUrl" loading="lazy" />
@@ -154,7 +171,9 @@
         </div>
       </div>
 
-      <h3 v-if="isElectron || isCapacitor">缓存</h3>
+      <h3 v-if="isElectron || isCapacitor" id="settings-cache">
+        {{ $t('settings.cacheSection') }}
+      </h3>
       <div v-if="isElectron || isCapacitor" class="item">
         <div class="left">
           <div class="title">
@@ -219,10 +238,12 @@
         </div>
       </div>
 
-      <h3 v-if="isElectron">{{ $t('streaming.serverSettings') }}</h3>
+      <h3 v-if="isElectron" id="settings-streaming">
+        {{ $t('streaming.serverSettings') }}
+      </h3>
       <StreamingServerSettings v-if="isElectron" />
 
-      <h3>插件中心</h3>
+      <h3 id="settings-plugins">{{ $t('settings.pluginSection') }}</h3>
       <div
         v-for="plugin in builtinPlugins"
         :key="plugin.id"
@@ -261,7 +282,7 @@
         </div>
       </div>
 
-      <h3>{{ $t('settings.lyric') }}</h3>
+      <h3 id="settings-lyrics">{{ $t('settings.lyric') }}</h3>
       <div class="item">
         <div class="left">
           <div class="title">{{ $t('settings.showLyricsTranslation') }}</div>
@@ -641,7 +662,9 @@
         </div>
       </template>
 
-      <h3>{{ $t('settings.customization') }}</h3>
+      <h3 id="settings-customization">
+        {{ $t('settings.customization') }}
+      </h3>
       <div class="item">
         <div class="left">
           <div class="title">
@@ -701,7 +724,7 @@
         </div>
       </div>
 
-      <h3>{{ $t('settings.others') }}</h3>
+      <h3 id="settings-others">{{ $t('settings.others') }}</h3>
       <div v-if="isElectron" class="item">
         <div class="left">
           <div class="title">
@@ -865,7 +888,7 @@
       </div>
 
       <div v-if="isElectron">
-        <h3>代理</h3>
+        <h3 id="settings-proxy">{{ $t('settings.proxySection') }}</h3>
         <div class="item">
           <div class="left">
             <div class="title"> 代理协议 </div>
@@ -898,7 +921,7 @@
         </div>
       </div>
       <div v-if="isElectron">
-        <h3>Real IP</h3>
+        <h3 id="settings-real-ip">Real IP</h3>
         <div class="item">
           <div class="left">
             <div class="title"> Real IP </div>
@@ -926,7 +949,9 @@
       </div>
 
       <div v-if="isElectron">
-        <h3>快捷键</h3>
+        <h3 id="settings-shortcuts">
+          {{ $t('settings.shortcutSection') }}
+        </h3>
         <div class="item">
           <div class="left">
             <div class="title"> {{ $t('settings.enableGlobalShortcut') }}</div>
@@ -1157,12 +1182,7 @@ const setting = (key, defaults) => ({
 
 const desktopLyricsSetting = (key, fallback) => ({
   get() {
-    return (
-      normalizeDesktopLyricsSettings(
-        this.settings.desktopLyrics,
-        this.settings.enableDesktopLyrics
-      )[key] ?? fallback
-    );
+    return this.normalizedDesktopLyricsSettings[key] ?? fallback;
   },
   set(value) {
     this.updateDesktopLyricsSettings({ [key]: value });
@@ -1181,6 +1201,7 @@ export default {
       clearingCache: false,
       removeTrackCacheListener: null,
       nativeCacheListener: null,
+      lastfmChecker: null,
       allOutputDevices: [
         {
           deviceId: 'default',
@@ -1212,19 +1233,77 @@ export default {
     isLinux() {
       return isLinux;
     },
+    normalizedDesktopLyricsSettings() {
+      return normalizeDesktopLyricsSettings(
+        this.settings.desktopLyrics,
+        this.settings.enableDesktopLyrics
+      );
+    },
+    settingsSections() {
+      return [
+        {
+          id: 'settings-general',
+          label: this.$t('settings.generalSection'),
+        },
+        ...(this.isElectron || this.isCapacitor
+          ? [
+              {
+                id: 'settings-cache',
+                label: this.$t('settings.cacheSection'),
+              },
+            ]
+          : []),
+        ...(this.isElectron
+          ? [
+              {
+                id: 'settings-streaming',
+                label: this.$t('streaming.serverSettings'),
+              },
+            ]
+          : []),
+        {
+          id: 'settings-plugins',
+          label: this.$t('settings.pluginSection'),
+        },
+        {
+          id: 'settings-lyrics',
+          label: this.$t('settings.lyric'),
+        },
+        {
+          id: 'settings-customization',
+          label: this.$t('settings.customization'),
+        },
+        {
+          id: 'settings-others',
+          label: this.$t('settings.others'),
+        },
+        ...(this.isElectron
+          ? [
+              {
+                id: 'settings-proxy',
+                label: this.$t('settings.proxySection'),
+              },
+              { id: 'settings-real-ip', label: 'Real IP' },
+              {
+                id: 'settings-shortcuts',
+                label: this.$t('settings.shortcutSection'),
+              },
+            ]
+          : []),
+      ];
+    },
     desktopLyricsStyleTemplates() {
       const builtins = BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES.map(template => ({
         ...template,
         id: `builtin:${template.id}`,
         name: this.$t(`settings.desktopLyrics.builtinTemplates.${template.id}`),
       }));
-      const custom = normalizeDesktopLyricsSettings(
-        this.settings.desktopLyrics,
-        this.settings.enableDesktopLyrics
-      ).styleTemplates.map(template => ({
-        ...template,
-        id: `custom:${template.id}`,
-      }));
+      const custom = this.normalizedDesktopLyricsSettings.styleTemplates.map(
+        template => ({
+          ...template,
+          id: `custom:${template.id}`,
+        })
+      );
       return [...builtins, ...custom];
     },
     version() {
@@ -1419,10 +1498,7 @@ export default {
     showLyricsTime: setting('showLyricsTime'),
     enableDesktopLyrics: {
       get() {
-        return normalizeDesktopLyricsSettings(
-          this.settings.desktopLyrics,
-          this.settings.enableDesktopLyrics
-        ).enabled;
+        return this.normalizedDesktopLyricsSettings.enabled;
       },
       set(value) {
         this.updateDesktopLyricsSettings({
@@ -1492,8 +1568,10 @@ export default {
         return this.settings.proxyConfig?.protocol || 'noProxy';
       },
       set(value) {
-        let config = this.settings.proxyConfig || {};
-        config.protocol = value;
+        const config = {
+          ...(this.settings.proxyConfig || {}),
+          protocol: value,
+        };
         if (value === 'noProxy') {
           electronSettings?.removeProxy();
           this.showToast('已关闭代理');
@@ -1509,8 +1587,10 @@ export default {
         return this.settings.proxyConfig?.server || '';
       },
       set(value) {
-        let config = this.settings.proxyConfig || {};
-        config.server = value;
+        const config = {
+          ...(this.settings.proxyConfig || {}),
+          server: value,
+        };
         this.$store.commit('updateSettings', {
           key: 'proxyConfig',
           value: config,
@@ -1524,8 +1604,10 @@ export default {
         return this.settings.proxyConfig?.port || '';
       },
       set(value) {
-        let config = this.settings.proxyConfig || {};
-        config.port = value;
+        const config = {
+          ...(this.settings.proxyConfig || {}),
+          port: value,
+        };
         this.$store.commit('updateSettings', {
           key: 'proxyConfig',
           value: config,
@@ -1561,10 +1643,26 @@ export default {
   beforeUnmount() {
     this.removeTrackCacheListener?.();
     this.nativeCacheListener?.remove();
+    clearInterval(this.lastfmChecker);
+    this.lastfmChecker = null;
+    this.exitRecordShortcut();
   },
   methods: {
     ...mapActions(['showToast']),
     ...mapMutations(['updateModal']),
+    scrollToSettingsSection(id) {
+      const target = document.getElementById(id);
+      if (!target) return;
+      if (target.matches('h1, h2, h3')) {
+        target.setAttribute('tabindex', '-1');
+        target.focus({ preventScroll: true });
+      }
+      target.scrollIntoView({
+        behavior: 'auto',
+        block: 'start',
+      });
+    },
+
     showCachedTracks() {
       this.updateModal({
         modalName: 'cachedTracksModal',
@@ -1794,12 +1892,13 @@ export default {
     },
     lastfmConnect() {
       lastfmAuth();
-      let lastfmChecker = setInterval(() => {
+      clearInterval(this.lastfmChecker);
+      this.lastfmChecker = setInterval(() => {
         const session = localStorage.getItem('lastfm');
-        if (session) {
-          this.$store.commit('updateLastfm', JSON.parse(session));
-          clearInterval(lastfmChecker);
-        }
+        if (!session) return;
+        this.$store.commit('updateLastfm', JSON.parse(session));
+        clearInterval(this.lastfmChecker);
+        this.lastfmChecker = null;
       }, 1000);
     },
     lastfmDisconnect() {
@@ -1921,8 +2020,58 @@ export default {
   margin-top: 32px;
 }
 .container {
-  margin-top: 24px;
   width: 720px;
+  margin-top: 24px;
+}
+
+.settings-header {
+  margin-bottom: 36px;
+}
+
+.settings-header h1 {
+  margin: 0 0 18px;
+  color: var(--color-text);
+  font-size: 38px;
+  line-height: 1.15;
+}
+
+.settings-section-nav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.settings-section-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-section-nav button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid rgba(128, 128, 128, 0.12);
+  border-radius: 999px;
+  background: var(--color-secondary-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.72;
+  scroll-snap-align: start;
+  transition:
+    color 0.2s,
+    background-color 0.2s,
+    opacity 0.2s;
+}
+
+.settings-section-nav button:hover,
+.settings-section-nav button:focus-visible {
+  transform: none;
+  color: var(--color-primary);
+  background: var(--color-primary-bg);
+  opacity: 1;
 }
 h2 {
   margin-top: 48px;
@@ -1936,6 +2085,11 @@ h3 {
   font-size: 26px;
   color: var(--color-text);
   border-bottom: 1px solid rgba(128, 128, 128, 0.18);
+}
+
+h1[id],
+h3[id] {
+  scroll-margin-top: 84px;
 }
 
 .user {
@@ -2305,6 +2459,18 @@ input[type='number'] {
   .container {
     width: 100%;
     margin-top: 0;
+  }
+  .settings-header {
+    margin-bottom: 28px;
+  }
+
+  .settings-header h1 {
+    font-size: 32px;
+  }
+
+  .settings-section-nav {
+    margin-right: -16px;
+    padding-right: 16px;
   }
 
   h2 {

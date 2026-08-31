@@ -12,6 +12,10 @@ export default {
     podcast: '播客',
     search: '搜尋',
     clearSearch: '清除搜尋',
+    back: '返回',
+    forward: '前進',
+    primaryNavigation: '主要導覽',
+    accountMenu: '帳戶選單',
     github: 'GitHub Repo',
   },
   home: {
@@ -20,6 +24,8 @@ export default {
     newAlbum: '新曲上架',
     seeMore: '查看全部',
     charts: '排行榜',
+    loadFailed: '部分推薦內容載入失敗',
+    retry: '重試',
   },
   library: {
     sLibrary: '的音樂庫',
@@ -107,6 +113,8 @@ export default {
   explore: {
     explore: '探索',
     loadMore: '載入更多',
+    loadFailed: '歌單載入失敗',
+    retry: '重試',
   },
   podcast: {
     title: '播客',
@@ -130,15 +138,18 @@ export default {
     videos: '個 MV',
     following: '正在追蹤',
     follow: '追蹤',
+    loadFailed: '藝人資訊載入失敗',
   },
   album: {
     released: '發行於',
+    loadFailed: '專輯資訊載入失敗',
   },
   playlist: {
     playlist: '歌單',
     updatedAt: '最後更新於',
     search: '搜尋歌單內音樂',
     locateCurrentTrack: '跳至目前播放',
+    loadFailed: '歌單資訊載入失敗',
   },
   login: {
     accessToAll: '可存取全部資料',
@@ -199,6 +210,12 @@ export default {
     pause: '暫停',
     playbackRate: '播放速度',
     mute: '靜音',
+    unmute: '取消靜音',
+    dislike: '不喜歡',
+    openAlbum: '開啟《{name}》的專輯',
+    openArtist: '開啟歌手 {name}',
+    desktopLyrics: '桌面歌詞',
+    lyrics: '歌詞',
     lockDesktopLyrics: '鎖定桌面歌詞',
     unlockDesktopLyrics: '解鎖桌面歌詞',
     progress: '播放進度',
@@ -231,6 +248,12 @@ export default {
   },
   settings: {
     settings: '設定',
+    sectionNavigation: '設定分類',
+    generalSection: '一般',
+    cacheSection: '快取',
+    pluginSection: '外掛',
+    proxySection: '代理',
+    shortcutSection: '快速鍵',
     logout: '登出',
     language: '語言',
     lyric: '歌詞',
@@ -418,6 +441,7 @@ export default {
     loadFailed: '歌單載入失敗，請稍後再試',
   },
   contextMenu: {
+    label: '快捷選單',
     play: '播放',
     addToQueue: '新增至佇列',
     saveToMyLikedSongs: '新增至我喜歡的音樂',

@@ -5,14 +5,16 @@
         v-if="showBackButton"
         class="topbar-button"
         type="button"
-        aria-label="Back"
+        :aria-label="$t('nav.back')"
         @click="$router.back()"
       >
         <svg-icon icon-class="arrow-left" />
       </button>
       <div v-else class="brand-mark" aria-hidden="true">X</div>
 
-      <div class="mobile-page-title">{{ pageTitle }}</div>
+      <div class="mobile-page-title" role="heading" aria-level="1">
+        {{ pageTitle }}
+      </div>
 
       <div class="topbar-actions">
         <button
@@ -46,13 +48,16 @@
       </div>
     </header>
 
-    <nav class="mobile-tabbar" :aria-label="$t('nav.home')">
+    <nav class="mobile-tabbar" :aria-label="$t('nav.primaryNavigation')">
       <router-link
         v-for="item in tabs"
         :key="item.routeName"
         :to="{ name: item.routeName }"
         class="mobile-tab"
         :class="{ active: item.activeRoutes.includes($route.name) }"
+        :aria-current="
+          item.activeRoutes.includes($route.name) ? 'page' : undefined
+        "
       >
         <svg-icon :icon-class="item.icon" />
         <span>{{ item.label }}</span>

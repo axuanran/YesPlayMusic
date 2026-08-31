@@ -23,6 +23,21 @@ All notable changes to this project will be documented in this file.
 - Deferred context-menu measurement and expensive cover effects until needed.
 - Limited route keep-alive caching, loaded Library collections once per account with stale-response guards, and paused hidden-window animations.
 - Kept centered playback controls independent from a compact, background-integrated lyrics-behavior icon and translation action, with configurable follow, centering, click-to-seek, and auto-resume behavior.
+- Deferred account synchronization and mobile-only modules until after first paint, reducing startup work and the initial web bundle.
+- Reused fresh Home feed data across navigation, coalesced in-flight loads, and added polished loading, partial-failure, retry, and keyboard-focus states.
+- Reduced long-list work with constant-time liked-track lookup, offscreen rendering containment, and narrower hover transitions.
+- Reused Explore category results, coalesced pagination, rejected stale Artist and Explore responses, and added retryable Explore failures.
+- Honored reduced-motion preferences across animations, transitions, and smooth scrolling.
+- Rejected stale Album, Playlist, and artist-video responses during rapid navigation, coalesced pagination, and cleaned delayed progress work.
+- Loaded lyrics and modal surfaces only when first opened, reducing initial JavaScript and avoiding hidden modal listeners.
+- Lazily loaded and bounded-cache cover color extraction, skipped hidden lyrics work, and rejected stale artwork gradients.
+- Skipped unchanged local and Electron settings persistence, bulk-read exact cached track details, and deferred cache accounting until browser idle time.
+- Improved player icon-button semantics, disabled states, pressed-state announcements, localized labels, and keyboard-accessible track metadata navigation.
+- Added accessible modal focus trapping, Escape dismissal, focus restoration, background scroll locking, and safe-area-aware sizing.
+- Coalesced duplicate lyric and cover warmup requests and reused parsed request settings until their stored value changes.
+- Added keyboard-complete context menus with focus restoration and accessible, safe-area-aware toast presentation.
+- Improved desktop and mobile navigation semantics, account-menu keyboard access, and global Space playback shortcut safety.
+- Added responsive Settings section navigation, reduced repeated desktop-lyrics normalization, and cleaned proxy, shortcut-recording, and Last.fm lifecycle state.
 
 ### Fixed
 
@@ -35,6 +50,7 @@ All notable changes to this project will be documented in this file.
 - Prevented desktop-lyrics shadows from being clipped by line overflow.
 - Kept the logged-out local-playlist import control below the desktop title bar.
 - Stopped slow local API initialization from blocking the first application window.
+- Removed a request/store initialization cycle that could leave the web application shell blank.
 
 ## v0.1.0-alpha.3 - 2026-06-29
 

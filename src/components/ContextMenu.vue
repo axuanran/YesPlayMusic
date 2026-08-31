@@ -10,11 +10,13 @@
         <div
           ref="menu"
           class="menu"
+          role="menu"
+          :aria-label="$t('contextMenu.label')"
           tabindex="-1"
           :style="menuStyle"
           @click="handleMenuClick"
           @contextmenu.prevent
-          @keydown.esc.stop.prevent="closeMenu"
+          @keydown="handleMenuKeydown"
         >
           <slot></slot>
         </div>
@@ -25,6 +27,7 @@
 
 <script>
 import { getContextMenuLayout } from '@/utils/contextMenuPosition';
+import { getContextMenuTargetIndex } from '@/utils/contextMenuKeyboard';
 
 export default {
   name: 'ContextMenu',
@@ -40,6 +43,7 @@ export default {
       positioned: false,
       resizeObserver: null,
       repositionFrame: null,
+      triggerElement: null,
     };
   },
   computed: {
@@ -155,23 +159,85 @@ export default {
       }
     },
 
-    closeMenu() {
+    closeMenu(eventOrRestore = true) {
       if (!this.showMenu) return;
+      const restoreFocus =
+        eventOrRestore !== false && eventOrRestore?.type !== 'blur';
       this.showMenu = false;
       this.stopPositionTracking();
       if (this.$parent.closeMenu !== undefined) {
         this.$parent.closeMenu();
       }
+      if (restoreFocus && this.triggerElement?.isConnected) {
+        this.$nextTick(() => {
+          this.triggerElement?.focus?.({ preventScroll: true });
+        });
+      }
+    },
+
+    getMenuItems() {
+      const menu = this.$refs.menu;
+      if (!menu) return [];
+      return [...menu.querySelectorAll('.item')].filter(
+        item =>
+          !item.matches('[disabled], [aria-disabled="true"]') &&
+          item.getClientRects().length > 0
+      );
+    },
+
+    prepareMenuItems() {
+      const items = this.getMenuItems();
+      for (const item of items) {
+        if (!item.hasAttribute('role')) item.setAttribute('role', 'menuitem');
+        item.setAttribute('tabindex', '-1');
+      }
+      return items;
     },
 
     handleMenuClick(event) {
       if (event.target?.closest?.('.item')) this.closeMenu();
     },
 
+    handleMenuKeydown(event) {
+      if (event.key === 'Escape' || event.key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.closeMenu();
+        return;
+      }
+      const items = this.getMenuItems();
+      const currentIndex = items.indexOf(document.activeElement);
+      const targetIndex = getContextMenuTargetIndex(
+        event.key,
+        currentIndex,
+        items.length
+      );
+      if (targetIndex !== null) {
+        event.preventDefault();
+        event.stopPropagation();
+        items[targetIndex]?.focus({ preventScroll: true });
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === ' ') && currentIndex >= 0) {
+        event.preventDefault();
+        event.stopPropagation();
+        items[currentIndex].click();
+      }
+    },
+
     openMenu(e) {
       e.preventDefault();
-      this.anchorX = e.clientX ?? e.x;
-      this.anchorY = e.clientY ?? e.y;
+      this.triggerElement =
+        e.currentTarget instanceof HTMLElement ? e.currentTarget : e.target;
+      const targetRect = this.triggerElement?.getBoundingClientRect?.();
+      const keyboardAnchor =
+        (e.clientX ?? e.x) === 0 && (e.clientY ?? e.y) === 0;
+      this.anchorX = keyboardAnchor
+        ? targetRect?.left || 0
+        : (e.clientX ?? e.x);
+      this.anchorY = keyboardAnchor
+        ? targetRect?.bottom || 0
+        : (e.clientY ?? e.y);
       this.top = `${this.anchorY}px`;
       this.left = `${this.anchorX}px`;
       this.maxHeight = 'none';
@@ -183,7 +249,8 @@ export default {
           this.repositionFrame = null;
           if (!this.showMenu) return;
           this.setMenu();
-          this.$refs.menu?.focus({ preventScroll: true });
+          const items = this.prepareMenuItems();
+          (items[0] || this.$refs.menu)?.focus({ preventScroll: true });
           this.startPositionTracking();
         });
       });
@@ -259,7 +326,8 @@ export default {
   color: var(--color-text);
   display: flex;
   align-items: center;
-  &:hover {
+  &:hover,
+  &:focus-visible {
     color: var(--color-primary);
     background: var(--color-primary-bg-for-transparent);
     transition:
@@ -275,6 +343,13 @@ export default {
     height: 16px;
     width: 16px;
     margin-right: 5px;
+  }
+}
+
+@media (pointer: coarse) {
+  .menu .item {
+    min-height: 44px;
+    box-sizing: border-box;
   }
 }
 

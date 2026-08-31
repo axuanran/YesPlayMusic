@@ -18,22 +18,38 @@ export function getSendSettingsPlugin() {
     let latestSettings = null;
     let flushScheduled = false;
     let persistenceErrorNotified = false;
+    const successfulValues = new Map();
 
     const flush = () => {
       flushScheduled = false;
       const settings = latestSettings;
-      latestSettings = null;
       if (!settings || changedKeys.size === 0) return;
 
       const patch = {};
-      for (const key of changedKeys) {
+      const serializedPatch = new Map();
+      for (const key of [...changedKeys]) {
+        const serialized = JSON.stringify(settings[key]);
+        if (successfulValues.get(key) === serialized) {
+          changedKeys.delete(key);
+          continue;
+        }
         patch[key] = cloneDeep(settings[key]);
+        serializedPatch.set(key, serialized);
       }
-      changedKeys.clear();
+      if (serializedPatch.size === 0) {
+        latestSettings = null;
+        return;
+      }
+
       const updateSettings = window.electronAPI?.settings?.updateSettings;
       if (typeof updateSettings !== 'function') return;
       try {
         updateSettings(patch);
+        for (const [key, serialized] of serializedPatch) {
+          successfulValues.set(key, serialized);
+          changedKeys.delete(key);
+        }
+        if (changedKeys.size === 0) latestSettings = null;
         persistenceErrorNotified = false;
       } catch (error) {
         console.error('Failed to persist Electron settings', error);

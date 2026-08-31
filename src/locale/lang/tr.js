@@ -12,6 +12,10 @@ export default {
     podcast: 'Podcastler',
     search: 'Ara',
     clearSearch: 'Aramayı temizle',
+    back: 'Geri',
+    forward: 'İleri',
+    primaryNavigation: 'Ana gezinme',
+    accountMenu: 'Hesap menüsü',
     github: 'GitHub Repo',
   },
   footer: {
@@ -23,6 +27,8 @@ export default {
     newAlbum: 'Son Çıkan Albümler',
     seeMore: 'DAHA FAZLASI',
     charts: 'Listeler',
+    loadFailed: 'Bazı öneriler yüklenemedi',
+    retry: 'Yeniden dene',
   },
   library: {
     sLibrary: "'in Kütüphanesi",
@@ -115,6 +121,8 @@ export default {
   explore: {
     explore: 'Keşfet',
     loadMore: 'Daha Fazlası',
+    loadFailed: 'Çalma listeleri yüklenemedi',
+    retry: 'Tekrar dene',
   },
   podcast: {
     title: 'Podcastler',
@@ -139,15 +147,18 @@ export default {
     videos: 'Müzik Videoları',
     following: 'Takip Ediyor',
     follow: 'Takip Et',
+    loadFailed: 'Sanatçı bilgileri yüklenemedi',
   },
   album: {
     released: 'Yayınlandı',
+    loadFailed: 'Albüm bilgileri yüklenemedi',
   },
   playlist: {
     playlist: 'Çalma Listeleri',
     updatedAt: 'Tarihinde Güncellendş',
     search: 'Çalma Listesinde Ara',
     locateCurrentTrack: 'Çalan parçaya git',
+    loadFailed: 'Çalma listesi bilgileri yüklenemedi',
   },
   login: {
     accessToAll: 'Tüm verilere eriş',
@@ -205,6 +216,13 @@ export default {
     pause: 'Durdur',
     playbackRate: 'Oynatma hızı',
     mute: 'Sesi kapat',
+    unmute: 'Sesi aç',
+    dislike: 'Beğenme',
+    reversed: 'Ters sırada çal',
+    openAlbum: '{name} albümünü aç',
+    openArtist: '{name} sanatçısını aç',
+    desktopLyrics: 'Masaüstü şarkı sözleri',
+    lyrics: 'Şarkı sözleri',
     lockDesktopLyrics: 'Masaüstü şarkı sözlerini kilitle',
     unlockDesktopLyrics: 'Masaüstü şarkı sözlerinin kilidini aç',
     progress: 'Oynatma ilerlemesi',
@@ -237,6 +255,12 @@ export default {
   },
   settings: {
     settings: 'Ayarlar',
+    sectionNavigation: 'Ayar bölümleri',
+    generalSection: 'Genel',
+    cacheSection: 'Önbellek',
+    pluginSection: 'Eklentiler',
+    proxySection: 'Proxy',
+    shortcutSection: 'Kısayollar',
     logout: 'ÇIKIŞ YAP',
     language: 'Diller',
     lyric: 'Şarkı Sözleri',
@@ -427,6 +451,7 @@ export default {
     loadFailed: 'Çalma listeleri yüklenemedi. Daha sonra tekrar deneyin.',
   },
   contextMenu: {
+    label: 'Bağlam menüsü',
     play: 'Oynat',
     addToQueue: 'Sonrakini Oynat',
     saveToMyLikedSongs: 'Beğendiğim Müziklere Kaydet',

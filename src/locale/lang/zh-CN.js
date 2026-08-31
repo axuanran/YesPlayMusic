@@ -12,6 +12,10 @@ export default {
     podcast: '播客',
     search: '搜索',
     clearSearch: '清除搜索',
+    back: '后退',
+    forward: '前进',
+    primaryNavigation: '主导航',
+    accountMenu: '账户菜单',
     github: 'Github 仓库',
   },
   home: {
@@ -20,6 +24,8 @@ export default {
     newAlbum: '新专速递',
     seeMore: '查看全部',
     charts: '排行榜',
+    loadFailed: '部分推荐内容加载失败',
+    retry: '重试',
   },
   library: {
     sLibrary: '的音乐库',
@@ -107,6 +113,8 @@ export default {
   explore: {
     explore: '发现',
     loadMore: '加载更多',
+    loadFailed: '歌单加载失败',
+    retry: '重试',
   },
   podcast: {
     title: '播客',
@@ -133,16 +141,19 @@ export default {
     follow: '关注',
     similarArtists: '相似艺人',
     artistDesc: '艺术家介绍',
+    loadFailed: '艺人信息加载失败',
   },
   album: {
     released: '发行于',
     albumDesc: '专辑介绍',
+    loadFailed: '专辑信息加载失败',
   },
   playlist: {
     playlist: '歌单',
     updatedAt: '最后更新于',
     search: '搜索歌单音乐',
     locateCurrentTrack: '跳转到正在播放',
+    loadFailed: '歌单信息加载失败',
   },
   login: {
     accessToAll: '可访问全部数据',
@@ -203,6 +214,12 @@ export default {
     pause: '暂停',
     playbackRate: '播放倍速',
     mute: '静音',
+    unmute: '取消静音',
+    dislike: '不喜欢',
+    openAlbum: '打开《{name}》的专辑',
+    openArtist: '打开歌手 {name}',
+    desktopLyrics: '桌面歌词',
+    lyrics: '歌词',
     lockDesktopLyrics: '锁定桌面歌词',
     unlockDesktopLyrics: '解锁桌面歌词',
     progress: '播放进度',
@@ -235,6 +252,12 @@ export default {
   },
   settings: {
     settings: '设置',
+    sectionNavigation: '设置分类',
+    generalSection: '通用',
+    cacheSection: '缓存',
+    pluginSection: '插件',
+    proxySection: '代理',
+    shortcutSection: '快捷键',
     logout: '登出',
     language: '语言',
     lyric: '歌词',
@@ -425,6 +448,7 @@ export default {
     loadFailed: '歌单加载失败，请稍后重试',
   },
   contextMenu: {
+    label: '快捷菜单',
     play: '播放',
     addToQueue: '添加到队列',
     saveToMyLikedSongs: '添加到我喜欢的音乐',

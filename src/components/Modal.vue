@@ -1,9 +1,23 @@
 <template>
-  <div v-show="show" class="shade" @click="clickOutside">
-    <div class="modal" :style="modalStyles" @click.stop>
+  <div v-show="show" class="shade" role="presentation" @click="clickOutside">
+    <div
+      :id="dialogId"
+      ref="dialog"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      :aria-labelledby="titleId"
+      :style="modalStyles"
+      tabindex="-1"
+      @click.stop
+    >
       <div class="header">
-        <div class="title">{{ title }}</div>
-        <button class="close" @click="close"
+        <div :id="titleId" class="title">{{ title }}</div>
+        <button
+          class="close"
+          :aria-label="$t('modal.close')"
+          :title="$t('modal.close')"
+          @click="close"
           ><svg-icon icon-class="x"
         /></button>
       </div>
@@ -18,6 +32,11 @@
 </template>
 
 <script>
+import { trapModalTab } from '@/utils/modalFocus';
+
+let modalId = 0;
+let openModalCount = 0;
+
 export default {
   name: 'Modal',
   props: {
@@ -44,6 +63,15 @@ export default {
       default: 'calc(min(23rem, 100vw))',
     },
   },
+  data() {
+    modalId += 1;
+    return {
+      dialogId: `modal-dialog-${modalId}`,
+      modalActive: false,
+      previouslyFocused: null,
+      titleId: `modal-title-${modalId}`,
+    };
+  },
   computed: {
     modalStyles() {
       return {
@@ -52,7 +80,58 @@ export default {
       };
     },
   },
+  watch: {
+    show: {
+      immediate: true,
+      handler(show) {
+        if (show) {
+          this.$nextTick(this.activateModal);
+        } else {
+          this.deactivateModal();
+        }
+      },
+    },
+  },
+  beforeUnmount() {
+    this.deactivateModal();
+  },
   methods: {
+    activateModal() {
+      if (this.modalActive || !this.show || !this.$refs.dialog) return;
+      this.modalActive = true;
+      this.previouslyFocused = document.activeElement;
+      document.addEventListener('keydown', this.handleKeydown);
+      openModalCount += 1;
+      document.documentElement.classList.add('modal-open');
+      const focusable = this.$refs.dialog.querySelector(
+        '[autofocus], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+      );
+      (focusable || this.$refs.dialog).focus({ preventScroll: true });
+    },
+    deactivateModal() {
+      document.removeEventListener('keydown', this.handleKeydown);
+      if (this.modalActive) {
+        this.modalActive = false;
+        openModalCount = Math.max(0, openModalCount - 1);
+      }
+      if (openModalCount === 0) {
+        document.documentElement.classList.remove('modal-open');
+      }
+      if (this.previouslyFocused?.isConnected) {
+        this.previouslyFocused.focus({ preventScroll: true });
+      }
+      this.previouslyFocused = null;
+    },
+    handleKeydown(event) {
+      if (!this.show) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.close?.();
+        return;
+      }
+      trapModalTab(event, this.$refs.dialog, document.activeElement);
+    },
+
     clickOutside() {
       if (this.clickOutsideHide) {
         this.close();
@@ -74,6 +153,10 @@ export default {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  box-sizing: border-box;
+  padding: max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
 }
 
 .modal {
@@ -89,7 +172,9 @@ export default {
   z-index: 100;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 128px - 64px);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  box-sizing: border-box;
 
   ::-webkit-scrollbar {
     width: 4px;
@@ -189,5 +274,14 @@ export default {
     background: rgba(36, 36, 36, 0.88);
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
+}
+
+:global(html.modal-open),
+:global(html.modal-open body) {
+  overflow: hidden;
+}
+
+:global(html.modal-open main) {
+  overflow: hidden !important;
 }
 </style>
