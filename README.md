@@ -332,6 +332,7 @@ XuMP 基于 [qier222/YesPlayMusic](https://github.com/qier222/YesPlayMusic) 持�
 
 - [NeteaseCloudMusicApi Enhanced](https://github.com/neteasecloudmusicapienhanced/api-enhanced)
 - [UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server)
+- [nagi-studio/YesPlayMusic](https://github.com/nagi-studio/YesPlayMusic)
 
 感谢原项目作者、所有贡献者，以及持续参与测试和反馈的用户。
 
