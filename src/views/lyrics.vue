@@ -1785,6 +1785,11 @@ export default {
   .right-side .lyrics-container {
     max-width: 100%;
   }
+
+  .right-side .lyrics-container .line .content {
+    transform: none;
+    transition: none;
+  }
 }
 
 @media screen and (min-width: 1200px) {
