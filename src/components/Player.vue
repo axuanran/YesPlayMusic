@@ -265,7 +265,7 @@
             <svg-icon icon-class="desktop-lyrics" />
           </button-icon>
           <button-icon
-            v-if="isElectron && desktopLyricsEnabled"
+            v-if="isElectron && desktopLyricsVisible"
             :aria-pressed="desktopLyricsLocked"
             :class="{ active: desktopLyricsLocked }"
             :title="
@@ -419,12 +419,6 @@ export default {
     desktopLyricsVisible() {
       const value = this.settings.desktopLyrics;
       return value?.enabled === true && value?.visible === true;
-    },
-    desktopLyricsEnabled() {
-      const enabled = this.settings.desktopLyrics?.enabled;
-      return typeof enabled === 'boolean'
-        ? enabled
-        : this.settings.enableDesktopLyrics === true;
     },
     desktopLyricsLocked() {
       return this.settings.desktopLyrics?.locked === true;

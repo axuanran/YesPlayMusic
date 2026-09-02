@@ -72,7 +72,7 @@ export default {
   computed: {
     rowStyles() {
       return {
-        'grid-template-columns': `repeat(${this.columnNumber}, 1fr)`,
+        'grid-template-columns': `repeat(${this.columnNumber}, minmax(0, 1fr))`,
         gap: this.gap,
       };
     },
@@ -158,6 +158,7 @@ export default {
 }
 
 .item {
+  min-width: 0;
   color: var(--color-text);
   content-visibility: auto;
   contain-intrinsic-size: auto 280px;
