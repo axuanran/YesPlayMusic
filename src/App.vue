@@ -39,7 +39,10 @@
       v-if="(isElectron || isCapacitor) && modals.cachedTracksModal.show"
     />
     <transition v-if="enablePlayer && lyricsMounted" name="slide-up">
-      <Lyrics v-show="showLyrics" />
+      <Lyrics
+        :key="player.currentTrack?.id ?? 'empty'"
+        v-show="showLyrics"
+      />
     </transition>
   </div>
 </template>
