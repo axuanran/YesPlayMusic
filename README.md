@@ -31,7 +31,7 @@
 
 此 README 主要由 AI 编写。由于 dev 分支不稳定，请尽量使用手动标注为 Latest 的版本。Docker 的 latest 跟随 dev，长期部署建议固定版本标签。
 
-据反馈，建议使用 https://github.com/axuanran/YesPlayMusic/releases/tag/%232474 。此版本仅对上游升级了api-enhance版本，可能相对更可靠
+可使用 https://github.com/axuanran/YesPlayMusic/releases/tag/%232474 。此版本仅对上游升级了api-enhance版本，可能相对更稳定
 
 ## 项目简介
 
