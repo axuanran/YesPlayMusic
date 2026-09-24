@@ -192,7 +192,7 @@ docker run -d \
 
 </details>
 
-## TUI
+## TUI   TUI 计划暂推
 
 项目提供基于 `mpv` 的终端界面，支持网易云登录与 Cookie 同步、搜索、私人 FM 和终端播放。请先确保系统中已安装 mpv。
 
