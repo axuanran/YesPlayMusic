@@ -237,4 +237,6 @@ export function ipcRenderer(vueInstance) {
         )
       );
   });
+  // tell the main process that the control channel can be used now
+  if (typeof control?.onRequest === 'function') control.ready?.();
 }

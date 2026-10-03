@@ -5,11 +5,14 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  createMcpServer,
   formatMs,
+  MCP_TOOLS,
   parseArgs,
   pickBestMatch,
   request,
   runCommand,
+  validateToolArguments,
 } from '../xumpctl.mjs';
 
 const CANNED = {
@@ -223,5 +226,272 @@ describe('xumpctl commands', () => {
     await expect(
       request('status', {}, { socketPath: path.join(dir, 'missing.sock') })
     ).rejects.toMatchObject({ code: 'app_not_running' });
+  });
+});
+
+describe('xumpctl MCP adapter', () => {
+  const connect = socketPath => {
+    const lines = [];
+    const server = createMcpServer({
+      socketPath,
+      write: line => lines.push(JSON.parse(line)),
+    });
+    const send = async message => {
+      await server.handle(JSON.stringify(message));
+      return lines.length;
+    };
+    const last = () => lines[lines.length - 1];
+    return { lines, send, last, server };
+  };
+
+  it('negotiates a supported protocol version and refuses to fake unknown ones', async () => {
+    const { send, last } = connect(socketPath);
+    await send({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-03-26',
+        clientInfo: { name: 'test', version: '0' },
+      },
+    });
+    expect(last().result.protocolVersion).toBe('2025-03-26');
+    expect(last().result.serverInfo.name).toBe('xump');
+
+    const other = connect(socketPath);
+    await other.send({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'initialize',
+      params: { protocolVersion: '1900-01-01' },
+    });
+    expect(other.last().result.protocolVersion).toBe('2025-06-18');
+  });
+
+  it('validates the JSON-RPC envelope', async () => {
+    const { send, last, server } = connect(socketPath);
+    await send({ jsonrpc: '1.0', id: 1, method: 'initialize' });
+    expect(last().error.code).toBe(-32600);
+
+    await send({ jsonrpc: '2.0', id: 2 });
+    expect(last().error.code).toBe(-32600);
+
+    const missingVersion = connect(socketPath);
+    await missingVersion.send({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'initialize',
+      params: {},
+    });
+    expect(missingVersion.last().error.code).toBe(-32602);
+
+    await server.handle('not json');
+    expect(last().error.code).toBe(-32700);
+  });
+
+  it('requires initialize before other requests and answers ping anyway', async () => {
+    const { send, last } = connect(socketPath);
+    await send({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+    expect(last().error.code).toBe(-32002);
+
+    await send({ jsonrpc: '2.0', id: 2, method: 'ping' });
+    expect(last().result).toEqual({});
+  });
+
+  it('lists every tool and never replies to notifications', async () => {
+    const { lines, send, last } = connect(socketPath);
+    await send({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2025-06-18' },
+    });
+    await send({ jsonrpc: '2.0', method: 'notifications/initialized' });
+    const before = lines.length;
+    await send({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
+    expect(last().result.tools).toHaveLength(MCP_TOOLS.length);
+    expect(last().result.tools.map(tool => tool.name)).toContain('music_play');
+
+    // a notification-shaped tool call must not execute and must not be answered
+    await send({
+      jsonrpc: '2.0',
+      method: 'tools/call',
+      params: { name: 'music_control', arguments: { action: 'next' } },
+    });
+    expect(lines.length).toBe(before + 1);
+    expect(requests).toHaveLength(0);
+  });
+
+  it('rejects bad tool arguments with -32602', async () => {
+    const { send, last } = connect(socketPath);
+    await send({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2025-06-18' },
+    });
+    await send({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'nope' },
+    });
+    expect(last().error.code).toBe(-32602);
+
+    await send({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: { name: 'music_control', arguments: { action: 'teleport' } },
+    });
+    expect(last().error.code).toBe(-32602);
+
+    await send({
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: { name: 'music_lyrics', arguments: { id: 'abc' } },
+    });
+    expect(last().error.code).toBe(-32602);
+
+    await send({
+      jsonrpc: '2.0',
+      id: 5,
+      method: 'tools/call',
+      params: { name: 'music_lyrics', arguments: { id: 1, extra: true } },
+    });
+    expect(last().error.code).toBe(-32602);
+    expect(requests).toHaveLength(0);
+  });
+
+  it('returns structuredContent only for object results and isError for failures', async () => {
+    const { send, last } = connect(socketPath);
+    await send({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2025-06-18' },
+    });
+
+    await send({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'music_status', arguments: {} },
+    });
+    expect(last().result.structuredContent).toMatchObject({ playing: true });
+    expect(last().result.structuredContent).not.toBeInstanceOf(Array);
+
+    await send({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: { name: 'music_search', arguments: { query: '海阔天空' } },
+    });
+    expect(last().result.structuredContent).toMatchObject({ type: 'song' });
+
+    // a tool whose socket answer is an error becomes an isError result
+    await send({
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: { name: 'music_like', arguments: { id: 1, liked: true } },
+    });
+    expect(last().result.isError).toBe(true);
+    expect(last().result.content[0].text).toContain('unknown_method');
+  });
+
+  it('validates schemas the same way the tools declare them', () => {
+    const control = MCP_TOOLS.find(tool => tool.name === 'music_control');
+    expect(
+      validateToolArguments(control.inputSchema, { action: 'next' })
+    ).toEqual([]);
+    expect(validateToolArguments(control.inputSchema, {})).toContain(
+      'missing required argument "action"'
+    );
+    expect(
+      validateToolArguments(control.inputSchema, { action: 'next', extra: 1 })
+    ).toContain('unknown argument "extra"');
+    const search = MCP_TOOLS.find(tool => tool.name === 'music_search');
+    expect(
+      validateToolArguments(search.inputSchema, { query: 'x', limit: 99 })
+    ).toContain('"limit" must be <= 50');
+  });
+});
+
+describe('xumpctl retry policy', () => {
+  it('retries read-only calls that raced the app startup, but never writes', async () => {
+    const attempts = [];
+    let started = false;
+    const flaky = net.createServer(socket => {
+      socket.setEncoding('utf8');
+      let buffer = '';
+      socket.on('data', chunk => {
+        buffer += chunk;
+        let index = buffer.indexOf('\n');
+        while (index !== -1) {
+          const request = JSON.parse(buffer.slice(0, index));
+          buffer = buffer.slice(index + 1);
+          attempts.push(request.method);
+          if (!started) {
+            started = true;
+            socket.write(
+              `${JSON.stringify({
+                id: request.id,
+                error: {
+                  code: 'renderer_unavailable',
+                  message: 'still starting',
+                },
+              })}\n`
+            );
+          } else {
+            socket.write(
+              `${JSON.stringify({ id: request.id, result: { ok: true } })}\n`
+            );
+          }
+          index = buffer.indexOf('\n');
+        }
+      });
+    });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xumpctl-flaky-'));
+    const flakyPath = path.join(dir, 'flaky.sock');
+    await new Promise(resolve => flaky.listen(flakyPath, resolve));
+    try {
+      await expect(
+        request('status', {}, { socketPath: flakyPath })
+      ).resolves.toEqual({ ok: true });
+      expect(attempts).toEqual(['status', 'status']);
+
+      attempts.length = 0;
+      started = false;
+      await expect(
+        request('play', { id: 1 }, { socketPath: flakyPath })
+      ).rejects.toMatchObject({ code: 'renderer_unavailable' });
+      expect(attempts).toEqual(['play']);
+    } finally {
+      await new Promise(resolve => flaky.close(resolve));
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('xumpctl raw passthrough', () => {
+  it('sends an arbitrary method and validates the payload', async () => {
+    await runCommand(
+      [
+        'raw',
+        '{"method":"queue","params":{"limit":5}}',
+        '--socket',
+        socketPath,
+      ],
+      createIo()
+    );
+    expect(requests[0]).toMatchObject({
+      method: 'queue',
+      params: { limit: 5 },
+    });
+    await expect(
+      runCommand(['raw', 'nope', '--socket', socketPath], createIo())
+    ).rejects.toMatchObject({ code: 'invalid_usage' });
   });
 });

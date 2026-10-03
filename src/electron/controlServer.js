@@ -11,6 +11,7 @@ import { app, ipcMain } from 'electron';
 
 export const CONTROL_REQUEST_CHANNEL = 'control:request';
 export const CONTROL_REPLY_CHANNEL = 'control:reply';
+export const CONTROL_READY_CHANNEL = 'control:ready';
 
 const SOCKET_FILENAME = 'xump-control.sock';
 const RENDERER_TIMEOUT_MS = 45000;
@@ -30,7 +31,14 @@ const RENDERER_METHODS = new Set([
   'queue',
   'search',
   'lyrics',
+  'recommend',
+  'like',
 ]);
+
+// Methods that change the remote NetEase account (not just local playback):
+// they stay behind an explicit opt-in that the app enforces, so a raw socket
+// caller cannot bypass it.
+const ACCOUNT_WRITE_METHODS = new Set(['like']);
 
 export class ControlError extends Error {
   constructor(code, message) {
@@ -86,7 +94,11 @@ const claimSocketPath = async socketPath => {
   fs.rmSync(socketPath, { force: true });
 };
 
-export function startControlServer({ getWindow, log = console.log } = {}) {
+export function startControlServer({
+  getWindow,
+  getAccountWriteAllowed,
+  log = console.log,
+} = {}) {
   const disabled =
     process.env.XUMP_CONTROL_SOCKET === '0' || process.platform === 'win32';
   if (disabled) {
@@ -107,6 +119,9 @@ export function startControlServer({ getWindow, log = console.log } = {}) {
   let inflight = 0;
   let stopped = false;
   let ownedInode = null;
+  // the renderer subscribes to CONTROL_REQUEST_CHANNEL when the Vue app mounts;
+  // requests sent before that would be dropped, so fail fast until it is ready
+  let readyWebContentsId = null;
 
   const respond = (socket, payload) => {
     if (socket.destroyed) return;
@@ -131,6 +146,14 @@ export function startControlServer({ getWindow, log = console.log } = {}) {
     }
     const id = ++seq;
     const senderId = window.webContents.id;
+    if (readyWebContentsId !== senderId) {
+      return Promise.reject(
+        new ControlError(
+          'renderer_unavailable',
+          'XuMP is still starting up, try again in a moment'
+        )
+      );
+    }
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         pending.delete(id);
@@ -171,6 +194,15 @@ export function startControlServer({ getWindow, log = console.log } = {}) {
     }
     if (!RENDERER_METHODS.has(method)) {
       throw new ControlError('unknown_method', `unknown method "${method}"`);
+    }
+    if (
+      ACCOUNT_WRITE_METHODS.has(method) &&
+      getAccountWriteAllowed?.() !== true
+    ) {
+      throw new ControlError(
+        'account_write_disabled',
+        `${method} is disabled; enable account writes first (see docs/control-api.md)`
+      );
     }
     return requestRenderer(method, params);
   };
@@ -257,6 +289,18 @@ export function startControlServer({ getWindow, log = console.log } = {}) {
     });
   };
 
+  const onReady = event => {
+    const window = getWindow?.();
+    if (
+      window &&
+      !window.isDestroyed?.() &&
+      event?.sender?.id === window.webContents.id
+    ) {
+      readyWebContentsId = event.sender.id;
+    }
+  };
+  ipcMain.on(CONTROL_READY_CHANNEL, onReady);
+
   const onReply = (event, payload) => {
     const entry = pending.get(payload?.id);
     if (!entry) return;
@@ -286,6 +330,7 @@ export function startControlServer({ getWindow, log = console.log } = {}) {
     if (stopped) return;
     stopped = true;
     ipcMain.removeListener(CONTROL_REPLY_CHANNEL, onReply);
+    ipcMain.removeListener(CONTROL_READY_CHANNEL, onReady);
     for (const entry of pending.values()) {
       clearTimeout(entry.timer);
       entry.reject(new ControlError('stopped', 'control server stopped'));
@@ -325,5 +370,11 @@ export function startControlServer({ getWindow, log = console.log } = {}) {
     })
     .catch(error => log(`[control] not started: ${error.message}`));
 
-  return { socketPath, stop };
+  return {
+    socketPath,
+    stop,
+    markRendererReady: id => {
+      readyWebContentsId = id;
+    },
+  };
 }

@@ -34,6 +34,7 @@ vi.mock('electron', () => ({ app: mocks.app, ipcMain: mocks.ipcMain }));
 import {
   startControlServer,
   controlSocketPath,
+  CONTROL_READY_CHANNEL,
   CONTROL_REPLY_CHANNEL,
 } from '@/electron/controlServer';
 
@@ -76,17 +77,25 @@ const echoReply = payload => {
 let runtimeDir;
 let servers;
 
-const startOn = async (socketPath, reply = echoReply) => {
+const startOn = async (
+  socketPath,
+  reply = echoReply,
+  accountWriteAllowed = false,
+  markReady = true
+) => {
   process.env.XUMP_CONTROL_SOCKET = socketPath;
   const server = startControlServer({
     getWindow: () => ({
       isDestroyed: () => false,
       webContents: { id: 1, send: (_channel, payload) => reply(payload) },
     }),
+    getAccountWriteAllowed: () => accountWriteAllowed,
     log: () => {},
   });
   servers.push(server);
   await waitForSocket(socketPath);
+  if (markReady)
+    mocks.ipcMain.emit(CONTROL_READY_CHANNEL, { sender: { id: 1 } });
   return server;
 };
 
@@ -266,6 +275,29 @@ describe('control server', () => {
     expect(fs.readFileSync(file, 'utf8')).toBe('keep me');
   });
 
+  it('fails fast instead of dropping requests while the UI is starting', async () => {
+    const socketPath = path.join(runtimeDir, 'not-ready.sock');
+    await startOn(socketPath, echoReply, false, false);
+    const response = await send(socketPath, { id: 12, method: 'status' });
+    expect(response.error).toEqual({
+      code: 'renderer_unavailable',
+      message: 'XuMP is still starting up, try again in a moment',
+    });
+
+    // once the renderer says it is ready the same request goes through
+    mocks.ipcMain.emit(CONTROL_READY_CHANNEL, { sender: { id: 1 } });
+    const after = await send(socketPath, { id: 13, method: 'status' });
+    expect(after.result).toEqual({ method: 'status', params: {} });
+  });
+
+  it('ignores readiness from another renderer', async () => {
+    const socketPath = path.join(runtimeDir, 'other-ready.sock');
+    await startOn(socketPath, echoReply, false, false);
+    mocks.ipcMain.emit(CONTROL_READY_CHANNEL, { sender: { id: 999 } });
+    const response = await send(socketPath, { id: 14, method: 'status' });
+    expect(response.error.code).toBe('renderer_unavailable');
+  });
+
   it('fails fast when the window is gone', async () => {
     const socketPath = path.join(runtimeDir, 'no-window.sock');
     process.env.XUMP_CONTROL_SOCKET = socketPath;
@@ -274,5 +306,28 @@ describe('control server', () => {
     await waitForSocket(socketPath);
     const response = await send(socketPath, { id: 9, method: 'status' });
     expect(response.error.code).toBe('renderer_unavailable');
+  });
+
+  it('gates account writes behind an explicit opt-in', async () => {
+    const gated = path.join(runtimeDir, 'gated.sock');
+    await startOn(gated, echoReply, false);
+    const refused = await send(gated, {
+      id: 10,
+      method: 'like',
+      params: { id: 111, liked: true },
+    });
+    expect(refused.error.code).toBe('account_write_disabled');
+
+    const allowed = path.join(runtimeDir, 'allowed.sock');
+    await startOn(allowed, echoReply, true);
+    const forwarded = await send(allowed, {
+      id: 11,
+      method: 'like',
+      params: { id: 111, liked: true },
+    });
+    expect(forwarded.result).toEqual({
+      method: 'like',
+      params: { id: 111, liked: true },
+    });
   });
 });

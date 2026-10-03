@@ -365,6 +365,39 @@ export function createControlHandlers({ store, player }) {
     };
   };
 
+  const recommend = async params => {
+    const body = assertParams(params, ['offset', 'limit'], 'recommend');
+    const { limit, offset } = toPage(body);
+    const { dailyRecommendTracks } = await import('@/api/playlist');
+    const result = await dailyRecommendTracks();
+    const items = (result.data?.dailySongs || [])
+      .map(trackFromApi)
+      .filter(Boolean);
+    return pageOf(items, { limit, offset });
+  };
+
+  // Account writes go through an explicit, awaitable store action so failures
+  // are reported instead of being swallowed behind a toast, and are serialized
+  // like the other mutations.
+  const like = params =>
+    serialize(async () => {
+      const body = assertParams(params, ['id', 'liked'], 'like');
+      const id = toId(body.id, 'id');
+      if (typeof body.liked !== 'boolean') {
+        fail('invalid_params', 'liked must be true or false');
+      }
+      const result = await store.dispatch('setTrackLiked', {
+        id,
+        liked: body.liked,
+      });
+      return {
+        accepted: true,
+        id,
+        liked: result?.liked ?? body.liked,
+        stale: !!result?.stale,
+      };
+    });
+
   const handlers = {
     status,
     control,
@@ -373,6 +406,8 @@ export function createControlHandlers({ store, player }) {
     queue,
     search: searchCatalog,
     lyrics,
+    recommend,
+    like,
   };
 
   return handlers;

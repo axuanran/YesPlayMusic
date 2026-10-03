@@ -109,6 +109,17 @@ nextOffset}`; song items are `{id, name, artists, album, durationMs}`.
 nextOffset}`. `timeMs` is milliseconds; the app's parser reports seconds and the
 conversion happens here.
 
+`recommend` - `{offset, limit}` (limit ≤ 256). The logged-in account's daily
+recommendation list as a page of song objects.
+
+`like` - `{id, liked}` (explicit boolean, no toggle). Changes the remote
+NetEase account and is therefore **disabled by default**: the app checks
+`controlAccountWrite` (electron-store settings) or `XUMP_CONTROL_ACCOUNT_WRITE=1`
+before dispatching and answers `account_write_disabled` otherwise. The write
+goes through an awaitable store action that verifies the API response and the
+account did not change, so failures surface as `not_logged_in` / `api_error`
+instead of a toast.
+
 ## `xumpctl`
 
 ```bash
@@ -134,7 +145,7 @@ Install: the CLI is `scripts/xumpctl.mjs` (also a `bin` entry). From a source
 checkout run `node scripts/xumpctl.mjs ...`; packaged installs expose the same
 file inside the app resources.
 
-## Not in this API
+## MCP
 
-Account writes (likes/follows) and the MCP adapter are separate changes; they
-reuse the same socket and add an explicit opt-in for account writes.
+`xumpctl mcp` turns the same API into an MCP server over stdio for agents; see
+`llm-docs/mcp.md` for the tool list, protocol revisions and configuration.

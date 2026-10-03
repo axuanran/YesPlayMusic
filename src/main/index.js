@@ -668,6 +668,9 @@ class Background {
       // local control socket for scripts and agents (xumpctl / MCP)
       this.controlServer = startControlServer({
         getWindow: () => this.window,
+        getAccountWriteAllowed: () =>
+          this.store.get('controlAccountWrite') === true ||
+          process.env.XUMP_CONTROL_ACCOUNT_WRITE === '1',
         log,
       });
 

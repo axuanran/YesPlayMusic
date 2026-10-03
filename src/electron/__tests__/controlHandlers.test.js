@@ -4,10 +4,17 @@ vi.mock('@/electron/ipcRenderer', () => ({
   handleMprisCommand: vi.fn(),
 }));
 
-const apiMocks = vi.hoisted(() => ({ search: vi.fn(), getLyric: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({
+  search: vi.fn(),
+  getLyric: vi.fn(),
+  dailyRecommendTracks: vi.fn(),
+}));
 
 vi.mock('@/api/others', () => ({ search: apiMocks.search }));
 vi.mock('@/api/track', () => ({ getLyric: apiMocks.getLyric }));
+vi.mock('@/api/playlist', () => ({
+  dailyRecommendTracks: apiMocks.dailyRecommendTracks,
+}));
 
 import { handleMprisCommand } from '@/electron/ipcRenderer';
 import { createControlHandlers } from '@/electron/controlHandlers';
@@ -55,6 +62,7 @@ describe('control handlers', () => {
     handleMprisCommand.mockClear();
     apiMocks.search.mockReset();
     apiMocks.getLyric.mockReset();
+    apiMocks.dailyRecommendTracks.mockReset();
   });
 
   it('reports a compact status without dumping the queue', () => {
@@ -180,6 +188,68 @@ describe('control handlers', () => {
       { timeMs: 1000, text: 'first', translation: undefined },
       { timeMs: 60000, text: 'late', translation: 'late translation' },
     ]);
+  });
+
+  it('sets likes explicitly and reports the real outcome', async () => {
+    store.dispatch.mockResolvedValue({ id: 111, liked: true });
+    await expect(handlers.like({ id: 111, liked: true })).resolves.toEqual({
+      accepted: true,
+      id: 111,
+      liked: true,
+      stale: false,
+    });
+    expect(store.dispatch).toHaveBeenCalledWith('setTrackLiked', {
+      id: 111,
+      liked: true,
+    });
+
+    // no toggling: the caller has to say what it wants
+    await expect(handlers.like({ id: 111 })).rejects.toThrow(
+      /liked must be true or false/
+    );
+    await expect(handlers.like({ id: -1, liked: true })).rejects.toThrow(
+      /positive integer/
+    );
+    await expect(
+      handlers.like({ id: 1, liked: true, extra: 1 })
+    ).rejects.toThrow(/does not accept/);
+  });
+
+  it('propagates the error code when a like fails', async () => {
+    const error = Object.assign(new Error('此操作需要登录网易云账号'), {
+      code: 'not_logged_in',
+    });
+    store.dispatch.mockRejectedValue(error);
+    await expect(handlers.like({ id: 111, liked: true })).rejects.toMatchObject(
+      {
+        code: 'not_logged_in',
+      }
+    );
+  });
+
+  it('paginates daily recommendations', async () => {
+    apiMocks.dailyRecommendTracks.mockResolvedValue({
+      data: {
+        dailySongs: Array.from({ length: 7 }, (_, index) => ({
+          id: index + 1,
+          name: `song ${index + 1}`,
+          ar: [{ name: '周杰伦' }],
+          al: { name: 'album' },
+          dt: 1000,
+        })),
+      },
+    });
+    const page = await handlers.recommend({ offset: 2, limit: 3 });
+    expect(page).toMatchObject({
+      total: 7,
+      offset: 2,
+      limit: 3,
+      nextOffset: 5,
+    });
+    expect(page.items.map(item => item.id)).toEqual([3, 4, 5]);
+    await expect(handlers.recommend({ limit: 257 })).rejects.toThrow(
+      /between 1 and 256/
+    );
   });
 
   it('paginates lyrics and search results', async () => {

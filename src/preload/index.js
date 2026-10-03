@@ -211,6 +211,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   control: {
     onRequest: callback => on('control:request', callback),
+    ready: () => ipcRenderer.send('control:ready'),
     reply: (id, error, result) => {
       // `error` is null, a string or { code, message }. Results come from the Vue
       // world; flatten them to plain data before they cross the bridge
