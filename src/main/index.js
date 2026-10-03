@@ -30,6 +30,7 @@ import * as lxProvider from '../../server/providers/lx.js';
 import * as unblockProvider from '../../server/providers/unblock.js';
 import * as fallbackProvider from '../../server/providers/fallback.js';
 import { initIpcMain } from '../electron/ipcMain.js';
+import { startControlServer } from '../electron/controlServer.js';
 import { DesktopLyricsWindow } from '../electron/desktopLyricsWindow.js';
 import { createMenu } from '../electron/menu';
 import { createTray } from '@/electron/tray';
@@ -664,6 +665,12 @@ class Background {
         this.mpris = createMpris(this.window);
       }
 
+      // local control socket for scripts and agents (xumpctl / MCP)
+      this.controlServer = startControlServer({
+        getWindow: () => this.window,
+        log,
+      });
+
       // set proxy
       const proxyRules = this.store.get('proxy');
       if (proxyRules) {
@@ -716,6 +723,7 @@ class Background {
         clearDevResolverPort();
       }
       this.mpris?.dispose();
+      this.controlServer?.stop();
       this.desktopLyrics?.dispose();
       this.localMusicService?.dispose();
       if (this.expressApp) {

@@ -1,4 +1,8 @@
 import store from '@/store';
+import {
+  CONTROL_MAX_RESULT_BYTES,
+  createControlHandlers,
+} from './controlHandlers';
 
 const player = store.state.player;
 
@@ -164,4 +168,73 @@ export function ipcRenderer(vueInstance) {
   });
 
   appEvents?.onMprisCommand(command => handleMprisCommand(player, command));
+
+  // local control channel: scripts/agents (scripts/xumpctl.mjs) ask for state
+  // or playback changes through the main process
+  const controlHandlers = createControlHandlers({ store, player });
+  const control = window.electronAPI?.control;
+  // contextBridge cannot clone Vue reactive proxies, so replies go out as plain
+  // data, and the preload sanitizer drops oversized arrays silently - check the
+  // size here so a truncated answer becomes an explicit error instead
+  const toPlain = value =>
+    value === undefined ? null : JSON.parse(JSON.stringify(value));
+  const hasOversizedArray = (value, depth = 0) => {
+    if (Array.isArray(value)) {
+      return (
+        value.length > 256 ||
+        value.some(item => hasOversizedArray(item, depth + 1))
+      );
+    }
+    if (value && typeof value === 'object' && depth < 8) {
+      return Object.values(value).some(item =>
+        hasOversizedArray(item, depth + 1)
+      );
+    }
+    return false;
+  };
+  control?.onRequest?.((payload = {}) => {
+    const { id, method, params } = payload;
+    const handler = Object.hasOwn(controlHandlers, method)
+      ? controlHandlers[method]
+      : null;
+    if (typeof handler !== 'function') {
+      control.reply(
+        id,
+        { code: 'unknown_method', message: `unknown method "${method}"` },
+        null
+      );
+      return;
+    }
+    Promise.resolve()
+      .then(() => handler(params))
+      .then(result => {
+        const plain = toPlain(result);
+        if (
+          hasOversizedArray(plain) ||
+          JSON.stringify(plain).length > CONTROL_MAX_RESULT_BYTES
+        ) {
+          control.reply(
+            id,
+            {
+              code: 'result_too_large',
+              message:
+                'result exceeds the control channel limit, request a smaller page',
+            },
+            null
+          );
+          return;
+        }
+        control.reply(id, null, plain);
+      })
+      .catch(error =>
+        control.reply(
+          id,
+          {
+            code: error?.code || 'internal_error',
+            message: String(error?.message || error),
+          },
+          null
+        )
+      );
+  });
 }
