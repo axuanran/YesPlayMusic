@@ -209,6 +209,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onSettingsChanged: callback =>
       on('desktop-lyrics:settings-changed', callback),
   },
+  control: {
+    onRequest: callback => on('control:request', callback),
+    ready: () => ipcRenderer.send('control:ready'),
+    reply: (id, error, result) => {
+      // `error` is null, a string or { code, message }. Results come from the Vue
+      // world; flatten them to plain data before they cross the bridge
+      // (reactive proxies are not structured-clonable).
+      let payload;
+      try {
+        payload = JSON.parse(JSON.stringify({ id, error, result }));
+      } catch {
+        payload = {
+          id,
+          error: error || 'reply could not be serialized',
+          result: null,
+        };
+      }
+      sendObject('control:reply', payload);
+    },
+  },
   appEvents: {
     getDiscordStatus: () => ipcRenderer.invoke('discord:get-status'),
     onDiscordStatus: callback => on('discord:status', callback),

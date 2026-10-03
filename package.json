@@ -48,7 +48,8 @@
   },
   "main": "out/main/index.js",
   "bin": {
-    "xump-tui": "out/tui/yesplaymusic-tui.mjs"
+    "xump-tui": "out/tui/yesplaymusic-tui.mjs",
+    "xumpctl": "scripts/xumpctl.mjs"
   },
   "build": {
     "appId": "com.axuanran.xump",
@@ -58,6 +59,7 @@
     "files": [
       "out/**",
       "scripts/yesplaymusic-tui.mjs",
+      "scripts/xumpctl.mjs",
       "server/**",
       "admin/**",
       "package.json"

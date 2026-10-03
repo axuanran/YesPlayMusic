@@ -106,6 +106,46 @@ export default {
         dispatch('showToast', '操作失败，专辑下架或版权锁定');
       });
   },
+  // Explicit, awaitable like setter for the local control API (and future UI
+  // callers): unlike the toggle above it reports failures instead of a toast.
+  async setTrackLiked({ state, commit }, { id, liked }) {
+    const trackId = Number(id);
+    if (!Number.isSafeInteger(trackId) || trackId <= 0) {
+      const error = new Error('setTrackLiked needs a positive song id');
+      error.code = 'invalid_params';
+      throw error;
+    }
+    if (typeof liked !== 'boolean') {
+      const error = new Error('setTrackLiked needs an explicit liked value');
+      error.code = 'invalid_params';
+      throw error;
+    }
+    if (!isAccountLoggedIn()) {
+      const error = new Error('此操作需要登录网易云账号');
+      error.code = 'not_logged_in';
+      throw error;
+    }
+    const isCurrentAccount = createLibraryRequestGuard(state);
+    const result = await likeATrack({ id: trackId, like: liked });
+    if (result?.code !== 200) {
+      const error = new Error(
+        result?.message || '操作失败，专辑下架或版权锁定'
+      );
+      error.code = 'api_error';
+      throw error;
+    }
+    if (!isCurrentAccount()) {
+      return { id: trackId, liked, stale: true };
+    }
+    const songs = Array.isArray(state.liked?.songs) ? state.liked.songs : [];
+    const next = liked
+      ? songs.includes(trackId)
+        ? songs
+        : [...songs, trackId]
+      : songs.filter(item => item !== trackId);
+    commit('updateLikedXXX', { name: 'songs', data: next });
+    return { id: trackId, liked };
+  },
   fetchLikedSongs: ({ state, commit }) => {
     if (!isLooseLoggedIn()) return;
     const isCurrentRequest = createLibraryRequestGuard(state);
