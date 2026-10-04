@@ -35,6 +35,8 @@ dev分支会自动编译到Release。被合并后可以安装查看自己编写�
 
 也因此dev版本（即pre-release）没有任何测试保证。普通使用建议下载标注为latest的版本。
 
+如何提交pr：先fork然后clone下来后拿ai实现下后提交到你自己的仓库然后提交pr。最后将pr从草稿改为准备好审核
+
 ---
 
 此 README 以及本项目的修改部分基本由 AI 编写。由于 dev 分支不稳定，请尽量使用手动标注为 Latest 的版本。Docker 的 latest 跟随 dev，建议部署固定版本标签。目前docker仅为测试版本，不保证可用性
