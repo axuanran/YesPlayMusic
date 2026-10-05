@@ -2,6 +2,7 @@ import { playlistCategories } from '@/utils/staticData';
 import shortcuts from '@/utils/shortcuts';
 import { isElectron } from '@/utils/env';
 import { DEFAULT_DESKTOP_LYRICS_SETTINGS } from '@/utils/desktopLyricsSettings';
+import { getDefaultUiLayout } from '@/utils/uiLayout';
 
 const enabledPlaylistCategories = playlistCategories
   .filter(c => c.enable)
@@ -45,6 +46,7 @@ let localStorage = {
     },
     showLibraryDefault: false,
     subTitleDefault: false,
+    layout: getDefaultUiLayout(),
     linuxEnableCustomTitlebar: false,
     trayIconTheme: 'auto',
     enabledPlaylistCategories,

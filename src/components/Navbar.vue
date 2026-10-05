@@ -1,7 +1,10 @@
 <template>
   <div>
     <nav
-      :class="{ 'has-custom-titlebar': hasCustomTitlebar }"
+      :class="{
+        'has-custom-titlebar': hasCustomTitlebar,
+        'nav-bottom': navPosition === 'bottom',
+      }"
       :aria-label="$t('nav.primaryNavigation')"
     >
       <Win32Titlebar v-if="enableWin32Titlebar" />
@@ -21,24 +24,12 @@
         /></button-icon>
       </div>
       <div class="navigation-links">
-        <router-link to="/" :class="{ active: $route.name === 'home' }">{{
-          $t('nav.home')
-        }}</router-link>
         <router-link
-          to="/explore"
-          :class="{ active: $route.name === 'explore' }"
-          >{{ $t('nav.explore') }}</router-link
-        >
-        <router-link
-          to="/library"
-          :class="{ active: $route.name === 'library' }"
-          >{{ $t('nav.library') }}</router-link
-        >
-        <router-link
-          v-if="isElectron && streamingAvailable"
-          to="/streaming"
-          :class="{ active: $route.name === 'streaming' }"
-          >{{ $t('nav.streaming') }}</router-link
+          v-for="item in visibleNavItems"
+          :key="item.id"
+          :to="navTo(item.id)"
+          :class="{ active: $route.name === item.id }"
+          >{{ navLabel(item) }}</router-link
         >
       </div>
       <div class="right-part">
@@ -133,6 +124,14 @@ import ButtonIcon from '@/components/ButtonIcon.vue';
 import { isElectron } from '@/utils/env';
 import { isLinux, isWindows } from '@/utils/platform';
 import { STREAMING_CONNECTIONS_CHANGED } from '@/utils/streamingConnections';
+import { normalizeUiLayout } from '@/utils/uiLayout';
+
+const NAV_ROUTES = {
+  home: '/',
+  explore: '/explore',
+  library: '/library',
+  streaming: '/streaming',
+};
 
 export default {
   name: 'Navbar',
@@ -156,6 +155,23 @@ export default {
   },
   computed: {
     ...mapState(['settings', 'data']),
+    /** 导航项由 设置 → 界面布局 决定（排序、显隐、自定义文字） */
+    uiLayout() {
+      return normalizeUiLayout(this.settings?.layout);
+    },
+    navPosition() {
+      return this.uiLayout.nav.position;
+    },
+    visibleNavItems() {
+      return this.uiLayout.nav.items.filter(item => {
+        if (!item.visible) return false;
+        // “流媒体”仅在桌面端且服务可用时显示
+        if (item.id === 'streaming') {
+          return this.isElectron && this.streamingAvailable;
+        }
+        return true;
+      });
+    },
     isLooseLoggedIn() {
       return isLooseLoggedIn();
     },
@@ -207,6 +223,12 @@ export default {
     }
   },
   methods: {
+    navTo(id) {
+      return NAV_ROUTES[id] ?? '/';
+    },
+    navLabel(item) {
+      return item.label || this.$t(`nav.${item.id}`);
+    },
     async loadStreamingAvailability() {
       try {
         const connections =
@@ -306,6 +328,13 @@ nav {
 nav.has-custom-titlebar {
   padding-top: 20px;
   -webkit-app-region: no-drag;
+}
+
+/* 导航栏位置：底部（位于播放栏之上） */
+nav.nav-bottom {
+  top: auto;
+  bottom: 64px;
+  border-top: 1px solid rgba(128, 128, 128, 0.12);
 }
 
 .navigation-buttons {

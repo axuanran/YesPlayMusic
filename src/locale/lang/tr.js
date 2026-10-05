@@ -29,6 +29,10 @@ export default {
     charts: 'Listeler',
     loadFailed: 'Bazı öneriler yüklenemedi',
     retry: 'Yeniden dene',
+    byAppleMusic: 'by Apple Music',
+    forYou: 'For You',
+    dailyTracks: 'Günlük Öneriler',
+    personalFM: 'Kişisel FM',
   },
   library: {
     sLibrary: "'in Kütüphanesi",
@@ -286,6 +290,29 @@ export default {
     others: 'Diğerleri',
     showPlaybackRateControl: 'Oynatma hızı denetimini göster',
     customization: 'Özelleştirme',
+    layoutSection: 'Düzen',
+    navBar: 'Gezinme Çubuğu Konumu',
+    navPosition: {
+      top: 'Üst',
+      bottom: 'Alt',
+    },
+    navItems: 'Gezinme Öğeleri',
+    navItemsDescription:
+      'Gezinme öğelerini yeniden sıralayın veya gizleyin; varsayılanı kullanmak için adı boş bırakın.',
+    customLabelPlaceholder: 'Özel ad',
+    showNavItem: 'Göster',
+    homeLayout: 'Ana Sayfa Düzeni',
+    homeLayoutDescription:
+      'Ana sayfa bölümlerini yeniden sıralayın; bir bölümdeki kartları diğer bölümlere taşıyabilirsiniz. Yerleştirilmemiş kartlar gizli kalır.',
+    sectionTitlePlaceholder: 'Bölüm başlığı',
+    addWidget: 'Kart ekle',
+    addSection: 'Bölüm ekle',
+    newSection: 'Yeni Bölüm',
+    libraryCards: 'Kütüphane Kartları',
+    libraryCardsDescription:
+      'Kütüphanenin üstünde gösterilen kartlar (ör. Günlük Öneriler, Kişisel FM).',
+    resetLayout: 'Düzeni Sıfırla',
+    resetLayoutButton: 'Varsayılana Dön',
     MusicGenrePreference: {
       text: 'Müzik Dili Tercihi',
       description:

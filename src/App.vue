@@ -6,6 +6,7 @@
       'performance-mode-balanced': performanceMode === 'balanced',
       'performance-mode-aggressive': performanceMode === 'aggressive',
       'window-hidden': windowHidden,
+      'nav-at-bottom': navAtBottom,
     }"
   >
     <Scrollbar v-show="!showLyrics" ref="scrollbar" />
@@ -57,6 +58,7 @@ import { mapState } from 'vuex';
 import { isCapacitor, isElectron, isTrackDownloadEnabled } from '@/utils/env';
 import { scheduleAfterFirstPaint } from '@/utils/afterFirstPaint';
 import { shouldHandlePlaybackSpace } from '@/utils/keyboardShortcuts';
+import { normalizeUiLayout } from '@/utils/uiLayout';
 
 const ModalAddTrackToPlaylist = defineAsyncComponent(
   () => import('./components/ModalAddTrackToPlaylist.vue')
@@ -121,6 +123,12 @@ export default {
     performanceMode() {
       if (this.settings.performanceMode) return this.settings.performanceMode;
       return this.settings.lowPerformanceMode ? 'balanced' : 'off';
+    },
+    navAtBottom() {
+      return (
+        !this.showLyrics &&
+        normalizeUiLayout(this.settings?.layout).nav.position === 'bottom'
+      );
     },
     isAccountLoggedIn() {
       return isAccountLoggedIn();
@@ -246,14 +254,30 @@ main {
   scrollbar-width: none; // firefox
 }
 
+/* 导航栏在底部时，内容区顶部不再需要为导航栏留白，底部为 播放栏(64px) + 导航栏(64px) 留白 */
+#app.nav-at-bottom main {
+  padding-top: 24px;
+  padding-bottom: 176px;
+}
+
 @media (max-width: 1336px) {
   main {
     padding: 64px 5vw 96px 5vw;
+  }
+
+  #app.nav-at-bottom main {
+    padding: 24px 5vw 176px 5vw;
   }
 }
 
 @media (max-width: 768px) {
   main {
+    padding: calc(72px + env(safe-area-inset-top)) 16px
+      calc(154px + env(safe-area-inset-bottom)) 16px;
+  }
+
+  /* 移动端使用底部标签栏导航，不受桌面导航栏位置设置影响 */
+  #app.nav-at-bottom main {
     padding: calc(72px + env(safe-area-inset-top)) 16px
       calc(154px + env(safe-area-inset-bottom)) 16px;
   }

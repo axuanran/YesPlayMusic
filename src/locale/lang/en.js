@@ -29,6 +29,10 @@ export default {
     charts: 'Charts',
     loadFailed: 'Some recommendations could not be loaded',
     retry: 'Retry',
+    byAppleMusic: 'by Apple Music',
+    forYou: 'For You',
+    dailyTracks: 'Daily Recommendations',
+    personalFM: 'Personal FM',
   },
   library: {
     sLibrary: "'s Library",
@@ -286,6 +290,29 @@ export default {
     others: 'Others',
     showPlaybackRateControl: 'Show playback speed control',
     customization: 'Customization',
+    layoutSection: 'Layout',
+    navBar: 'Navigation Bar Position',
+    navPosition: {
+      top: 'Top',
+      bottom: 'Bottom',
+    },
+    navItems: 'Navigation Items',
+    navItemsDescription:
+      'Reorder or hide navigation items; leave the name empty to use the default.',
+    customLabelPlaceholder: 'Custom name',
+    showNavItem: 'Show',
+    homeLayout: 'Home Layout',
+    homeLayoutDescription:
+      'Reorder home sections; widgets inside a section can be moved to other sections. Unplaced widgets stay hidden.',
+    sectionTitlePlaceholder: 'Section title',
+    addWidget: 'Add widget',
+    addSection: 'Add section',
+    newSection: 'New Section',
+    libraryCards: 'Library Cards',
+    libraryCardsDescription:
+      'Cards shown at the top of the Library (e.g. Daily Recommendations, Personal FM).',
+    resetLayout: 'Reset Layout',
+    resetLayoutButton: 'Reset to Default',
     MusicGenrePreference: {
       text: 'Music Language Preference',
       description:

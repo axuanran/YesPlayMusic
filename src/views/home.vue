@@ -6,127 +6,37 @@
         {{ $t('home.retry') }}
       </button>
     </div>
-    <div
-      v-if="settings.showPlaylistsByAppleMusic !== false"
-      class="index-row first-row"
-    >
-      <div class="title"> by Apple Music </div>
-      <CoverRow
-        :type="'playlist'"
-        :items="byAppleMusic"
-        sub-text="appleMusic"
-        :image-size="1024"
-        eager
-      />
-    </div>
-    <div
-      v-show="loadingFeed || recommendPlaylist.items.length > 0"
-      class="index-row"
-    >
-      <div class="title">
-        {{ $t('home.recommendPlaylist') }}
-        <router-link to="/explore?category=推荐歌单">{{
-          $t('home.seeMore')
-        }}</router-link>
+    <template v-for="(block, index) in homeBlocks">
+      <div
+        v-if="block.type === 'section' && block.widgets.length"
+        :key="block.id"
+        class="index-row home-section"
+        :class="{ 'first-row': index === 0 }"
+      >
+        <div class="title">{{ sectionTitle(block) }}</div>
+        <div
+          class="section-widgets"
+          :class="{ 'card-grid': isCardGrid(block) }"
+        >
+          <HomeWidget
+            v-for="wId in block.widgets"
+            :id="wId"
+            :key="wId"
+            bare
+            :feed="feed"
+            @retry="loadData(true)"
+          />
+        </div>
       </div>
-      <CoverRowSkeleton
-        v-if="loadingFeed && recommendPlaylist.items.length === 0"
-        :count="5"
+      <HomeWidget
+        v-else-if="block.type === 'widget'"
+        :id="block.id"
+        :key="block.id"
+        :first="index === 0"
+        :feed="feed"
+        @retry="loadData(true)"
       />
-      <CoverRow
-        v-else
-        type="playlist"
-        :items="recommendPlaylist.items"
-        sub-text="copywriter"
-      />
-    </div>
-    <div
-      v-show="loadingFeed || podcasts.error || podcasts.items.length > 0"
-      id="podcasts"
-      class="index-row"
-    >
-      <div class="title">{{ $t('podcast.title') }}</div>
-      <div v-if="podcasts.error" class="podcast-error">
-        <span>{{ $t('podcast.loadFailed') }}</span>
-        <ButtonTwoTone color="grey" @click="loadData(true)">
-          {{ $t('podcast.retry') }}
-        </ButtonTwoTone>
-      </div>
-      <CoverRowSkeleton
-        v-else-if="loadingFeed && podcasts.items.length === 0"
-        :count="5"
-      />
-      <CoverRow
-        v-else
-        type="podcast"
-        :items="podcasts.items"
-        sub-text="none"
-        :show-play-button="false"
-      />
-    </div>
-    <div class="index-row for-you-section">
-      <div class="title"> For You </div>
-      <div class="for-you-row">
-        <DailyTracksCard ref="DailyTracksCard" />
-        <FMCard />
-      </div>
-    </div>
-    <div
-      v-show="loadingFeed || recommendArtists.items.length > 0"
-      class="index-row"
-    >
-      <div class="title">{{ $t('home.recommendArtist') }}</div>
-      <CoverRowSkeleton
-        v-if="loadingFeed && recommendArtists.items.length === 0"
-        :count="6"
-        :columns="6"
-        circle
-      />
-      <CoverRow
-        v-else
-        type="artist"
-        :column-number="6"
-        :items="recommendArtists.items"
-      />
-    </div>
-    <div
-      v-show="loadingFeed || newReleasesAlbum.items.length > 0"
-      class="index-row"
-    >
-      <div class="title">
-        {{ $t('home.newAlbum') }}
-        <router-link to="/new-album">{{ $t('home.seeMore') }}</router-link>
-      </div>
-      <CoverRowSkeleton
-        v-if="loadingFeed && newReleasesAlbum.items.length === 0"
-        :count="5"
-      />
-      <CoverRow
-        v-else
-        type="album"
-        :items="newReleasesAlbum.items"
-        sub-text="artist"
-      />
-    </div>
-    <div v-show="loadingFeed || topList.items.length > 0" class="index-row">
-      <div class="title">
-        {{ $t('home.charts') }}
-        <router-link to="/explore?category=排行榜">{{
-          $t('home.seeMore')
-        }}</router-link>
-      </div>
-      <CoverRowSkeleton
-        v-if="loadingFeed && topList.items.length === 0"
-        :count="5"
-      />
-      <CoverRow
-        v-else
-        type="playlist"
-        :items="topList.items"
-        sub-text="updateFrequency"
-        :image-size="1024"
-      />
-    </div>
+    </template>
   </div>
 </template>
 
@@ -141,23 +51,16 @@ import {
   sampleHomeArtists,
   shouldRefreshHomeFeed,
 } from '@/utils/homeFeedRefresh';
+import { normalizeUiLayout } from '@/utils/uiLayout';
 import NProgress from 'nprogress';
 import { mapState } from 'vuex';
-import CoverRow from '@/components/CoverRow.vue';
-import CoverRowSkeleton from '@/components/CoverRowSkeleton.vue';
-import FMCard from '@/components/FMCard.vue';
-import DailyTracksCard from '@/components/DailyTracksCard.vue';
-import ButtonTwoTone from '@/components/ButtonTwoTone.vue';
+import HomeWidget from '@/components/HomeWidget.vue';
 const PROGRESS_DELAY = 800;
 
 export default {
   name: 'Home',
   components: {
-    ButtonTwoTone,
-    CoverRow,
-    CoverRowSkeleton,
-    FMCard,
-    DailyTracksCard,
+    HomeWidget,
   },
   data() {
     return {
@@ -186,8 +89,20 @@ export default {
   },
   computed: {
     ...mapState(['data', 'settings']),
-    byAppleMusic() {
-      return byAppleMusic;
+    /** 首页区块（栏目/卡片）由 设置 → 界面布局 决定 */
+    homeBlocks() {
+      return normalizeUiLayout(this.settings?.layout).home;
+    },
+    feed() {
+      return {
+        loadingFeed: this.loadingFeed,
+        byAppleMusic,
+        recommendPlaylist: this.recommendPlaylist.items,
+        podcasts: this.podcasts,
+        recommendArtists: this.recommendArtists.items,
+        newReleasesAlbum: this.newReleasesAlbum.items,
+        topList: this.topList.items,
+      };
     },
     feedKey() {
       const language = this.settings.musicLanguage ?? 'all';
@@ -223,6 +138,17 @@ export default {
     NProgress.done();
   },
   methods: {
+    sectionTitle(block) {
+      if (block.title) return block.title;
+      if (block.id === 'forYou') return this.$t('home.forYou');
+      return '';
+    },
+    /** 栏目内全部是卡片型功能时，用卡片网格布局（如 For You） */
+    isCardGrid(block) {
+      return block.widgets.every(
+        id => id === 'dailyTracks' || id === 'personalFM'
+      );
+    },
     loadData(force = false) {
       if (!force && this.loadPromise) return this.loadPromise;
       const now = Date.now();
@@ -357,7 +283,7 @@ export default {
 .index-row.first-row {
   margin-top: 32px;
 }
-.for-you-section {
+.home-section {
   min-height: 330px;
 }
 .playlists {
@@ -393,22 +319,12 @@ footer {
   margin-top: 48px;
 }
 
-.for-you-row {
+.section-widgets.card-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
   min-height: 198px;
   margin-bottom: 78px;
-}
-
-.podcast-error {
-  display: flex;
-  min-height: 200px;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 18px;
-  color: var(--color-text);
 }
 
 @media (max-width: 768px) {
@@ -427,7 +343,7 @@ footer {
     font-size: 22px;
   }
 
-  .for-you-row {
+  .section-widgets.card-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 14px;
     margin-bottom: 38px;

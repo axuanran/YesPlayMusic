@@ -788,6 +788,255 @@
         </div>
       </div>
 
+      <h3 id="settings-layout">{{ $t('settings.layoutSection') }}</h3>
+      <div class="item">
+        <div class="left">
+          <div class="title">{{ $t('settings.navBar') }}</div>
+        </div>
+        <div class="right">
+          <select v-model="navPosition">
+            <option value="top">{{ $t('settings.navPosition.top') }}</option>
+            <option value="bottom">{{
+              $t('settings.navPosition.bottom')
+            }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="item">
+        <div class="left">
+          <div class="title">{{ $t('settings.navItems') }}</div>
+          <div class="description">
+            {{ $t('settings.navItemsDescription') }}
+          </div>
+        </div>
+        <div class="right">
+          <div class="layout-editor">
+            <div
+              v-for="(item, i) in layout.nav.items"
+              :key="item.id"
+              class="layout-row"
+            >
+              <button
+                type="button"
+                class="layout-btn"
+                :disabled="i === 0"
+                @click="moveNavItem(i, -1)"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                class="layout-btn"
+                :disabled="i === layout.nav.items.length - 1"
+                @click="moveNavItem(i, 1)"
+              >
+                ↓
+              </button>
+              <span class="layout-name">{{ $t(`nav.${item.id}`) }}</span>
+              <input
+                v-model="item.label"
+                class="layout-input"
+                :placeholder="$t('settings.customLabelPlaceholder')"
+                @input="commitLayout"
+              />
+              <label class="layout-toggle">
+                <input
+                  v-model="item.visible"
+                  type="checkbox"
+                  @change="commitLayout"
+                />
+                {{ $t('settings.showNavItem') }}
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="left">
+          <div class="title">{{ $t('settings.homeLayout') }}</div>
+          <div class="description">
+            {{ $t('settings.homeLayoutDescription') }}
+          </div>
+        </div>
+        <div class="right">
+          <div class="layout-editor">
+            <div
+              v-for="(block, i) in layout.home"
+              :key="block.id"
+              class="layout-block"
+            >
+              <div class="layout-row">
+                <button
+                  type="button"
+                  class="layout-btn"
+                  :disabled="i === 0"
+                  @click="moveHomeBlock(i, -1)"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  class="layout-btn"
+                  :disabled="i === layout.home.length - 1"
+                  @click="moveHomeBlock(i, 1)"
+                >
+                  ↓
+                </button>
+                <input
+                  v-if="block.type === 'section'"
+                  v-model="block.title"
+                  class="layout-input"
+                  :placeholder="$t('settings.sectionTitlePlaceholder')"
+                  @input="commitLayout"
+                />
+                <span v-else class="layout-name">{{
+                  widgetName(block.id)
+                }}</span>
+                <button
+                  type="button"
+                  class="layout-btn"
+                  @click="removeHomeBlock(i)"
+                >
+                  ×
+                </button>
+              </div>
+              <div v-if="block.type === 'section'" class="layout-subrows">
+                <div
+                  v-for="(wId, j) in block.widgets"
+                  :key="wId"
+                  class="layout-row sub"
+                >
+                  <button
+                    type="button"
+                    class="layout-btn"
+                    :disabled="j === 0"
+                    @click="moveSectionWidget(block, j, -1)"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    class="layout-btn"
+                    :disabled="j === block.widgets.length - 1"
+                    @click="moveSectionWidget(block, j, 1)"
+                  >
+                    ↓
+                  </button>
+                  <span class="layout-name">{{ widgetName(wId) }}</span>
+                  <button
+                    type="button"
+                    class="layout-btn"
+                    @click="removeSectionWidget(block, j)"
+                  >
+                    ×
+                  </button>
+                </div>
+                <select
+                  v-if="unassigned.length"
+                  class="layout-add-select"
+                  @change="
+                    addWidgetToSection(block, $event.target.value);
+                    $event.target.value = '';
+                  "
+                >
+                  <option value="" disabled>
+                    {{ $t('settings.addWidget') }}
+                  </option>
+                  <option v-for="w in unassigned" :key="w.id" :value="w.id">
+                    {{ widgetName(w.id) }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="layout-add-row">
+              <select
+                v-if="unassigned.length"
+                class="layout-add-select"
+                @change="
+                  addHomeWidgetBlock($event.target.value);
+                  $event.target.value = '';
+                "
+              >
+                <option value="" disabled>
+                  {{ $t('settings.addWidget') }}
+                </option>
+                <option v-for="w in unassigned" :key="w.id" :value="w.id">
+                  {{ widgetName(w.id) }}
+                </option>
+              </select>
+              <button type="button" class="layout-btn" @click="addSection">
+                {{ $t('settings.addSection') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="left">
+          <div class="title">{{ $t('settings.libraryCards') }}</div>
+          <div class="description">
+            {{ $t('settings.libraryCardsDescription') }}
+          </div>
+        </div>
+        <div class="right">
+          <div class="layout-editor">
+            <div
+              v-for="(wId, i) in layout.library"
+              :key="wId"
+              class="layout-row"
+            >
+              <button
+                type="button"
+                class="layout-btn"
+                :disabled="i === 0"
+                @click="moveLibraryCard(i, -1)"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                class="layout-btn"
+                :disabled="i === layout.library.length - 1"
+                @click="moveLibraryCard(i, 1)"
+              >
+                ↓
+              </button>
+              <span class="layout-name">{{ widgetName(wId) }}</span>
+              <button
+                type="button"
+                class="layout-btn"
+                @click="removeLibraryCard(i)"
+              >
+                ×
+              </button>
+            </div>
+            <select
+              v-if="unassignedCards.length"
+              class="layout-add-select"
+              @change="
+                addLibraryCard($event.target.value);
+                $event.target.value = '';
+              "
+            >
+              <option value="" disabled>{{ $t('settings.addWidget') }}</option>
+              <option v-for="w in unassignedCards" :key="w.id" :value="w.id">
+                {{ widgetName(w.id) }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="left">
+          <div class="title">{{ $t('settings.resetLayout') }}</div>
+        </div>
+        <div class="right">
+          <button type="button" @click="resetLayout">
+            {{ $t('settings.resetLayoutButton') }}
+          </button>
+        </div>
+      </div>
+
       <h3 id="settings-others">{{ $t('settings.others') }}</h3>
       <div v-if="isElectron" class="item">
         <div class="left">
@@ -1235,6 +1484,12 @@ import pkg from '../../package.json';
 import { isCapacitor, isElectron } from '@/utils/env';
 import { isLinux, isMac } from '@/utils/platform';
 import { getBuiltinPlugins, setPluginEnabled, syncPlugins } from '@/plugins';
+import {
+  getDefaultUiLayout,
+  HOME_WIDGET_DEFS,
+  normalizeUiLayout,
+  unassignedWidgets,
+} from '@/utils/uiLayout';
 import StreamingServerSettings from '@/components/StreamingServerSettings.vue';
 import {
   adaptDesktopLyricsStyleImport,
@@ -1352,6 +1607,8 @@ export default {
       desktopLyricsStyleTemplateName: '',
       recordedShortcut: [],
       builtinPlugins: getBuiltinPlugins(),
+      /** 界面布局编辑草稿；编辑动作修改草稿后统一提交 */
+      layoutDraft: null,
     };
   },
   computed: {
@@ -1373,6 +1630,27 @@ export default {
         this.settings.desktopLyrics,
         this.settings.enableDesktopLyrics
       );
+    },
+    /** 规范化后的界面布局（编辑草稿，初始时从设置载入） */
+    layout() {
+      return this.layoutDraft ?? normalizeUiLayout(this.settings?.layout);
+    },
+    /** 尚未放置到首页/音乐库的卡片 */
+    unassigned() {
+      return unassignedWidgets(this.layoutDraft ?? this.settings?.layout);
+    },
+    /** 可放到音乐库的未分配卡片（仅卡片型） */
+    unassignedCards() {
+      return this.unassigned.filter(w => w.card);
+    },
+    navPosition: {
+      get() {
+        return this.layout.nav.position;
+      },
+      set(value) {
+        this.layout.nav.position = value === 'bottom' ? 'bottom' : 'top';
+        this.commitLayout();
+      },
     },
     settingsSections() {
       return [
@@ -1407,6 +1685,10 @@ export default {
         {
           id: 'settings-customization',
           label: this.$t('settings.customization'),
+        },
+        {
+          id: 'settings-layout',
+          label: this.$t('settings.layoutSection'),
         },
         {
           id: 'settings-others',
@@ -1802,7 +2084,19 @@ export default {
       return this.lastfm.key !== undefined;
     },
   },
+  watch: {
+    // 布局在其他地方被修改（如恢复默认）时，同步编辑草稿
+    'settings.layout': {
+      handler(value) {
+        const next = normalizeUiLayout(value);
+        if (JSON.stringify(next) !== JSON.stringify(this.layoutDraft)) {
+          this.layoutDraft = next;
+        }
+      },
+    },
+  },
   created() {
+    this.layoutDraft = normalizeUiLayout(this.settings?.layout);
     if (isCapacitor) {
       this.listenNativeCache();
     } else {
@@ -1827,6 +2121,78 @@ export default {
   methods: {
     ...mapActions(['showToast']),
     ...mapMutations(['updateModal']),
+    // ===== 界面布局编辑 =====
+    widgetName(id) {
+      const def = HOME_WIDGET_DEFS.find(w => w.id === id);
+      return def ? this.$t(def.nameKey) : id;
+    },
+    commitLayout() {
+      this.$store.commit('updateSettings', {
+        key: 'layout',
+        value: normalizeUiLayout(this.layoutDraft),
+      });
+    },
+    resetLayout() {
+      this.layoutDraft = getDefaultUiLayout();
+      this.commitLayout();
+    },
+    moveItem(list, i, offset) {
+      const j = i + offset;
+      if (j < 0 || j >= list.length) return;
+      [list[i], list[j]] = [list[j], list[i]];
+    },
+    moveNavItem(i, offset) {
+      this.moveItem(this.layout.nav.items, i, offset);
+      this.commitLayout();
+    },
+    moveHomeBlock(i, offset) {
+      this.moveItem(this.layout.home, i, offset);
+      this.commitLayout();
+    },
+    removeHomeBlock(i) {
+      this.layout.home.splice(i, 1);
+      this.commitLayout();
+    },
+    addHomeWidgetBlock(id) {
+      if (!id) return;
+      this.layout.home.push({ type: 'widget', id });
+      this.commitLayout();
+    },
+    addSection() {
+      this.layout.home.push({
+        type: 'section',
+        id: `custom-${Date.now()}`,
+        title: this.$t('settings.newSection'),
+        widgets: [],
+      });
+      this.commitLayout();
+    },
+    moveSectionWidget(block, j, offset) {
+      this.moveItem(block.widgets, j, offset);
+      this.commitLayout();
+    },
+    removeSectionWidget(block, j) {
+      block.widgets.splice(j, 1);
+      this.commitLayout();
+    },
+    addWidgetToSection(block, id) {
+      if (!id) return;
+      block.widgets.push(id);
+      this.commitLayout();
+    },
+    moveLibraryCard(i, offset) {
+      this.moveItem(this.layout.library, i, offset);
+      this.commitLayout();
+    },
+    removeLibraryCard(i) {
+      this.layout.library.splice(i, 1);
+      this.commitLayout();
+    },
+    addLibraryCard(id) {
+      if (!id) return;
+      this.layout.library.push(id);
+      this.commitLayout();
+    },
     listenMcpServerStatus() {
       const api = window.electronAPI?.mcpServer;
       if (!api) return;
@@ -2292,6 +2658,107 @@ export default {
 .container {
   width: 720px;
   margin-top: 24px;
+}
+
+/* ===== 界面布局编辑器 ===== */
+.layout-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.layout-block {
+  padding: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-radius: 8px;
+}
+
+.layout-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+
+  &.sub {
+    padding-left: 22px;
+    opacity: 0.92;
+  }
+}
+
+.layout-subrows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.layout-btn {
+  flex: 0 0 auto;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  color: var(--color-text);
+  border-radius: 6px;
+  font-size: 14px;
+  opacity: 0.68;
+
+  &:hover:not(:disabled) {
+    opacity: 1;
+    background: var(--color-secondary-bg);
+  }
+
+  &:disabled {
+    opacity: 0.25;
+    cursor: default;
+  }
+}
+
+.layout-name {
+  flex: 0 0 auto;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.layout-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  color: var(--color-text);
+  background: var(--color-secondary-bg);
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.layout-toggle {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text);
+  font-size: 13px;
+  opacity: 0.78;
+  user-select: none;
+}
+
+.layout-add-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.layout-add-select {
+  max-width: 180px;
+  height: 28px;
+  color: var(--color-text);
+  background: var(--color-secondary-bg);
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
 }
 
 .settings-header {

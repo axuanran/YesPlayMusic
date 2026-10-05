@@ -37,6 +37,10 @@
           loading="lazy"
         />{{ data.user.nickname }}{{ $t('library.sLibrary') }}
       </h1>
+      <div v-if="libraryCards.length" class="library-cards">
+        <DailyTracksCard v-if="libraryCards.includes('dailyTracks')" />
+        <FMCard v-if="libraryCards.includes('personalFM')" />
+      </div>
       <div class="section-one">
         <div class="liked-songs" @click="goToLikedSongsList">
           <div class="top">
@@ -290,7 +294,10 @@ import CoverRow from '@/components/CoverRow.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
 import MvRow from '@/components/MvRow.vue';
 import LocalPlaybackHistory from '@/components/LocalPlaybackHistory.vue';
+import DailyTracksCard from '@/components/DailyTracksCard.vue';
+import FMCard from '@/components/FMCard.vue';
 import localMusicCover from '@/assets/local-music-cover.svg';
+import { normalizeUiLayout } from '@/utils/uiLayout';
 
 /**
  * Pick the lyric part from a string formed in `[timecode] lyric`.
@@ -311,6 +318,8 @@ export default {
     MvRow,
     ContextMenu,
     LocalPlaybackHistory,
+    DailyTracksCard,
+    FMCard,
   },
   data() {
     return {
@@ -328,7 +337,10 @@ export default {
     };
   },
   computed: {
-    ...mapState(['data', 'liked']),
+    ...mapState(['data', 'liked', 'settings']),
+    libraryCards() {
+      return normalizeUiLayout(this.settings?.layout).library;
+    },
     loggedIn() {
       void this.data.loginMode;
       void this.data.user?.userId;
@@ -350,15 +362,17 @@ export default {
 
       // Pick 3 or fewer lyrics based on the lyric lines.
       const lyricsToPick = Math.min(lyricLine.length, 3);
+      if (lyricsToPick === 0) return [];
 
       // The upperBound of the lyric line to pick
-      const randomUpperBound = lyricLine.length - lyricsToPick;
+      const randomUpperBound = Math.max(lyricLine.length - lyricsToPick, 1);
       const startLyricLineIndex = randomNum(0, randomUpperBound - 1);
 
-      // Pick lyric lines to render.
+      // Pick lyric lines to render, skipping empty lines.
       return lyricLine
         .slice(startLyricLineIndex, startLyricLineIndex + lyricsToPick)
-        .map(extractLyricPart);
+        .map(extractLyricPart)
+        .filter(line => line !== '');
     },
     playlistFilter() {
       return this.data.libraryPlaylistFilter || 'all';
@@ -429,7 +443,7 @@ export default {
     this.loadData();
     dailyTask();
   },
-  beforeDestroy() {
+  beforeUnmount() {
     this.removeLocalMusicListener?.();
   },
   methods: {
@@ -495,20 +509,27 @@ export default {
     goToLikedSongsList() {
       this.$router.push({ path: '/library/liked-songs' });
     },
-    getRandomLyric() {
-      if (this.liked.songs.length === 0) return;
-      getLyric(
-        this.liked.songs[randomNum(0, this.liked.songs.length - 1)]
-      ).then(data => {
-        if (data.lrc !== undefined) {
-          const isInstrumental = data.lrc.lyric
+    async getRandomLyric() {
+      const ids = this.liked.songs;
+      if (!ids?.length) return;
+      // 随机尝试若干首歌曲，跳过纯音乐和无歌词的歌曲，直到拿到可用的歌词。
+      // 之前只抽一首且失败不重试，很容易导致卡片内的歌词永远不显示。
+      const candidates = [...ids].sort(() => Math.random() - 0.5).slice(0, 5);
+      for (const id of candidates) {
+        try {
+          const data = await getLyric(id);
+          const lyric = data?.lrc?.lyric;
+          if (!lyric || !lyric.trim()) continue;
+          const isInstrumental = lyric
             .split('\n')
-            .filter(l => l.includes('纯音乐，请欣赏'));
-          if (isInstrumental.length === 0) {
-            this.lyric = data.lrc.lyric;
-          }
+            .some(l => l.includes('纯音乐，请欣赏'));
+          if (isInstrumental) continue;
+          this.lyric = lyric;
+          return;
+        } catch {
+          // 获取失败时尝试下一首
         }
-      });
+      }
     },
     openAddPlaylistModal() {
       if (!isAccountLoggedIn()) {
@@ -621,6 +642,13 @@ h1 {
     margin-left: 36px;
     overflow: hidden;
   }
+}
+
+.library-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-top: 24px;
 }
 
 .liked-songs {
@@ -839,6 +867,11 @@ button.playHistory-button--selected {
     .songs {
       margin: 16px 0 0;
     }
+  }
+
+  .library-cards {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
   }
 
   .liked-songs {
