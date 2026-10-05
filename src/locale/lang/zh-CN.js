@@ -197,6 +197,13 @@ export default {
   next: {
     nowPlaying: '正在播放',
     nextUp: '即将播放',
+    playNext: '插队播放',
+    clearQueue: '清除队列',
+    loading: '正在加载队列…',
+    empty: '队列中没有更多歌曲',
+    loadFailed: '队列加载失败',
+    partialFailure: '部分队列歌曲加载失败',
+    retry: '重试',
   },
   player: {
     addToPlaylist: '收藏至歌单',
@@ -404,6 +411,14 @@ export default {
       templateDeleted: '已删除桌面歌词样式',
       templateNameRequired: '请输入模板名称',
       templateLimitReached: '最多可保存 20 个自定义模板',
+      exportImport: '导出 / 导入样式',
+      exportImportDescription:
+        '将当前样式保存为 JSON 文件，或从文件导入并应用样式。',
+      exportStyle: '导出样式',
+      importStyle: '导入样式',
+      styleExported: '已导出桌面歌词样式',
+      styleImported: '已导入并应用桌面歌词样式',
+      styleImportFailed: '样式文件无效，导入失败',
       builtinTemplates: {
         classic: '经典',
         karaoke: '卡拉 OK',

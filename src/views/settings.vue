@@ -469,6 +469,31 @@
         <div class="item">
           <div class="left">
             <div class="title">
+              {{ $t('settings.desktopLyrics.exportImport') }}
+            </div>
+            <div class="description">
+              {{ $t('settings.desktopLyrics.exportImportDescription') }}
+            </div>
+          </div>
+          <div class="right desktop-lyrics-actions">
+            <button @click="exportDesktopLyricsStyle">
+              {{ $t('settings.desktopLyrics.exportStyle') }}
+            </button>
+            <button @click="triggerDesktopLyricsStyleImport">
+              {{ $t('settings.desktopLyrics.importStyle') }}
+            </button>
+            <input
+              ref="desktopLyricsStyleImportInput"
+              type="file"
+              accept="application/json,.json"
+              style="display: none"
+              @change="importDesktopLyricsStyle"
+            />
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
               {{ $t('settings.desktopLyrics.locked') }}
             </div>
           </div>
@@ -1111,6 +1136,8 @@ import {
   getDesktopLyricsStyle,
   mergeDesktopLyricsSettings,
   normalizeDesktopLyricsSettings,
+  parseDesktopLyricsStyle,
+  serializeDesktopLyricsStyle,
 } from '@/utils/desktopLyricsSettings';
 
 const electronSettings = window.electronAPI?.settings;
@@ -1740,6 +1767,42 @@ export default {
       });
       this.selectedDesktopLyricsStyleTemplate = 'builtin:classic';
       this.showToast(this.$t('settings.desktopLyrics.templateDeleted'));
+    },
+    exportDesktopLyricsStyle() {
+      const json = serializeDesktopLyricsStyle(this.settings.desktopLyrics);
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[-:]/g, '')
+        .replace(/\..+$/, '')
+        .replace('T', '-');
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `desktop-lyrics-style-${timestamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      this.showToast(this.$t('settings.desktopLyrics.styleExported'));
+    },
+    triggerDesktopLyricsStyleImport() {
+      this.$refs.desktopLyricsStyleImportInput?.click();
+    },
+    async importDesktopLyricsStyle(event) {
+      const input = event.target;
+      const file = input.files?.[0];
+      input.value = '';
+      if (!file) return;
+      try {
+        const style = parseDesktopLyricsStyle(await file.text());
+        if (!style) throw new Error('invalid desktop lyrics style file');
+        this.updateDesktopLyricsSettings(style);
+        this.showToast(this.$t('settings.desktopLyrics.styleImported'));
+      } catch (error) {
+        console.warn('Failed to import desktop lyrics style', error);
+        this.showToast(this.$t('settings.desktopLyrics.styleImportFailed'));
+      }
     },
     restoreDesktopLyricsWindow() {
       window.electronAPI?.desktopLyrics?.resetPosition();

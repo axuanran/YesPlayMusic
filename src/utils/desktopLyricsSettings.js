@@ -205,6 +205,8 @@ export function normalizeDesktopLyricsSettings(value = {}, legacyEnabled) {
   };
 }
 
+export const DESKTOP_LYRICS_STYLE_EXPORT_TYPE = 'desktop-lyrics-style';
+
 export function mergeDesktopLyricsSettings(current, patch, legacyEnabled) {
   const safePatch = patch && typeof patch === 'object' ? patch : {};
   return normalizeDesktopLyricsSettings(
@@ -214,4 +216,41 @@ export function mergeDesktopLyricsSettings(current, patch, legacyEnabled) {
     },
     legacyEnabled
   );
+}
+
+export function serializeDesktopLyricsStyle(settings) {
+  const normalized = normalizeDesktopLyricsSettings(settings);
+  return JSON.stringify(
+    {
+      app: 'YesPlayMusic',
+      type: DESKTOP_LYRICS_STYLE_EXPORT_TYPE,
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      style: getDesktopLyricsStyle(normalized),
+    },
+    null,
+    2
+  );
+}
+
+export function parseDesktopLyricsStyle(text) {
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return null;
+  }
+  const candidate =
+    parsed.type === DESKTOP_LYRICS_STYLE_EXPORT_TYPE ||
+    (parsed.style && typeof parsed.style === 'object')
+      ? parsed.style
+      : parsed;
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    return null;
+  }
+  if (!DESKTOP_LYRICS_STYLE_KEYS.some(key => key in candidate)) return null;
+  return getDesktopLyricsStyle(candidate);
 }

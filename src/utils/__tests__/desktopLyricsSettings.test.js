@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES,
   DEFAULT_DESKTOP_LYRICS_SETTINGS,
+  DESKTOP_LYRICS_STYLE_KEYS,
   getDesktopLyricsStyle,
   mergeDesktopLyricsSettings,
   normalizeDesktopLyricsSettings,
+  parseDesktopLyricsStyle,
+  serializeDesktopLyricsStyle,
 } from '../desktopLyricsSettings.js';
 
 describe('desktop lyrics settings', () => {
@@ -123,5 +126,69 @@ describe('desktop lyrics settings', () => {
         }),
       },
     ]);
+  });
+
+  it('round-trips a style through export and import', () => {
+    const settings = normalizeDesktopLyricsSettings({
+      fontSize: 48,
+      secondaryFontSize: 20,
+      textAlign: 'left',
+      overflowMode: 'wrap',
+      verticalPosition: 'bottom',
+      textColor: '#ffcc00',
+      secondaryColor: '#00ffcc',
+      backgroundOpacity: 0.6,
+      showSecondary: false,
+    });
+    const json = serializeDesktopLyricsStyle(settings);
+    const parsed = JSON.parse(json);
+
+    expect(parsed).toMatchObject({
+      app: 'YesPlayMusic',
+      type: 'desktop-lyrics-style',
+      version: 1,
+    });
+    expect(Object.keys(parsed.style).sort()).toEqual(
+      [...DESKTOP_LYRICS_STYLE_KEYS].sort()
+    );
+    expect(parseDesktopLyricsStyle(json)).toEqual(getDesktopLyricsStyle(settings));
+  });
+
+  it('imports a bare style object without export metadata', () => {
+    const style = parseDesktopLyricsStyle(
+      JSON.stringify({ fontSize: 56, textColor: '#123456' })
+    );
+    expect(style).toMatchObject({
+      fontSize: 56,
+      textColor: '#123456',
+      textAlign: DEFAULT_DESKTOP_LYRICS_SETTINGS.textAlign,
+    });
+  });
+
+  it('rejects invalid style files on import', () => {
+    expect(parseDesktopLyricsStyle('not json')).toBeNull();
+    expect(parseDesktopLyricsStyle('null')).toBeNull();
+    expect(parseDesktopLyricsStyle('[1,2,3]')).toBeNull();
+    expect(parseDesktopLyricsStyle('{"foo": 1}')).toBeNull();
+    expect(
+      parseDesktopLyricsStyle(JSON.stringify({ type: 'desktop-lyrics-style' }))
+    ).toBeNull();
+  });
+
+  it('normalizes unsafe values from an imported style file', () => {
+    const style = parseDesktopLyricsStyle(
+      JSON.stringify({
+        fontSize: 1000,
+        textAlign: 'justify',
+        textColor: 'red',
+        backgroundOpacity: 8,
+      })
+    );
+    expect(style).toMatchObject({
+      fontSize: 72,
+      textAlign: DEFAULT_DESKTOP_LYRICS_SETTINGS.textAlign,
+      textColor: DEFAULT_DESKTOP_LYRICS_SETTINGS.textColor,
+      backgroundOpacity: 1,
+    });
   });
 });

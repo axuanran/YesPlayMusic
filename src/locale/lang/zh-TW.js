@@ -193,6 +193,13 @@ export default {
   next: {
     nowPlaying: '正在播放',
     nextUp: '即將播放',
+    playNext: '插隊播放',
+    clearQueue: '清除佇列',
+    loading: '正在載入佇列…',
+    empty: '佇列中沒有更多歌曲',
+    loadFailed: '佇列載入失敗',
+    partialFailure: '部分佇列歌曲載入失敗',
+    retry: '重試',
   },
   player: {
     addToPlaylist: '收藏至歌單',
@@ -397,6 +404,14 @@ export default {
       templateDeleted: '已刪除桌面歌詞樣式',
       templateNameRequired: '請輸入範本名稱',
       templateLimitReached: '最多可儲存 20 個自訂範本',
+      exportImport: '匯出 / 匯入樣式',
+      exportImportDescription:
+        '將目前樣式儲存為 JSON 檔案，或從檔案匯入並套用樣式。',
+      exportStyle: '匯出樣式',
+      importStyle: '匯入樣式',
+      styleExported: '已匯出桌面歌詞樣式',
+      styleImported: '已匯入並套用桌面歌詞樣式',
+      styleImportFailed: '樣式檔案無效，匯入失敗',
       builtinTemplates: {
         classic: '經典',
         karaoke: '卡拉 OK',

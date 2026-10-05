@@ -200,6 +200,13 @@ export default {
   next: {
     nowPlaying: 'Şuan çalıyor',
     nextUp: 'Sıradaki',
+    playNext: 'Sıraya Ekle',
+    clearQueue: 'Sırayı Temizle',
+    loading: 'Sıra yükleniyor…',
+    empty: 'Sırada başka parça yok',
+    loadFailed: 'Sıra yüklenemedi',
+    partialFailure: 'Bazı sıradaki parçalar yüklenemedi',
+    retry: 'Tekrar dene',
   },
   player: {
     addToPlaylist: 'Çalma listesine ekle',
@@ -406,6 +413,14 @@ export default {
       templateDeleted: 'Masaüstü sözleri stili silindi',
       templateNameRequired: 'Bir şablon adı girin',
       templateLimitReached: 'En fazla 20 özel şablon kaydedilebilir',
+      exportImport: 'Stili dışa/içe aktar',
+      exportImportDescription:
+        'Geçerli stili JSON dosyası olarak kaydet veya bir dosyadan içe aktarıp uygula.',
+      exportStyle: 'Stili dışa aktar',
+      importStyle: 'Stili içe aktar',
+      styleExported: 'Masaüstü sözleri stili dışa aktarıldı',
+      styleImported: 'Masaüstü sözleri stili içe aktarıldı ve uygulandı',
+      styleImportFailed: 'Geçersiz stil dosyası, içe aktarma başarısız',
       builtinTemplates: {
         classic: 'Klasik',
         karaoke: 'Karaoke',

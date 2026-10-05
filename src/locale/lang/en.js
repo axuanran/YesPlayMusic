@@ -201,6 +201,13 @@ export default {
   next: {
     nowPlaying: 'Now Playing',
     nextUp: 'Next Up',
+    playNext: 'Play Next',
+    clearQueue: 'Clear Queue',
+    loading: 'Loading queue…',
+    empty: 'Nothing else is queued',
+    loadFailed: 'Could not load the queue',
+    partialFailure: 'Some queued tracks could not be loaded',
+    retry: 'Retry',
   },
   player: {
     addToPlaylist: 'Add to playlist',
@@ -412,6 +419,14 @@ export default {
       templateDeleted: 'Desktop lyrics style deleted',
       templateNameRequired: 'Enter a template name',
       templateLimitReached: 'Up to 20 custom templates can be saved',
+      exportImport: 'Export / import style',
+      exportImportDescription:
+        'Save the current style as a JSON file, or import and apply a style from a file.',
+      exportStyle: 'Export style',
+      importStyle: 'Import style',
+      styleExported: 'Desktop lyrics style exported',
+      styleImported: 'Desktop lyrics style imported and applied',
+      styleImportFailed: 'Invalid style file, import failed',
       builtinTemplates: {
         classic: 'Classic',
         karaoke: 'Karaoke',
