@@ -42,7 +42,6 @@ jobs:
         uses: ./.github/actions/setup
         with:
           install-package-deps: 'false'
-          install-native-deps: 'false'
           verify-rollup: 'true'
 
       - name: Lint

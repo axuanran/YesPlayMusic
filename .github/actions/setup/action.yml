@@ -5,9 +5,6 @@ inputs:
   install-package-deps:
     description: Install OS package dependencies required by electron-builder packaging.
     default: 'true'
-  install-native-deps:
-    description: Install cross-platform optional native packages required by release artifacts.
-    default: 'true'
   install-snapcraft:
     description: Install Snapcraft when Linux snap packages are part of this run.
     default: 'true'
@@ -47,37 +44,10 @@ runs:
         rm -rf node_modules
         rm -f package-lock.json
 
-    - name: Install deps and get UNM version
-      id: get_unm_version
+    - name: Install deps
       shell: bash
       run: |
         yarn install --frozen-lockfile --ignore-engines --non-interactive --ignore-scripts
-        unm_version=$(node -e "console.log(require('./node_modules/@unblockneteasemusic/rust-napi/package.json').version)")
-        echo "unmver=${unm_version}" >> "$GITHUB_OUTPUT"
-
-    - name: Install UNM native deps for Windows
-      if: runner.os == 'Windows' && inputs.install-native-deps == 'true'
-      shell: bash
-      run: |
-        yarn add --ignore-platform --ignore-engines --non-interactive --no-lockfile --exact \
-          @unblockneteasemusic/rust-napi-win32-x64-msvc@${{ steps.get_unm_version.outputs.unmver }}
-
-    - name: Install UNM native deps for Linux
-      if: runner.os == 'Linux' && inputs.install-native-deps == 'true'
-      shell: bash
-      run: |
-        yarn add --ignore-platform --ignore-engines --non-interactive --no-lockfile --exact \
-          @unblockneteasemusic/rust-napi-linux-x64-gnu@${{ steps.get_unm_version.outputs.unmver }} \
-          @unblockneteasemusic/rust-napi-linux-arm64-gnu@${{ steps.get_unm_version.outputs.unmver }}
-
-    - name: Install UNM native deps for macOS
-      if: runner.os == 'macOS' && inputs.install-native-deps == 'true'
-      shell: bash
-      run: |
-        yarn add --ignore-platform --ignore-engines --non-interactive --no-lockfile --exact \
-          @unblockneteasemusic/rust-napi-darwin-x64@${{ steps.get_unm_version.outputs.unmver }} \
-          @unblockneteasemusic/rust-napi-darwin-arm64@${{ steps.get_unm_version.outputs.unmver }} \
-          @esbuild/darwin-x64
 
     - name: Verify Rollup
       if: inputs.verify-rollup == 'true'

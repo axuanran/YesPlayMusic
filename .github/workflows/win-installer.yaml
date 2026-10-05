@@ -28,9 +28,6 @@ concurrency:
   group: xump-win-installer-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  YARN_INSTALL_NOPT: yarn add --ignore-platform --ignore-engines --non-interactive --no-lockfile --exact
-
 jobs:
   build:
     name: build XuMP windows installer
@@ -65,14 +62,6 @@ jobs:
         shell: bash
         run: |
           yarn install --frozen-lockfile --ignore-engines --non-interactive --ignore-scripts
-          unm_version=$(node -e "console.log(require('./node_modules/@unblockneteasemusic/rust-napi/package.json').version)")
-          echo "UNM_VERSION=${unm_version}" >> "$GITHUB_ENV"
-
-      - name: Install Windows native audio resolver
-        shell: bash
-        run: |
-          ${{ env.YARN_INSTALL_NOPT }} \
-            @unblockneteasemusic/rust-napi-win32-x64-msvc@${UNM_VERSION}
 
       - name: Build Electron app
         run: yarn electron-vite build && yarn tui:build && yarn tui:exe

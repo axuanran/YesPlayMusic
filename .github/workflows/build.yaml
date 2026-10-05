@@ -62,7 +62,6 @@ jobs:
         uses: ./.github/actions/setup
         with:
           install-package-deps: 'true'
-          install-native-deps: 'true'
           install-snapcraft: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
           verify-rollup: 'true'
 
