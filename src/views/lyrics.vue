@@ -1713,8 +1713,7 @@ export default {
 
       &:hover,
       &:focus-visible {
-        color: var(--color-primary);
-        background: var(--color-primary-bg-for-transparent);
+        background: var(--color-secondary-bg-for-transparent);
         opacity: 1;
         outline: none;
       }
