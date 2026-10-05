@@ -39,6 +39,8 @@ class MockWindow extends EventEmitter {
     this.setVisibleOnAllWorkspaces = vi.fn();
     this.showInactive = vi.fn();
     this.hide = vi.fn();
+    this.webContents.setVisualZoomLevelLimits = vi.fn();
+    this.webContents.setZoomLevel = vi.fn();
     this.bounds = {
       height: options.height,
       width: options.width,
@@ -198,7 +200,7 @@ describe('desktop lyrics window', () => {
     });
     expect(controller.settings.backgroundOpacity).toBe(0.1);
   });
-  it('routes a plain native wheel to playback seek without double firing', () => {
+  it('leaves a plain native wheel to the renderer seek command', () => {
     const mainWindow = { webContents: { send: vi.fn() } };
     const controller = createController({
       platform: 'win32',
@@ -213,6 +215,8 @@ describe('desktop lyrics window', () => {
     wParam.writeInt16LE(120, 2);
 
     handleNativeWheel(wParam);
+    expect(mainWindow.webContents.send).not.toHaveBeenCalled();
+
     controller.handleCommand({ type: 'seek', value: 5 });
 
     const seekCalls = mainWindow.webContents.send.mock.calls.filter(
@@ -334,6 +338,16 @@ describe('desktop lyrics window', () => {
     expect(event.preventDefault).toHaveBeenCalledOnce();
   });
 
+  it('pins the page zoom so wheel or pinch gestures cannot enlarge lyrics', () => {
+    const controller = createController();
+    controller.setEnabled(true);
+
+    expect(
+      controller.window.webContents.setVisualZoomLevelLimits
+    ).toHaveBeenCalledWith(1, 1);
+    expect(controller.window.webContents.setZoomLevel).toHaveBeenCalledWith(0);
+  });
+
   it('keeps the dragged window in place when lyric placement changes', () => {
     const controller = createController();
     controller.setEnabled(true);
@@ -372,7 +386,7 @@ describe('desktop lyrics window', () => {
     expect(controller.window.showInactive).toHaveBeenCalled();
   });
 
-  it('clamps a partially visible saved position into the work area', () => {
+  it('keeps a partially off-screen saved position instead of pulling it back', () => {
     const controller = createController();
     const bounds = controller.resolveBounds({
       ...controller.settings,
@@ -385,41 +399,12 @@ describe('desktop lyrics window', () => {
     expect(bounds).toEqual({
       height: 120,
       width: 960,
-      x: 10,
-      y: 700,
+      x: -900,
+      y: 760,
     });
   });
 
-  it('snaps a moved window back into the work area before saving', () => {
-    vi.useFakeTimers();
-    try {
-      const controller = createController();
-      controller.setEnabled(true);
-      controller.window.bounds = {
-        height: 120,
-        width: 960,
-        x: -900,
-        y: 760,
-      };
-
-      controller.window.emit('move');
-      vi.advanceTimersByTime(250);
-
-      expect(controller.window.setBounds).toHaveBeenLastCalledWith(
-        {
-          height: 120,
-          width: 960,
-          x: 10,
-          y: 700,
-        },
-        false
-      );
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('recovers an off-screen saved position', () => {
+  it('recovers a fully off-screen saved position to the lower-middle default', () => {
     const controller = createController();
     const bounds = controller.resolveBounds({
       ...controller.settings,
@@ -433,8 +418,45 @@ describe('desktop lyrics window', () => {
       height: 120,
       width: 960,
       x: 130,
-      y: 604,
+      y: 428,
     });
+  });
+
+  it('saves partially off-screen placements but recovers fully hidden ones', () => {
+    vi.useFakeTimers();
+    try {
+      const controller = createController();
+      controller.setEnabled(true);
+      controller.window.setBounds.mockClear();
+
+      controller.window.bounds = {
+        height: 120,
+        width: 960,
+        x: -900,
+        y: 760,
+      };
+      controller.window.emit('move');
+      vi.advanceTimersByTime(250);
+
+      // still 50px visible: kept exactly as dropped
+      expect(controller.window.setBounds).not.toHaveBeenCalled();
+      expect(controller.settings).toMatchObject({ x: -900, y: 760 });
+
+      controller.window.bounds = {
+        height: 120,
+        width: 960,
+        x: -2000,
+        y: 760,
+      };
+      controller.window.emit('move');
+      vi.advanceTimersByTime(250);
+
+      // completely outside every work area: back to the default placement
+      expect(controller.window.setBounds).toHaveBeenCalledTimes(1);
+      expect(controller.settings.x).not.toBe(-2000);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('assembles paged lyric lists and keeps the active index in range', () => {

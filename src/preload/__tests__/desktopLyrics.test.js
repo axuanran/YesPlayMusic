@@ -82,6 +82,7 @@ describe('desktop lyrics preload', () => {
       ctrlKey: true,
       deltaY: -120,
       preventDefault: vi.fn(),
+      target: null,
     };
 
     windowListeners.get('wheel')(event);
@@ -93,9 +94,16 @@ describe('desktop lyrics preload', () => {
     );
   });
 
-  it('routes a plain unlocked wheel to playback seek', () => {
+  it('routes a plain wheel to playback seek in the default classic mode', () => {
     ipcListeners.get('desktop-lyrics:settings')({}, unlockedSettings);
-    const event = { deltaY: 120, preventDefault: vi.fn() };
+    const overListTarget = {
+      closest: selector => (selector === '#lines' ? {} : null),
+    };
+    const event = {
+      deltaY: 120,
+      preventDefault: vi.fn(),
+      target: overListTarget,
+    };
 
     windowListeners.get('wheel')(event);
 
@@ -103,6 +111,65 @@ describe('desktop lyrics preload', () => {
     expect(mocks.ipcRenderer.send).toHaveBeenCalledWith(
       'desktop-lyrics:command',
       { type: 'seek', value: 5 }
+    );
+  });
+
+  it('lets a plain wheel scroll the list natively in scroll mode', () => {
+    ipcListeners.get('desktop-lyrics:settings')(
+      {},
+      { ...unlockedSettings, wheelBehavior: 'scroll' }
+    );
+    const overListTarget = {
+      closest: selector => (selector === '#lines' ? {} : null),
+    };
+    const event = {
+      deltaY: 120,
+      preventDefault: vi.fn(),
+      target: overListTarget,
+    };
+
+    windowListeners.get('wheel')(event);
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(mocks.ipcRenderer.send).not.toHaveBeenCalledWith(
+      'desktop-lyrics:command',
+      expect.objectContaining({ type: 'seek' })
+    );
+  });
+
+  it('keeps modifier combos working over the list in scroll mode', () => {
+    ipcListeners.get('desktop-lyrics:settings')(
+      {},
+      { ...unlockedSettings, wheelBehavior: 'scroll' }
+    );
+    const overListTarget = {
+      closest: selector => (selector === '#lines' ? {} : null),
+    };
+
+    // over the list a plain wheel browses; seeking uses the wheel elsewhere
+    const seekEvent = {
+      deltaY: -120,
+      preventDefault: vi.fn(),
+      target: null,
+    };
+    windowListeners.get('wheel')(seekEvent);
+    expect(seekEvent.preventDefault).toHaveBeenCalledOnce();
+    expect(mocks.ipcRenderer.send).toHaveBeenCalledWith(
+      'desktop-lyrics:command',
+      { type: 'seek', value: -5 }
+    );
+
+    const opacityEvent = {
+      ctrlKey: true,
+      deltaY: 120,
+      preventDefault: vi.fn(),
+      target: overListTarget,
+    };
+    windowListeners.get('wheel')(opacityEvent);
+    expect(opacityEvent.preventDefault).toHaveBeenCalledOnce();
+    expect(mocks.ipcRenderer.send).toHaveBeenCalledWith(
+      'desktop-lyrics:command',
+      { type: 'adjustBackgroundOpacity', value: -120 }
     );
   });
 

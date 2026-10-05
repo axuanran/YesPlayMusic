@@ -17,7 +17,7 @@ export const DEFAULT_DESKTOP_LYRICS_SETTINGS = Object.freeze({
   alwaysOnTop: true,
   showSecondary: true,
   fontSize: 32,
-  secondaryFontSize: 18,
+  secondaryFontSize: 20,
   textAlign: 'center',
   overflowMode: 'ellipsis',
   verticalPosition: 'center',
@@ -25,6 +25,7 @@ export const DEFAULT_DESKTOP_LYRICS_SETTINGS = Object.freeze({
   secondaryColor: '#d6e0ff',
   backgroundOpacity: 0,
   lineCount: 1,
+  wheelBehavior: 'classic',
   width: 960,
   height: 120,
   x: null,
@@ -38,7 +39,7 @@ export const BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES = Object.freeze([
     style: {
       showSecondary: true,
       fontSize: 32,
-      secondaryFontSize: 18,
+      secondaryFontSize: 20,
       textAlign: 'center',
       overflowMode: 'ellipsis',
       verticalPosition: 'center',
@@ -94,6 +95,7 @@ export const BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES = Object.freeze([
 const ALIGNMENTS = new Set(['left', 'center', 'right']);
 const OVERFLOW_MODES = new Set(['ellipsis', 'wrap']);
 const VERTICAL_POSITIONS = new Set(['top', 'center', 'bottom']);
+const WHEEL_BEHAVIORS = new Set(['classic', 'scroll']);
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const TEMPLATE_ID_PATTERN = /^[a-z0-9_-]{1,64}$/i;
 const MAX_CUSTOM_STYLE_TEMPLATES = 20;
@@ -199,6 +201,9 @@ export function normalizeDesktopLyricsSettings(value = {}, legacyEnabled) {
         : defaults.alwaysOnTop,
     ...normalizeStyle(source),
     lineCount: Math.round(clamp(source.lineCount, 1, 9, defaults.lineCount)),
+    wheelBehavior: WHEEL_BEHAVIORS.has(source.wheelBehavior)
+      ? source.wheelBehavior
+      : defaults.wheelBehavior,
     width: Math.round(clamp(source.width, 360, 1920, defaults.width)),
     height: Math.round(clamp(source.height, 92, 400, defaults.height)),
     x: coordinate(source.x),
@@ -236,22 +241,51 @@ export function estimateDesktopLyricsHeight(value = {}) {
   );
 }
 
-export function serializeDesktopLyricsStyle(settings) {
+export function serializeDesktopLyricsStyle(settings, context = {}) {
   const normalized = normalizeDesktopLyricsSettings(settings);
-  return JSON.stringify(
-    {
-      app: 'YesPlayMusic',
-      type: DESKTOP_LYRICS_STYLE_EXPORT_TYPE,
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      style: getDesktopLyricsStyle(normalized),
-    },
-    null,
-    2
-  );
+  const payload = {
+    app: 'YesPlayMusic',
+    type: DESKTOP_LYRICS_STYLE_EXPORT_TYPE,
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    style: getDesktopLyricsStyle(normalized),
+  };
+  // The exporting machine's display scale, so an import can rescale fonts and
+  // keep the same physical size across different DPI setups.
+  const dpi = Number(context.dpi);
+  if (Number.isFinite(dpi) && dpi > 0) payload.dpi = dpi;
+  // Window placement relative to the work area, so an import can reproduce
+  // the same on-screen location on any monitor layout.
+  const win = context.window;
+  const workArea = context.workArea;
+  if (
+    win &&
+    Number.isFinite(win.x) &&
+    Number.isFinite(win.y) &&
+    workArea &&
+    Number.isFinite(workArea.width) &&
+    Number.isFinite(workArea.height) &&
+    workArea.width > 0 &&
+    workArea.height > 0
+  ) {
+    payload.window = {
+      x: Math.round(win.x),
+      y: Math.round(win.y),
+      width: normalized.width,
+      height: normalized.height,
+      workArea: {
+        x: Math.round(workArea.x),
+        y: Math.round(workArea.y),
+        width: Math.round(workArea.width),
+        height: Math.round(workArea.height),
+      },
+    };
+  }
+  return JSON.stringify(payload, null, 2);
 }
 
-export function parseDesktopLyricsStyle(text) {
+// Full import payload: normalized style plus the optional placement metadata.
+export function parseDesktopLyricsStyleBundle(text) {
   let parsed;
   try {
     parsed = JSON.parse(text);
@@ -270,5 +304,70 @@ export function parseDesktopLyricsStyle(text) {
     return null;
   }
   if (!DESKTOP_LYRICS_STYLE_KEYS.some(key => key in candidate)) return null;
-  return getDesktopLyricsStyle(candidate);
+  const bundle = { style: getDesktopLyricsStyle(candidate) };
+  const dpi = Number(parsed.dpi);
+  if (Number.isFinite(dpi) && dpi > 0) bundle.dpi = dpi;
+  const win = parsed.window;
+  if (win && typeof win === 'object' && !Array.isArray(win)) {
+    bundle.window = win;
+  }
+  return bundle;
+}
+
+export function parseDesktopLyricsStyle(text) {
+  return parseDesktopLyricsStyleBundle(text)?.style ?? null;
+}
+
+// Turn an imported bundle into a settings patch for THIS machine: font sizes
+// are scaled by the DPI ratio between export and import, and the exported
+// window position — stored relative to its work area — is mapped onto the
+// current work area, keeping the same relative placement.
+export function adaptDesktopLyricsStyleImport(bundle, context = {}) {
+  if (!bundle || typeof bundle !== 'object' || !bundle.style) return null;
+  const sourceDpi = Number(bundle.dpi);
+  const targetDpi = Number(context.dpi);
+  const scale =
+    Number.isFinite(sourceDpi) &&
+    sourceDpi > 0 &&
+    Number.isFinite(targetDpi) &&
+    targetDpi > 0
+      ? targetDpi / sourceDpi
+      : 1;
+  const patch = {
+    ...getDesktopLyricsStyle({
+      ...bundle.style,
+      fontSize: Math.round(bundle.style.fontSize * scale),
+      secondaryFontSize: Math.round(bundle.style.secondaryFontSize * scale),
+    }),
+  };
+  const win = bundle.window;
+  const sourceArea = win?.workArea;
+  const targetArea = context.workArea;
+  if (
+    win &&
+    Number.isFinite(win.x) &&
+    Number.isFinite(win.y) &&
+    Number.isFinite(win.width) &&
+    Number.isFinite(win.height) &&
+    sourceArea &&
+    sourceArea.width > 0 &&
+    sourceArea.height > 0 &&
+    targetArea &&
+    Number.isFinite(targetArea.width) &&
+    Number.isFinite(targetArea.height) &&
+    targetArea.width > 0 &&
+    targetArea.height > 0
+  ) {
+    patch.x = Math.round(
+      targetArea.x +
+        ((win.x - sourceArea.x) / sourceArea.width) * targetArea.width
+    );
+    patch.y = Math.round(
+      targetArea.y +
+        ((win.y - sourceArea.y) / sourceArea.height) * targetArea.height
+    );
+    patch.width = Math.round(win.width * scale);
+    patch.height = Math.round(win.height * scale);
+  }
+  return patch;
 }

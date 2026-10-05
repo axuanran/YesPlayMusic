@@ -412,8 +412,13 @@ export default {
       secondaryFontSize: 'Çeviri veya telaffuz boyutu',
       lineCount: 'Aynı anda gösterilen satır',
       lineCountDescription:
-        'Çok satır modunda masaüstü sözlerin kilidini açıp bir satıra tıklayarak ilerleyebilir; tekerlekle sarabilir veya Ctrl+tekerlekle arka plan saydamlığını ayarlayabilirsiniz.',
+        'Çok satır modunda masaüstü sözlerin kilidini açıp bir satıra tıklayarak ilerleyebilirsiniz; tekerlek davranışı aşağıdan seçilebilir.',
       singleLine: 'Tek satır',
+      wheelBehavior: 'Tekerlek davranışı',
+      wheelBehaviorDescription:
+        '"Sar": düz tekerlek konumu ileri/geri sarar, Ctrl+tekerlek arka plan saydamlığını ayarlar. "Sözleri kaydır": çok satırlı listede düz tekerlek sözleri gezer; diğer yerlerde "Sar" ile aynıdır.',
+      wheelBehaviorClassic: 'Sar',
+      wheelBehaviorScroll: 'Sözleri kaydır',
       colors: 'Söz renkleri',
       primaryColor: 'Ana söz rengi',
       secondaryColor: 'Çeviri veya telaffuz rengi',

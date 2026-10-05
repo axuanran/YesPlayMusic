@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  adaptDesktopLyricsStyleImport,
   BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES,
   DEFAULT_DESKTOP_LYRICS_SETTINGS,
   DESKTOP_LYRICS_STYLE_KEYS,
@@ -8,6 +9,7 @@ import {
   mergeDesktopLyricsSettings,
   normalizeDesktopLyricsSettings,
   parseDesktopLyricsStyle,
+  parseDesktopLyricsStyleBundle,
   serializeDesktopLyricsStyle,
 } from '../desktopLyricsSettings.js';
 
@@ -172,7 +174,7 @@ describe('desktop lyrics settings', () => {
     expect(parsed).toMatchObject({
       app: 'YesPlayMusic',
       type: 'desktop-lyrics-style',
-      version: 1,
+      version: 2,
     });
     expect(Object.keys(parsed.style).sort()).toEqual(
       [...DESKTOP_LYRICS_STYLE_KEYS].sort()
@@ -218,5 +220,79 @@ describe('desktop lyrics settings', () => {
       textColor: DEFAULT_DESKTOP_LYRICS_SETTINGS.textColor,
       backgroundOpacity: 1,
     });
+  });
+
+  it('defaults the wheel behavior to classic and rejects unknown values', () => {
+    expect(normalizeDesktopLyricsSettings()).toMatchObject({
+      wheelBehavior: 'classic',
+    });
+    expect(
+      normalizeDesktopLyricsSettings({ wheelBehavior: 'scroll' })
+    ).toMatchObject({ wheelBehavior: 'scroll' });
+    expect(
+      normalizeDesktopLyricsSettings({ wheelBehavior: 'zoom' })
+    ).toMatchObject({ wheelBehavior: 'classic' });
+  });
+
+  it('exports dpi and relative window placement alongside the style', () => {
+    const json = serializeDesktopLyricsStyle(
+      { ...DEFAULT_DESKTOP_LYRICS_SETTINGS, x: 400, y: 500 },
+      {
+        dpi: 1.5,
+        window: { x: 400, y: 500 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+      }
+    );
+    const parsed = JSON.parse(json);
+
+    expect(parsed.dpi).toBe(1.5);
+    expect(parsed.window).toEqual({
+      x: 400,
+      y: 500,
+      width: DEFAULT_DESKTOP_LYRICS_SETTINGS.width,
+      height: DEFAULT_DESKTOP_LYRICS_SETTINGS.height,
+      workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+    });
+  });
+
+  it('scales imported fonts by the dpi ratio and maps the relative position', () => {
+    const json = serializeDesktopLyricsStyle(
+      { fontSize: 32, secondaryFontSize: 20 },
+      {
+        dpi: 1,
+        window: { x: 960, y: 540 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+      }
+    );
+    const patch = adaptDesktopLyricsStyleImport(
+      parseDesktopLyricsStyleBundle(json),
+      {
+        dpi: 2,
+        workArea: { x: 0, y: 0, width: 3840, height: 2160 },
+      }
+    );
+
+    expect(patch).toMatchObject({
+      fontSize: 64,
+      secondaryFontSize: 40,
+      x: 1920,
+      y: 1080,
+    });
+  });
+
+  it('imports v1 files without dpi or window metadata', () => {
+    const patch = adaptDesktopLyricsStyleImport(
+      parseDesktopLyricsStyleBundle(
+        JSON.stringify({
+          type: 'desktop-lyrics-style',
+          version: 1,
+          style: { fontSize: 40 },
+        })
+      ),
+      { dpi: 2, workArea: { x: 0, y: 0, width: 1000, height: 1000 } }
+    );
+
+    expect(patch).toMatchObject({ fontSize: 40 });
+    expect(patch.x).toBeUndefined();
   });
 });

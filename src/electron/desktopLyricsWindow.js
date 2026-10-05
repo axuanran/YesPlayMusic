@@ -9,7 +9,8 @@ import {
 const DESKTOP_LYRICS_CHANNEL = 'desktop-lyrics:render';
 const SETTINGS_CHANNEL = 'desktop-lyrics:settings';
 const WINDOW_MARGIN = 16;
-const WINDOW_BOTTOM_OFFSET = 96;
+// default vertical placement: lower-middle of the work area (0.5 = centered)
+const DEFAULT_POSITION_RATIO = 0.6;
 const SAVE_BOUNDS_DELAY = 250;
 const WM_MOUSEWHEEL = 0x020a;
 const MK_CONTROL = 0x0008;
@@ -18,6 +19,12 @@ const MIN_WINDOW_HEIGHT = 92;
 const MAX_WINDOW_WIDTH = 1920;
 const MAX_WINDOW_HEIGHT = 400;
 const WHEEL_SEEK_STEP_SECONDS = 5;
+
+// 'seek' scrubs playback, 'opacity' adjusts the background, null means the
+// gesture is handled by the renderer (seek command or lyric list scrolling)
+// or ignored.
+const wheelModeFromModifiers = modifiers =>
+  (modifiers & MK_CONTROL) !== 0 ? 'opacity' : null;
 
 const normalizeText = value =>
   typeof value === 'string' ? value.slice(0, 2048) : '';
@@ -32,22 +39,9 @@ const intersectionArea = (workArea, bounds) => {
   return Math.max(0, width) * Math.max(0, height);
 };
 
-const clampBoundsToWorkArea = (workArea, bounds) => {
-  const width = Math.min(bounds.width, workArea.width);
-  const height = Math.min(bounds.height, workArea.height);
-  return {
-    width,
-    height,
-    x: Math.min(
-      Math.max(bounds.x, workArea.x),
-      workArea.x + workArea.width - width
-    ),
-    y: Math.min(
-      Math.max(bounds.y, workArea.y),
-      workArea.y + workArea.height - height
-    ),
-  };
-};
+const isWithinSomeWorkArea = (displays, bounds) =>
+  displays.some(display => intersectionArea(display.workArea, bounds) > 0);
+
 const boundsEqual = (left, right) =>
   ['x', 'y', 'width', 'height'].every(key => left[key] === right[key]);
 
@@ -131,7 +125,21 @@ export function buildDesktopLyricsHtml() {
         overflow: hidden;
         mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
       }
-      .multi-line #lines { display: flex; }
+      .multi-line #lyrics {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 20px 32px 44px;
+      }
+      .multi-line #lines {
+        display: flex;
+        flex: 0 1 auto;
+        min-height: 0;
+        /* gaps between lyric items stay draggable so the window can be moved */
+        -webkit-app-region: drag;
+      }
       .multi-line #line, .multi-line #translation { display: none; }
       .lyric-item {
         cursor: pointer;
@@ -497,7 +505,7 @@ export class DesktopLyricsWindow {
       x: 0,
       y: 0,
       width: settings.width,
-      height: settings.height + WINDOW_BOTTOM_OFFSET,
+      height: settings.height + 200,
     };
     const candidateBounds = {
       width: settings.width,
@@ -526,22 +534,25 @@ export class DesktopLyricsWindow {
       settings.height,
       Math.max(MIN_WINDOW_HEIGHT, workArea.height - WINDOW_MARGIN * 2)
     );
-    const saved = {
-      width,
-      height,
-      x: settings.x,
-      y: settings.y,
-    };
 
+    // A saved position that is still partially visible is kept as-is — users
+    // may deliberately park the window half off-screen. Only a fully hidden
+    // window falls back to the default placement (horizontally centered,
+    // vertically lower-middle of the work area).
     if (matchedDisplay?.intersection > 0) {
-      return clampBoundsToWorkArea(workArea, saved);
+      return {
+        width,
+        height,
+        x: Math.round(settings.x),
+        y: Math.round(settings.y),
+      };
     }
     return {
       width,
       height,
       x: Math.round(workArea.x + (workArea.width - width) / 2),
       y: Math.round(
-        workArea.y + workArea.height - height - WINDOW_BOTTOM_OFFSET
+        workArea.y + (workArea.height - height) * DEFAULT_POSITION_RATIO
       ),
     };
   }
@@ -593,9 +604,14 @@ export class DesktopLyricsWindow {
         const unsignedDelta = (value >>> 16) & 0xffff;
         const delta =
           unsignedDelta & 0x8000 ? unsignedDelta - 0x10000 : unsignedDelta;
-        // The low word carries the modifier key state: Ctrl+wheel keeps the
-        // legacy background-opacity control, a plain wheel seeks playback.
-        this.routeWheel(delta, 'native', (value & 0xffff & MK_CONTROL) !== 0);
+        // The low word carries the modifier key state: Ctrl+wheel adjusts the
+        // background opacity, a plain wheel is left to the renderer (playback
+        // seek or, in scroll mode, browsing the lyric list).
+        this.routeWheel(
+          delta,
+          'native',
+          wheelModeFromModifiers(value & 0xffff)
+        );
       });
     }
     lyricsWindow.on('closed', () => {
@@ -603,6 +619,10 @@ export class DesktopLyricsWindow {
     });
     lyricsWindow.webContents.on('did-finish-load', () => {
       if (!this.settings.enabled || lyricsWindow.isDestroyed()) return;
+      // Ctrl+wheel gestures are used for seeking/opacity; never let them
+      // (or trackpad pinch) grow the page and enlarge the lyrics.
+      lyricsWindow.webContents.setVisualZoomLevelLimits?.(1, 1);
+      lyricsWindow.webContents.setZoomLevel?.(0);
       this.render();
       lyricsWindow.showInactive();
     });
@@ -624,6 +644,10 @@ export class DesktopLyricsWindow {
       forward: true,
     });
     lyricsWindow.setFocusable?.(!this.settings.locked);
+    // Pinch gestures and Ctrl+wheel must never grow the page: the lyrics
+    // would enlarge step by step until they overflow the window edges.
+    lyricsWindow.webContents.setVisualZoomLevelLimits?.(1, 1);
+    lyricsWindow.webContents.setZoomLevel?.(0);
     lyricsWindow.webContents.send?.(SETTINGS_CHANNEL, this.settings);
   }
 
@@ -631,19 +655,18 @@ export class DesktopLyricsWindow {
     clearTimeout(this.saveBoundsTimer);
     this.saveBoundsTimer = setTimeout(() => {
       if (!this.window || this.window.isDestroyed()) return;
-      const bounds = this.window.getBounds();
-      const resolvedBounds = this.resolveBounds({
-        ...this.settings,
-        ...bounds,
-      });
-      if (
-        Object.keys(resolvedBounds).some(
-          key => resolvedBounds[key] !== bounds[key]
-        )
-      ) {
+      let bounds = this.window.getBounds();
+      // Keep partially off-screen placements; only recover a window that is
+      // completely outside every work area (e.g. after a monitor is removed).
+      if (!isWithinSomeWorkArea(this.getDisplays(), bounds)) {
+        const resolvedBounds = this.resolveBounds({
+          ...this.settings,
+          ...bounds,
+        });
         this.window.setBounds(resolvedBounds, false);
+        bounds = resolvedBounds;
       }
-      this.settings = mergeDesktopLyricsSettings(this.settings, resolvedBounds);
+      this.settings = mergeDesktopLyricsSettings(this.settings, bounds);
       this.persistSettings();
       this.notifyMainWindow();
     }, SAVE_BOUNDS_DELAY);
@@ -692,7 +715,7 @@ export class DesktopLyricsWindow {
         }
         break;
       case 'seek':
-        this.routeWheel(command.value, 'renderer', false);
+        this.routeWheel(command.value, 'renderer', 'seek');
         break;
       case 'adjustBackgroundOpacity':
         this.handleWheelDelta(command.value, 'renderer');
@@ -721,32 +744,29 @@ export class DesktopLyricsWindow {
   }
 
   handleWheelDelta(delta, source) {
-    this.routeWheel(delta, source, true);
+    this.routeWheel(delta, source, 'opacity');
   }
 
   // One entry point for every wheel source (the native Windows hook and the
-  // renderer DOM event can both fire for the same gesture). A plain wheel
-  // seeks playback in fixed steps; Ctrl+wheel adjusts background opacity.
-  routeWheel(delta, source, adjustOpacity) {
+  // renderer DOM event can both fire for the same gesture). Scrolling the
+  // lyric list and plain-wheel seeking stay in the renderer; here only
+  // Ctrl+wheel lands, adjusting the background opacity.
+  routeWheel(delta, source, mode) {
     if (this.settings.locked || !Number.isFinite(delta) || delta === 0) return;
+    if (mode !== 'seek' && mode !== 'opacity') return;
     const direction = Math.sign(delta);
     const now = Date.now();
     if (
       this.lastWheelInput &&
       this.lastWheelInput.source !== source &&
       this.lastWheelInput.direction === direction &&
-      this.lastWheelInput.opacity === adjustOpacity &&
+      this.lastWheelInput.mode === mode &&
       now - this.lastWheelInput.at <= 50
     ) {
       return;
     }
-    this.lastWheelInput = {
-      at: now,
-      direction,
-      source,
-      opacity: adjustOpacity,
-    };
-    if (adjustOpacity) {
+    this.lastWheelInput = { at: now, direction, source, mode };
+    if (mode === 'opacity') {
       this.adjustBackgroundOpacity(direction);
     } else {
       this.seekByWheel(direction);

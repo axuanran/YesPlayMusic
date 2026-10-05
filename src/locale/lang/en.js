@@ -417,8 +417,13 @@ export default {
       secondaryFontSize: 'Translation or pronunciation size',
       lineCount: 'Lines shown at once',
       lineCountDescription:
-        'In multi-line mode, unlock the desktop lyrics and click a line to seek; scroll the wheel to scrub, or Ctrl+scroll to adjust background opacity.',
+        'In multi-line mode, unlock the desktop lyrics and click a line to seek; wheel behavior is configurable below.',
       singleLine: 'Single line',
+      wheelBehavior: 'Wheel behavior',
+      wheelBehaviorDescription:
+        '"Seek": plain wheel scrubs playback, Ctrl+wheel adjusts background opacity. "Scroll lyrics": over the multi-line list a plain wheel browses the lyrics; everywhere else it matches "Seek".',
+      wheelBehaviorClassic: 'Seek',
+      wheelBehaviorScroll: 'Scroll lyrics',
       colors: 'Lyric colors',
       primaryColor: 'Primary lyric color',
       secondaryColor: 'Translation or pronunciation color',

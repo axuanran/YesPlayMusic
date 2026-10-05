@@ -6,7 +6,10 @@ let activeResizePointerId = null;
 let resizeMoveFrame = null;
 let renderedLines = null;
 let renderedActiveIndex = -2;
+let userScrollUntil = 0;
 const WHEEL_SEEK_STEP_SECONDS = 5;
+// auto-follow stays paused this long after the user scrolls the lyric list
+const USER_SCROLL_FOLLOW_PAUSE_MS = 3000;
 const VERTICAL_ALIGNMENTS = Object.freeze({
   bottom: 'flex-end',
   center: 'center',
@@ -87,7 +90,11 @@ const renderLines = (lines, active) => {
   }
   if (clamped >= 0 && container.children[clamped]) {
     container.children[clamped].classList.add('is-active');
-    scrollActiveLineIntoView(container, clamped);
+    // while the user is browsing the list, don't yank the scroll position
+    // back on every line change
+    if (Date.now() >= userScrollUntil) {
+      scrollActiveLineIntoView(container, clamped);
+    }
   }
   renderedActiveIndex = clamped;
 };
@@ -196,9 +203,19 @@ window.addEventListener('DOMContentLoaded', () => {
       if (appliedSettings.locked === true) return;
       const deltaY = Number(event.deltaY);
       if (!Number.isFinite(deltaY) || deltaY === 0) return;
+      // 'classic' (default): plain wheel scrubs playback, Ctrl+wheel adjusts
+      // the background opacity. 'scroll': a plain wheel over the multi-line
+      // list scrolls it natively (browsing) and pauses auto-follow for a
+      // few seconds; everywhere else it behaves like 'classic'.
+      // preventDefault always runs for handled gestures: Chromium would
+      // otherwise treat Ctrl+wheel (and trackpad pinch) as page zoom and
+      // progressively enlarge the lyrics.
+      const scrollMode = appliedSettings.wheelBehavior === 'scroll';
+      if (scrollMode && !event.ctrlKey && event.target?.closest?.('#lines')) {
+        userScrollUntil = Date.now() + USER_SCROLL_FOLLOW_PAUSE_MS;
+        return;
+      }
       event.preventDefault();
-      // Plain wheel scrubs playback in fixed steps; Ctrl+wheel keeps the
-      // background opacity control.
       if (event.ctrlKey) {
         sendCommand('adjustBackgroundOpacity', -deltaY);
       } else {

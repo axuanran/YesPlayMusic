@@ -403,8 +403,13 @@ export default {
       secondaryFontSize: '翻譯或發音字級',
       lineCount: '同時顯示行數',
       lineCountDescription:
-        '多行模式下解鎖桌面歌詞後，點擊歌詞可跳轉播放進度，滾動滾輪可快轉/後退，Ctrl+滾輪調整背景不透明度。',
+        '多行模式下解鎖桌面歌詞後，點擊歌詞可跳轉播放進度；滾輪行為可在下方選擇。',
       singleLine: '單行',
+      wheelBehavior: '滾輪行為',
+      wheelBehaviorDescription:
+        '「調整進度」：直接滾輪快轉/後退，Ctrl+滾輪調整背景不透明度。「滾動歌詞」：多行列表上直接滾輪瀏覽歌詞，其他地方與前者一致。',
+      wheelBehaviorClassic: '調整進度',
+      wheelBehaviorScroll: '滾動歌詞',
       colors: '歌詞顏色',
       primaryColor: '主歌詞顏色',
       secondaryColor: '翻譯或發音顏色',

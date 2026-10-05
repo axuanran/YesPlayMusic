@@ -410,8 +410,13 @@ export default {
       secondaryFontSize: '翻译或发音字号',
       lineCount: '同时显示行数',
       lineCountDescription:
-        '多行模式下解锁桌面歌词后，点击歌词可跳转播放进度，滚动滚轮可快进/后退，Ctrl+滚轮调整背景不透明度。',
+        '多行模式下解锁桌面歌词后，点击歌词可跳转播放进度；滚轮行为可在下方选择。',
       singleLine: '单行',
+      wheelBehavior: '滚轮行为',
+      wheelBehaviorDescription:
+        '“调整进度”：直接滚轮快进/后退，Ctrl+滚轮调整背景不透明度。“滚动歌词”：多行列表上直接滚轮浏览歌词，其他地方与前者一致。',
+      wheelBehaviorClassic: '调整进度',
+      wheelBehaviorScroll: '滚动歌词',
       colors: '歌词颜色',
       primaryColor: '主歌词颜色',
       secondaryColor: '翻译或发音颜色',

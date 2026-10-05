@@ -548,6 +548,26 @@
         <div class="item">
           <div class="left">
             <div class="title">
+              {{ $t('settings.desktopLyrics.wheelBehavior') }}
+            </div>
+            <div class="description">
+              {{ $t('settings.desktopLyrics.wheelBehaviorDescription') }}
+            </div>
+          </div>
+          <div class="right">
+            <select v-model="desktopLyricsWheelBehavior">
+              <option value="classic">
+                {{ $t('settings.desktopLyrics.wheelBehaviorClassic') }}
+              </option>
+              <option value="scroll">
+                {{ $t('settings.desktopLyrics.wheelBehaviorScroll') }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
               {{ $t('settings.desktopLyrics.colors') }}
             </div>
           </div>
@@ -1217,11 +1237,12 @@ import { isLinux, isMac } from '@/utils/platform';
 import { getBuiltinPlugins, setPluginEnabled, syncPlugins } from '@/plugins';
 import StreamingServerSettings from '@/components/StreamingServerSettings.vue';
 import {
+  adaptDesktopLyricsStyleImport,
   BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES,
   getDesktopLyricsStyle,
   mergeDesktopLyricsSettings,
   normalizeDesktopLyricsSettings,
-  parseDesktopLyricsStyle,
+  parseDesktopLyricsStyleBundle,
   serializeDesktopLyricsStyle,
 } from '@/utils/desktopLyricsSettings';
 
@@ -1634,6 +1655,10 @@ export default {
       18
     ),
     desktopLyricsLineCount: desktopLyricsSetting('lineCount', 1),
+    desktopLyricsWheelBehavior: desktopLyricsSetting(
+      'wheelBehavior',
+      'classic'
+    ),
     desktopLyricsTextColor: desktopLyricsSetting('textColor', '#ffffff'),
     desktopLyricsSecondaryColor: desktopLyricsSetting(
       'secondaryColor',
@@ -1927,7 +1952,19 @@ export default {
       this.showToast(this.$t('settings.desktopLyrics.templateDeleted'));
     },
     exportDesktopLyricsStyle() {
-      const json = serializeDesktopLyricsStyle(this.settings.desktopLyrics);
+      const { x, y } = this.normalizedDesktopLyricsSettings;
+      const json = serializeDesktopLyricsStyle(this.settings.desktopLyrics, {
+        // recorded so an import can rescale fonts/geometry for the local
+        // display density and reproduce the same relative placement
+        dpi: window.devicePixelRatio,
+        window: Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null,
+        workArea: {
+          x: window.screen.availLeft,
+          y: window.screen.availTop,
+          width: window.screen.availWidth,
+          height: window.screen.availHeight,
+        },
+      });
       const timestamp = new Date()
         .toISOString()
         .replace(/[-:]/g, '')
@@ -1953,9 +1990,18 @@ export default {
       input.value = '';
       if (!file) return;
       try {
-        const style = parseDesktopLyricsStyle(await file.text());
-        if (!style) throw new Error('invalid desktop lyrics style file');
-        this.updateDesktopLyricsSettings(style);
+        const bundle = parseDesktopLyricsStyleBundle(await file.text());
+        const patch = adaptDesktopLyricsStyleImport(bundle, {
+          dpi: window.devicePixelRatio,
+          workArea: {
+            x: window.screen.availLeft,
+            y: window.screen.availTop,
+            width: window.screen.availWidth,
+            height: window.screen.availHeight,
+          },
+        });
+        if (!patch) throw new Error('invalid desktop lyrics style file');
+        this.updateDesktopLyricsSettings(patch);
         this.showToast(this.$t('settings.desktopLyrics.styleImported'));
       } catch (error) {
         console.warn('Failed to import desktop lyrics style', error);
@@ -1963,7 +2009,10 @@ export default {
       }
     },
     restoreDesktopLyricsWindow() {
+      // restore both the placement (center, lower-middle of the screen) and
+      // the default "classic" look in one action
       window.electronAPI?.desktopLyrics?.resetPosition();
+      window.electronAPI?.desktopLyrics?.resetStyle();
     },
     resetDesktopLyricsStyle() {
       window.electronAPI?.desktopLyrics?.resetStyle();
