@@ -64,8 +64,8 @@
 
       <h4>洛雪音源（推荐）</h4>
       <p class="section-description">
-        第三方维护的音源脚本，解析成功率高于内置直连。在下方添加一个洛雪自定义源脚本即可启用（例如 kw /
-        kg / tx 音源脚本）。
+        第三方维护的音源脚本，解析成功率高于内置直连。在下方添加一个洛雪自定义源脚本即可启用（例如
+        kw / kg / tx 音源脚本）。
       </p>
       <div class="config-grid">
         <label class="field checkbox-field">

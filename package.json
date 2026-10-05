@@ -44,7 +44,15 @@
     "mobile:assets": "capacitor-assets generate --android --assetPath assets",
     "mobile:sync": "yarn mobile:build && cap sync android",
     "mobile:open": "cap open android",
-    "mobile:run": "yarn mobile:build && cap run android"
+    "mobile:run": "yarn mobile:build && cap run android",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "src/**/*.{js,vue}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "src/**/*.{scss,css,json}": "prettier --write"
   },
   "main": "out/main/index.js",
   "bin": {
@@ -208,11 +216,11 @@
     "node": ">=22 <26"
   },
   "dependencies": {
+    "@akabeko/music-metadata-editor": "^1.0.1",
     "@capacitor/app": "^8.1.1",
     "@capacitor/core": "^8.5.0",
     "@capacitor/splash-screen": "^8.0.2",
     "@capacitor/status-bar": "^8.0.3",
-    "@akabeko/music-metadata-editor": "^1.0.1",
     "@jellybrick/mpris-service": "^2.2.0",
     "@neteasecloudmusicapienhanced/api": "^4.36.1",
     "@vscode/codicons": "^0.0.45",
@@ -286,6 +294,7 @@
     "eslint-plugin-vue": "^10.9.2",
     "globals": "^17.7.0",
     "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "postject": "^1.0.0-alpha.6",
     "prettier": "3.8.4",
     "sass": "^1.101.0",

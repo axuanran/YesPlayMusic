@@ -659,8 +659,7 @@ class Background {
         log,
       });
       this.mcpServer = createMcpServerManager({
-        dispatch: (method, params) =>
-          this.controlServer.handle(method, params),
+        dispatch: (method, params) => this.controlServer.handle(method, params),
         log,
       });
 
