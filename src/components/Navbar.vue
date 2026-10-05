@@ -57,7 +57,6 @@
                 v-model="keywords"
                 type="search"
                 :aria-label="$t('nav.search')"
-                :placeholder="$t('nav.search')"
                 @keydown.esc.prevent="clearSearch"
                 @focus="inputFocus = true"
                 @blur="inputFocus = false"
@@ -371,7 +370,7 @@ nav.has-custom-titlebar {
     display: flex;
     align-items: center;
     height: 32px;
-    background: var(--color-secondary-bg-for-transparent);
+    background: transparent;
     border-radius: 8px;
     width: 200px;
   }
@@ -427,7 +426,7 @@ nav.has-custom-titlebar {
   }
 
   .active {
-    background: var(--color-primary-bg-for-transparent);
+    background: transparent;
     input,
     .search-submit,
     .search-clear {
