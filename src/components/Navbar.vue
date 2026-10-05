@@ -444,12 +444,12 @@ nav.nav-bottom {
     flex: 1;
   }
 
-  input {
+  .container .input input {
     width: 100%;
     border: none;
     margin-top: -1px;
     color: var(--color-text);
-    background: transparent;
+    background-color: transparent;
     font-size: 16px;
     font-weight: 600;
   }
