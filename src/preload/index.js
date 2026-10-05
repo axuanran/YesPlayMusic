@@ -122,6 +122,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateShortcut: payload => sendObject('updateShortcut', payload),
     restoreDefaultShortcuts: () => ipcRenderer.send('restoreDefaultShortcuts'),
   },
+  mcpServer: {
+    getStatus: () => ipcRenderer.invoke('mcp-server:get-status'),
+    onStatus: callback => on('mcp-server:status', callback),
+  },
   player: {
     updateTrayTooltip: title =>
       sendString('updateTrayTooltip', title, { maxLength: 256 }),
@@ -202,6 +206,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   desktopLyrics: {
     update: payload => sendObject('desktop-lyrics:update', payload),
+    updateLines: payload => sendObject('desktop-lyrics:lines', payload),
     toggle: () => ipcRenderer.send('desktop-lyrics:toggle'),
     updateSettings: patch => sendObject('desktop-lyrics:settings', patch),
     resetPosition: () => ipcRenderer.send('desktop-lyrics:reset-position'),

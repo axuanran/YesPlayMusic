@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Added a settings toggle (listen address + port) for a built-in MCP server speaking Streamable HTTP, so AI agents can drive the player without launching `xumpctl mcp-http` separately; also added a standalone `xumpctl mcp-http` / `scripts/xump-mcp-http.mjs` transport for non-Electron clients.
+- Added a bundled `install-cli.sh` helper on macOS and Linux that creates or removes a `xump` command-line symlink for portable installs.
 - Added configurable desktop-lyrics overflow handling and top, center, or bottom lyric placement within the window.
 - Added built-in and user-saved desktop-lyrics style templates plus an off-screen window recovery action.
 - Exposed on-device playback history for signed-in users.
@@ -38,9 +40,15 @@ All notable changes to this project will be documented in this file.
 - Added keyboard-complete context menus with focus restoration and accessible, safe-area-aware toast presentation.
 - Improved desktop and mobile navigation semantics, account-menu keyboard access, and global Space playback shortcut safety.
 - Added responsive Settings section navigation, reduced repeated desktop-lyrics normalization, and cleaned proxy, shortcut-recording, and Last.fm lifecycle state.
+- Coalesced queue-detail loading, eliminated repeated linear track lookups, rejected inactive loads, and added polished localized loading, empty, partial-failure, and retry states.
+
+### Removed
+
+- Removed the UnblockNeteaseMusic (UNM) resolver provider: its upstream engines have been unmaintained since 2021-2023 and every source (kugou, pyncm, kuwo, qq, bilibili, joox) is broken by provider-side API changes. LX (洛雪) source scripts are now the recommended unlock path and are enabled by default; stale UNM config keys and provider-order entries are migrated away automatically. The unmaintained `unblock-netease-music-enhanced` sidecar was also removed from the Docker Compose deployment.
 
 ### Fixed
 
+- Kept the Windows installer PATH entry across silent auto-updates by persisting the add-to-PATH choice in the registry and reading it before the old uninstaller runs.
 - Restored the main window after dismissing or failing the update-available dialog.
 - Coalesced repeated cached-track refreshes.
 - Hid instrumental and no-lyrics placeholders from the desktop-lyrics overlay.

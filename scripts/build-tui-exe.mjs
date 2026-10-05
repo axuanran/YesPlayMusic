@@ -42,43 +42,6 @@ const distNeteaseApiDir = path.join(
   'api'
 );
 
-const unblockStubPlugin = {
-  name: 'standalone-tui-unblock-stub',
-  setup(build) {
-    build.onResolve(
-      { filter: /(^\.\/providers\/unblock\.js$|server[\\/]providers[\\/]unblock\.js$)/ },
-      args => {
-        if (
-          args.path === './providers/unblock.js' &&
-          !args.importer.endsWith(path.join('server', 'index.js'))
-        ) {
-          return null;
-        }
-        return {
-          path: 'standalone-tui-unblock-stub',
-          namespace: 'standalone-tui',
-        };
-      }
-    );
-    build.onLoad(
-      { filter: /^standalone-tui-unblock-stub$/, namespace: 'standalone-tui' },
-      () => ({
-        loader: 'js',
-        contents: `
-          export const providerName = 'unblock';
-          export async function resolve() {
-            return {
-              ok: false,
-              errorCode: 'PROVIDER_DISABLED',
-              errorMessage: 'Unblock provider is disabled in the standalone TUI build.',
-            };
-          }
-        `,
-      })
-    );
-  },
-};
-
 function run(command, args) {
   execFileSync(command, args, {
     cwd: projectRoot,
@@ -167,7 +130,6 @@ await esbuild.build({
     'import.meta.url': 'undefined',
     'process.env.YPM_TUI_STANDALONE': JSON.stringify('1'),
   },
-  plugins: [unblockStubPlugin],
   logLevel: 'warning',
 });
 

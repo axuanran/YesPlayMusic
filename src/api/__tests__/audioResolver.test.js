@@ -65,7 +65,7 @@ describe('bundled audio resolver API', () => {
   it('loads the real resolver configuration from the bundled admin API', async () => {
     const config = {
       audio: {
-        providerOrder: ['netease', 'unblock', 'fallback'],
+        providerOrder: ['netease', 'lx', 'fallback'],
       },
     };
     resolverClient.get.mockResolvedValueOnce({
@@ -83,8 +83,8 @@ describe('bundled audio resolver API', () => {
         trackId: 123,
         playUrl: '/api/audio/stream/token',
         mode: 'proxy',
-        source: 'unblock:kugou',
-        provider: 'unblock',
+        source: 'lx:kw',
+        provider: 'lx',
         quality: 'exhigh',
       },
     });

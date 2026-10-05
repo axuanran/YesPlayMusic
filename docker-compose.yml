@@ -7,8 +7,6 @@ services:
     ports:
       - "80:80"
     restart: always
-    depends_on:
-      - unblock-netease-music
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/api/health >/dev/null"]
       interval: 30s
@@ -24,22 +22,6 @@ services:
       NETEASE_API_PORT: "10754"
     networks:
       my_network:
-
-  unblock-netease-music:
-    image: pan93412/unblock-netease-music-enhanced
-    command: -o kugou kuwo migu bilibili pyncmd -p 80:443 -f ${UNBLOCK_FORCE_HOST:-45.127.129.53} -e -
-    # environment:
-    #   JSON_LOG: true
-    #   LOG_LEVEL: debug
-    networks:
-      my_network:
-        aliases:
-          - music.163.com
-          - interface.music.163.com
-          - interface3.music.163.com
-          - interface.music.163.com.163jiasu.com
-          - interface3.music.163.com.163jiasu.com
-    restart: always
 
 volumes:
   xump-data:

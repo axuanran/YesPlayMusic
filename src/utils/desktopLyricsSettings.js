@@ -24,6 +24,7 @@ export const DEFAULT_DESKTOP_LYRICS_SETTINGS = Object.freeze({
   textColor: '#ffffff',
   secondaryColor: '#d6e0ff',
   backgroundOpacity: 0,
+  lineCount: 1,
   width: 960,
   height: 120,
   x: null,
@@ -197,6 +198,7 @@ export function normalizeDesktopLyricsSettings(value = {}, legacyEnabled) {
         ? source.alwaysOnTop
         : defaults.alwaysOnTop,
     ...normalizeStyle(source),
+    lineCount: Math.round(clamp(source.lineCount, 1, 9, defaults.lineCount)),
     width: Math.round(clamp(source.width, 360, 1920, defaults.width)),
     height: Math.round(clamp(source.height, 92, 400, defaults.height)),
     x: coordinate(source.x),
@@ -215,6 +217,22 @@ export function mergeDesktopLyricsSettings(current, patch, legacyEnabled) {
       ...safePatch,
     },
     legacyEnabled
+  );
+}
+
+// Vertical space needed to show `lineCount` rows without internal scrolling.
+// Mirrors the renderer CSS: #lyrics padding, primary/secondary line heights
+// and the control bar clearance. The window layer clamps the result to its
+// own min/max bounds.
+export function estimateDesktopLyricsHeight(value = {}) {
+  const settings = normalizeDesktopLyricsSettings(value);
+  const primaryRow = settings.fontSize * 1.35;
+  const secondaryRow = settings.showSecondary
+    ? settings.secondaryFontSize * 1.3 + 3
+    : 0;
+  const verticalPadding = 20 + 44 + 16;
+  return Math.ceil(
+    verticalPadding + settings.lineCount * (primaryRow + secondaryRow)
   );
 }
 

@@ -22,6 +22,11 @@ import {
 import { createLazyDiscordRpcClient } from './discordRpcClient.js';
 import { clearSessionDiskCache } from './cache.js';
 import {
+  MCP_SERVER_GET_STATUS_CHANNEL,
+  MCP_SERVER_STATUS_CHANNEL,
+  normalizeMcpServerConfig,
+} from './mcpServer.js';
+import {
   beginTrackDownloadBatch,
   finishTrackDownloadBatch,
   saveArtworkDownload,
@@ -208,8 +213,15 @@ export function initIpcMain(
   trayEventEmitter,
   desktopLyrics,
   localMusicService,
-  streamingService
+  streamingService,
+  mcpServer
 ) {
+  const publishMcpServerStatus = status => {
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send(MCP_SERVER_STATUS_CHANNEL, status);
+    }
+  };
+  ipcMain.handle(MCP_SERVER_GET_STATUS_CHANNEL, () => mcpServer?.getStatus());
   discordStatusWindow = win;
   setDiscordPresenceEnabled(
     store.get('settings.enableDiscordRichPresence') === true
@@ -652,6 +664,17 @@ export function initIpcMain(
     ) {
       registerGlobalShortcuts(win, store, desktopLyrics);
     }
+    if (changedKeys.has('mcpServer')) {
+      mcpServer
+        ?.applyConfig(normalizeMcpServerConfig(options.mcpServer))
+        .then(publishMcpServerStatus)
+        .catch(error =>
+          publishMcpServerStatus({
+            ...mcpServer.getStatus(),
+            error: error.message,
+          })
+        );
+    }
   });
 
   ipcMain.on('desktop-lyrics:update', (event, payload) => {
@@ -665,6 +688,37 @@ export function initIpcMain(
       volume: isFiniteNumberInRange(payload.volume, 0, 1)
         ? payload.volume
         : undefined,
+      active: Number.isInteger(payload.active)
+        ? Math.max(-1, payload.active)
+        : undefined,
+    });
+  });
+
+  ipcMain.on('desktop-lyrics:lines', (event, payload) => {
+    if (event.sender !== win.webContents || !isRecord(payload)) return;
+    if (!Array.isArray(payload.lines) || payload.lines.length > 256) return;
+    desktopLyrics?.updateLines({
+      sequence: isFiniteNumberInRange(payload.sequence, 0, 1e9)
+        ? Math.floor(payload.sequence)
+        : 0,
+      index: isFiniteNumberInRange(payload.index, 0, 256)
+        ? Math.floor(payload.index)
+        : 0,
+      total: isFiniteNumberInRange(payload.total, 0, 256)
+        ? Math.floor(payload.total)
+        : 0,
+      lines: payload.lines
+        .filter(isRecord)
+        .map(line => ({
+          time: isFiniteNumberInRange(line.time, 0, 86400) ? line.time : 0,
+          content:
+            typeof line.content === 'string' ? line.content.slice(0, 512) : '',
+          translation:
+            typeof line.translation === 'string'
+              ? line.translation.slice(0, 512)
+              : '',
+        }))
+        .filter(line => line.content),
     });
   });
 

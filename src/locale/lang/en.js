@@ -186,6 +186,16 @@ export default {
       'After logging in on the NetEase page, copy that page Cookie and paste it below.',
     androidWebLoginTip:
       'After login, YesPlayMusic returns automatically and imports the Cookie. No manual copy is needed.',
+    webLoginGuideTitle: 'After logging in, copy the Cookie as follows:',
+    webLoginGuideSteps: [
+      'Finish logging in on the opened NetEase page and keep that tab open',
+      'Press F12 (Cmd+Opt+I on Mac) to open DevTools and switch to the "Application" tab',
+      'In the left sidebar, choose Cookies → https://music.163.com',
+      'Find MUSIC_U in the list, double-click its Value column and copy it (Ctrl+C)',
+      'Return to this page, paste it into the box below and click Login',
+    ],
+    webLoginGuideTip:
+      'Only the MUSIC_U value is required; pasting the whole "MUSIC_U=..." entry also works.',
     cookiePlaceholder: 'Paste NetEase Cookie such as MUSIC_U=...; __csrf=...',
     cookieTip:
       'MUSIC_U is required. Cookies are only stored in this browser and localStorage.',
@@ -245,6 +255,7 @@ export default {
     lyricsAutoFollow: 'Follow playback automatically',
     lyricsCenterCurrentLine: 'Center current lyric',
     lyricsClickToSeek: 'Click lyric to seek',
+    repeatLyricLine: 'Repeat this lyric line (lock current line)',
     lyricsAutoResume: 'Resume following {seconds}s after manual scrolling',
     lyricsResumeFollow: 'Return to current lyric and resume following',
   },
@@ -347,6 +358,20 @@ export default {
         'Connect to AMLL Player at 127.0.0.1:11444 and sync track, lyrics, progress, and playback controls.',
     },
     enableGlobalShortcut: 'Enable Global Shortcut',
+    mcp: {
+      sectionTitle: 'MCP Server',
+      enable: 'Enable MCP Server (Streamable HTTP)',
+      description:
+        'Lets AI agents control the player (play, pause, search, queue, ...) over the Model Context Protocol. The endpoint has no authentication — keep it on a loopback address.',
+      host: 'Listen address',
+      hostPlaceholder: '127.0.0.1',
+      port: 'Listen port',
+      status: 'Status',
+      runningAt: 'Running at {url}',
+      stopped: 'Not running',
+      error: 'Failed to start: {error}',
+      invalidPort: 'Port must be an integer between 1 and 65535',
+    },
     showLibraryDefault: 'Show Library after App Launched',
     subTitleDefault: 'Show Alias for Subtitle by default',
     enableReversedMode: 'Enable Reversed Mode (Experimental)',
@@ -390,6 +415,10 @@ export default {
       showSecondary: 'Show translation or pronunciation',
       fontSize: 'Primary lyric size',
       secondaryFontSize: 'Translation or pronunciation size',
+      lineCount: 'Lines shown at once',
+      lineCountDescription:
+        'In multi-line mode, unlock the desktop lyrics and click a line to seek; scroll the wheel to scrub, or Ctrl+scroll to adjust background opacity.',
+      singleLine: 'Single line',
       colors: 'Lyric colors',
       primaryColor: 'Primary lyric color',
       secondaryColor: 'Translation or pronunciation color',
@@ -432,34 +461,6 @@ export default {
         karaoke: 'Karaoke',
         subtitle: 'Subtitle',
         minimal: 'Minimal',
-      },
-    },
-    unm: {
-      enable: 'Enable',
-      audioSource: {
-        title: 'Audio Sources',
-      },
-      enableFlac: {
-        title: 'Enable FLAC Sources',
-        desc: 'To take effect, it may be required to clear the cache after enabling this function.',
-      },
-      searchMode: {
-        title: 'Audio Search Mode',
-        fast: 'Speed Priority',
-        order: 'Order Priority',
-      },
-      cookie: {
-        joox: 'Cookie for Joox use',
-        qq: 'Cookie for QQ use',
-        desc1: 'Click here for the configuration instruction. ',
-        desc2: 'Leave empty to pick up the default value',
-      },
-      ytdl: 'The youtube-dl Executable File for YtDl',
-      proxy: {
-        title: 'Proxy Server for UNM',
-        desc1:
-          'The proxy server to use for requesting services such as YouTube',
-        desc2: 'Leave empty to pick up the default value',
       },
     },
   },

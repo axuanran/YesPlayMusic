@@ -57,81 +57,16 @@
         <input
           v-model="providerOrderText"
           type="text"
-          placeholder="netease, lx, unblock, fallback"
+          placeholder="netease, lx, fallback"
         />
         <small>按从左到右的顺序尝试，多个 Provider 用英文逗号分隔。</small>
       </label>
 
-      <h4>UnblockNeteaseMusic</h4>
-      <div class="config-grid">
-        <label class="field checkbox-field">
-          <span>启用 Unblock Provider</span>
-          <input v-model="config.audio.unblock.enabled" type="checkbox" />
-        </label>
-
-        <label class="field checkbox-field">
-          <span>允许 FLAC</span>
-          <input v-model="config.audio.unblock.enableFlac" type="checkbox" />
-        </label>
-
-        <label class="field">
-          <span>搜索模式</span>
-          <select v-model="config.audio.unblock.searchMode">
-            <option value="fast-first">速度优先</option>
-            <option value="order-first">音源顺序优先</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>yt-dlp 路径</span>
-          <input
-            v-model.trim="config.audio.unblock.ytDlExe"
-            type="text"
-            placeholder="yt-dlp"
-          />
-        </label>
-      </div>
-
-      <label class="field full-width-field">
-        <span>Unblock 音源</span>
-        <input
-          v-model="config.audio.unblock.source"
-          type="text"
-          placeholder="ytdl, bilibili, pyncm, kugou"
-        />
-        <small>多个音源用英文逗号分隔。</small>
-      </label>
-
-      <label class="field full-width-field">
-        <span>Unblock 代理</span>
-        <input
-          v-model.trim="config.audio.unblock.proxyUri"
-          type="text"
-          placeholder="http://127.0.0.1:7890"
-        />
-      </label>
-
-      <div class="config-grid">
-        <label class="field">
-          <span>JOOX Cookie</span>
-          <input
-            v-model="config.audio.unblock.jooxCookie"
-            type="password"
-            autocomplete="off"
-          />
-        </label>
-
-        <label class="field">
-          <span>QQ Cookie</span>
-          <input
-            v-model="config.audio.unblock.qqCookie"
-            type="password"
-            autocomplete="off"
-          />
-        </label>
-      </div>
-
-      <h4>洛雪音源</h4>
+      <h4>洛雪音源（推荐）</h4>
+      <p class="section-description">
+        第三方维护的音源脚本，解析成功率高于内置直连。在下方添加一个洛雪自定义源脚本即可启用（例如 kw /
+        kg / tx 音源脚本）。
+      </p>
       <div class="config-grid">
         <label class="field checkbox-field">
           <span>启用 LX Provider</span>
@@ -229,19 +164,9 @@
 import { mapActions } from 'vuex';
 import { getResolverConfig, updateResolverConfig } from '@/api/audioResolver';
 
-const DEFAULT_PROVIDER_ORDER = ['netease', 'lx', 'unblock', 'fallback'];
-const DEFAULT_UNBLOCK = {
-  enabled: true,
-  source: 'ytdl, bilibili, pyncm, kugou',
-  enableFlac: false,
-  proxyUri: '',
-  searchMode: 'fast-first',
-  jooxCookie: '',
-  qqCookie: '',
-  ytDlExe: '',
-};
+const DEFAULT_PROVIDER_ORDER = ['netease', 'lx', 'fallback'];
 const DEFAULT_LX = {
-  enabled: false,
+  enabled: true,
   source: 'kw',
   scriptUrl: '',
   timeoutMs: 15000,
@@ -258,7 +183,6 @@ function defaultConfig() {
       cacheDir: '',
       providerOrder: [...DEFAULT_PROVIDER_ORDER],
       fallbackToLegacy: true,
-      unblock: { ...DEFAULT_UNBLOCK },
       lx: { ...DEFAULT_LX },
     },
   };
@@ -291,12 +215,8 @@ function normalizeConfig(value) {
       ...defaults.audio,
       ...audio,
       providerOrder: Array.isArray(audio.providerOrder)
-        ? [...audio.providerOrder]
+        ? [...audio.providerOrder].filter(provider => provider !== 'unblock')
         : [...DEFAULT_PROVIDER_ORDER],
-      unblock: {
-        ...DEFAULT_UNBLOCK,
-        ...(audio.unblock || {}),
-      },
       lx: {
         ...DEFAULT_LX,
         ...lx,

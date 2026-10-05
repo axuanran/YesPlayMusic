@@ -4,6 +4,9 @@ let appliedSettings = { locked: true };
 let opacityIndicatorTimer = null;
 let activeResizePointerId = null;
 let resizeMoveFrame = null;
+let renderedLines = null;
+let renderedActiveIndex = -2;
+const WHEEL_SEEK_STEP_SECONDS = 5;
 const VERTICAL_ALIGNMENTS = Object.freeze({
   bottom: 'flex-end',
   center: 'center',
@@ -18,6 +21,75 @@ const sendCommand = (type, value) => {
 const setText = (id, value) => {
   const element = document.getElementById(id);
   if (element) element.textContent = typeof value === 'string' ? value : '';
+};
+
+const linesEqual = (left, right) => {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left === right) return true;
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index++) {
+    const a = left[index];
+    const b = right[index];
+    if (
+      a?.time !== b?.time ||
+      a?.content !== b?.content ||
+      a?.translation !== b?.translation
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const scrollActiveLineIntoView = (container, index) => {
+  const item = container.children[index];
+  if (!item) return;
+  const top = item.offsetTop - (container.clientHeight - item.offsetHeight) / 2;
+  container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+};
+
+// Multi-line mode renders the whole (bounded) lyric list and keeps the active
+// line centered; clicking any line seeks playback to that line's timestamp,
+// which also replays the currently active line from its start.
+const renderLines = (lines, active) => {
+  const container = document.getElementById('lines');
+  if (!container || !Array.isArray(lines)) return;
+  if (!linesEqual(lines, renderedLines)) {
+    renderedLines = lines;
+    renderedActiveIndex = -2;
+    container.textContent = '';
+    const fragment = document.createDocumentFragment();
+    lines.forEach((line, index) => {
+      const item = document.createElement('div');
+      item.className = 'lyric-item';
+      item.dataset.index = String(index);
+      item.dataset.time = String(Number(line?.time) || 0);
+      const primary = document.createElement('div');
+      primary.className = 'lyric-item-primary';
+      primary.textContent =
+        typeof line?.content === 'string' ? line.content : '';
+      item.appendChild(primary);
+      if (typeof line?.translation === 'string' && line.translation) {
+        const secondary = document.createElement('div');
+        secondary.className = 'lyric-item-secondary';
+        secondary.textContent = line.translation;
+        item.appendChild(secondary);
+      }
+      fragment.appendChild(item);
+    });
+    container.appendChild(fragment);
+  }
+  const clamped =
+    lines.length === 0 ? -1 : Math.max(-1, Math.min(active, lines.length - 1));
+  if (renderedActiveIndex === clamped) return;
+  if (renderedActiveIndex >= 0 && container.children[renderedActiveIndex]) {
+    container.children[renderedActiveIndex].classList.remove('is-active');
+  }
+  if (clamped >= 0 && container.children[clamped]) {
+    container.children[clamped].classList.add('is-active');
+    scrollActiveLineIntoView(container, clamped);
+  }
+  renderedActiveIndex = clamped;
 };
 
 const showOpacityIndicator = value => {
@@ -77,10 +149,20 @@ const applySettings = settings => {
 
 const applyState = payload => {
   if (!payload || typeof payload !== 'object') return;
-  setText('line', payload.line);
-  setText('translation', payload.translation);
   setText('play', payload.playing ? '暂停' : '播放');
   if (payload.settings) applySettings(payload.settings);
+  const lines = Array.isArray(payload.lines) ? payload.lines : [];
+  const lineCount = Number(appliedSettings.lineCount) || 1;
+  const multiLine = lineCount > 1 && lines.length > 0;
+  document.body.classList.toggle('multi-line', multiLine);
+  if (multiLine) {
+    setText('line', '');
+    setText('translation', '');
+    renderLines(lines, Number.isInteger(payload.active) ? payload.active : -1);
+  } else {
+    setText('line', payload.line);
+    setText('translation', payload.translation);
+  }
   const volume = document.getElementById('volume');
   if (volume && Number.isFinite(payload.volume)) {
     volume.value = String(Math.round(payload.volume * 100));
@@ -101,6 +183,13 @@ window.addEventListener('DOMContentLoaded', () => {
     const value = Number(event.target.value) / 100;
     if (Number.isFinite(value)) sendCommand('setVolume', value);
   });
+  document.getElementById('lines')?.addEventListener('click', event => {
+    if (appliedSettings.locked === true) return;
+    const item = event.target?.closest?.('.lyric-item');
+    if (!item) return;
+    const time = Number(item.dataset.time);
+    if (Number.isFinite(time) && time >= 0) sendCommand('seekTo', time);
+  });
   window.addEventListener(
     'wheel',
     event => {
@@ -108,7 +197,16 @@ window.addEventListener('DOMContentLoaded', () => {
       const deltaY = Number(event.deltaY);
       if (!Number.isFinite(deltaY) || deltaY === 0) return;
       event.preventDefault();
-      sendCommand('adjustBackgroundOpacity', -deltaY);
+      // Plain wheel scrubs playback in fixed steps; Ctrl+wheel keeps the
+      // background opacity control.
+      if (event.ctrlKey) {
+        sendCommand('adjustBackgroundOpacity', -deltaY);
+      } else {
+        sendCommand(
+          'seek',
+          deltaY > 0 ? WHEEL_SEEK_STEP_SECONDS : -WHEEL_SEEK_STEP_SECONDS
+        );
+      }
     },
     { capture: true, passive: false }
   );

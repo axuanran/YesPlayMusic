@@ -99,20 +99,22 @@ export function startControlServer({
   getAccountWriteAllowed,
   log = console.log,
 } = {}) {
-  const disabled =
+  // The socket listener is platform-gated, but the renderer-forwarding core
+  // (and its `handle` dispatch entry) is always created: the built-in MCP
+  // HTTP server drives the app through it even where unix sockets are off.
+  const socketDisabled =
     process.env.XUMP_CONTROL_SOCKET === '0' || process.platform === 'win32';
-  if (disabled) {
+  if (socketDisabled) {
     log(
-      `[control] disabled (${
+      `[control] socket disabled (${
         process.platform === 'win32'
           ? 'unix sockets are not supported on this platform'
           : 'XUMP_CONTROL_SOCKET=0'
       })`
     );
-    return { stop() {} };
   }
 
-  const socketPath = controlSocketPath();
+  const socketPath = socketDisabled ? null : controlSocketPath();
   const pending = new Map();
   const sockets = new Set();
   let seq = 0;
@@ -324,7 +326,7 @@ export function startControlServer({
   };
   ipcMain.on(CONTROL_REPLY_CHANNEL, onReply);
 
-  const server = net.createServer(onConnection);
+  const server = socketDisabled ? null : net.createServer(onConnection);
 
   const stop = () => {
     if (stopped) return;
@@ -338,41 +340,50 @@ export function startControlServer({
     pending.clear();
     for (const socket of sockets) socket.destroy();
     sockets.clear();
-    server.close();
-    try {
-      const current = fs.lstatSync(socketPath, { throwIfNoEntry: false });
-      // only unlink the endpoint this server created
-      if (current?.isSocket() && current.ino === ownedInode) {
-        fs.rmSync(socketPath, { force: true });
+    server?.close();
+    if (socketPath) {
+      try {
+        const current = fs.lstatSync(socketPath, { throwIfNoEntry: false });
+        // only unlink the endpoint this server created
+        if (current?.isSocket() && current.ino === ownedInode) {
+          fs.rmSync(socketPath, { force: true });
+        }
+      } catch {
+        // nothing to clean up
       }
-    } catch {
-      // nothing to clean up
     }
   };
 
-  server.on('error', error => log(`[control] socket error: ${error.message}`));
+  if (server) {
+    server.on('error', error =>
+      log(`[control] socket error: ${error.message}`)
+    );
 
-  claimSocketPath(socketPath)
-    .then(() => {
-      server.listen(socketPath, () => {
-        try {
-          fs.chmodSync(socketPath, 0o600);
-          ownedInode = fs.lstatSync(socketPath).ino;
-        } catch (error) {
-          log(
-            `[control] refusing to run without owner-only socket: ${error.message}`
-          );
-          stop();
-          return;
-        }
-        log(`[control] listening on ${socketPath}`);
-      });
-    })
-    .catch(error => log(`[control] not started: ${error.message}`));
+    claimSocketPath(socketPath)
+      .then(() => {
+        server.listen(socketPath, () => {
+          try {
+            fs.chmodSync(socketPath, 0o600);
+            ownedInode = fs.lstatSync(socketPath).ino;
+          } catch (error) {
+            log(
+              `[control] refusing to run without owner-only socket: ${error.message}`
+            );
+            stop();
+            return;
+          }
+          log(`[control] listening on ${socketPath}`);
+        });
+      })
+      .catch(error => log(`[control] not started: ${error.message}`));
+  }
 
   return {
     socketPath,
     stop,
+    // In-process dispatch for built-in MCP HTTP server: same validation,
+    // account-write gating and renderer forwarding as the socket path.
+    handle: handleRequest,
     markRendererReady: id => {
       readyWebContentsId = id;
     },

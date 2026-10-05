@@ -60,6 +60,7 @@
       "out/**",
       "scripts/yesplaymusic-tui.mjs",
       "scripts/xumpctl.mjs",
+      "scripts/xump-mcp-http.mjs",
       "server/**",
       "admin/**",
       "package.json"
@@ -88,7 +89,13 @@
       ],
       "artifactName": "${productName}-${os}-${version}-${arch}.${ext}",
       "category": "public.app-category.music",
-      "darkModeSupport": true
+      "darkModeSupport": true,
+      "extraFiles": [
+        {
+          "from": "scripts/install-cli.sh",
+          "to": "Resources/scripts/install-cli.sh"
+        }
+      ]
     },
     "win": {
       "target": [
@@ -166,6 +173,12 @@
       ],
       "category": "Music",
       "icon": "build/icons",
+      "extraFiles": [
+        {
+          "from": "scripts/install-cli.sh",
+          "to": "scripts/install-cli.sh"
+        }
+      ],
       "extraResources": [
         {
           "from": "dist_tui",
@@ -202,7 +215,6 @@
     "@akabeko/music-metadata-editor": "^1.0.1",
     "@jellybrick/mpris-service": "^2.2.0",
     "@neteasecloudmusicapienhanced/api": "^4.36.1",
-    "@unblockneteasemusic/rust-napi": "^0.4.0",
     "@vscode/codicons": "^0.0.45",
     "axios": "^1.18.1",
     "change-case": "^5.4.4",

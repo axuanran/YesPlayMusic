@@ -15,6 +15,13 @@ import {
   validateToolArguments,
 } from '../xumpctl.mjs';
 
+// Unix sockets cannot be bound everywhere (notably Windows sandboxes), so
+// tests use a Windows named pipe there and a tmpdir socket otherwise.
+const makeSocketPath = name =>
+  process.platform === 'win32'
+    ? `\\\\.\\pipe\\${name}-${process.pid}-${Date.now()}`
+    : path.join(os.tmpdir(), `${name}-${process.pid}-${Date.now()}.sock`);
+
 const CANNED = {
   status: () => ({
     result: {
@@ -82,7 +89,7 @@ let requests;
 
 beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xumpctl-'));
-  socketPath = path.join(dir, 'fake.sock');
+  socketPath = makeSocketPath('xumpctl');
   requests = [];
   server = net.createServer(socket => {
     socket.setEncoding('utf8');
@@ -453,8 +460,7 @@ describe('xumpctl retry policy', () => {
         }
       });
     });
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xumpctl-flaky-'));
-    const flakyPath = path.join(dir, 'flaky.sock');
+    const flakyPath = makeSocketPath('xumpctl-flaky');
     await new Promise(resolve => flaky.listen(flakyPath, resolve));
     try {
       await expect(

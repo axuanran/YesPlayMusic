@@ -93,6 +93,18 @@
                 : $t('login.webLoginTip')
             }}
           </div>
+          <div v-if="!isElectron && !isCapacitor" class="web-login-guide">
+            <div class="guide-title">{{ $t('login.webLoginGuideTitle') }}</div>
+            <ol>
+              <li
+                v-for="(step, index) in $tm('login.webLoginGuideSteps')"
+                :key="index"
+              >
+                {{ $rt(step) }}
+              </li>
+            </ol>
+            <div class="guide-tip">{{ $t('login.webLoginGuideTip') }}</div>
+          </div>
           <textarea
             v-model="cookieText"
             :placeholder="$t('login.cookiePlaceholder')"
@@ -298,14 +310,19 @@ export default {
       }
     },
     loginWithCookie() {
-      if (!this.cookieText.includes('MUSIC_U=')) {
+      let cookieText = this.cookieText.trim();
+      // Allow pasting only the MUSIC_U value without the "MUSIC_U=" prefix
+      if (cookieText && !cookieText.includes('=')) {
+        cookieText = `MUSIC_U=${cookieText}`;
+      }
+      if (!cookieText.includes('MUSIC_U=')) {
         this.cookieError = 'Cookie 中缺少 MUSIC_U';
         return;
       }
 
       this.processing = true;
       this.cookieError = '';
-      const cookie = normalizeCookieString(this.cookieText);
+      const cookie = normalizeCookieString(cookieText);
       userAccountWithCookie(cookie)
         .then(result => {
           if (!result?.profile?.userId) {
@@ -720,6 +737,41 @@ button.loading {
     color: #e9546b;
     font-size: 12px;
     line-height: 1.5;
+  }
+
+  .web-login-guide {
+    margin: 10px 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--color-secondary-bg);
+
+    .guide-title {
+      margin-bottom: 6px;
+      color: var(--color-text);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    ol {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--color-text);
+      font-size: 12px;
+      line-height: 1.6;
+
+      li {
+        margin: 2px 0;
+      }
+    }
+
+    .guide-tip {
+      margin-top: 6px;
+      color: var(--color-primary);
+      font-size: 12px;
+      line-height: 1.5;
+      opacity: 0.78;
+    }
   }
 }
 </style>

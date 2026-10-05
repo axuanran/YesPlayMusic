@@ -303,26 +303,15 @@
         );
       }
 
-      const DEFAULT_UNBLOCK_CONFIG = {
-        enabled: true,
-        source: 'ytdl, bilibili, pyncm, kugou',
-        enableFlac: false,
-        proxyUri: '',
-        searchMode: 'fast-first',
-        jooxCookie: '',
-        qqCookie: '',
-        ytDlExe: '',
-      };
-
       const DEFAULT_LX_CONFIG = {
-        enabled: false,
+        enabled: true,
         source: 'kw',
         scriptUrl: '',
         timeoutMs: 15000,
         cacheMs: 600000,
         sources: [],
       };
-      const BUILTIN_PROVIDER_NAMES = ['netease', 'lx', 'unblock', 'fallback'];
+      const BUILTIN_PROVIDER_NAMES = ['netease', 'lx', 'fallback'];
 
       function createDefaultConfig() {
         return {
@@ -333,10 +322,9 @@
             defaultQuality: 'standard',
             cacheTtl: 1800,
             cacheDir: '',
-            providerOrder: ['netease', 'lx', 'unblock', 'fallback'],
+            providerOrder: ['netease', 'lx', 'fallback'],
             fallbackToLegacy: true,
             useCookie: true,
-            unblock: { ...DEFAULT_UNBLOCK_CONFIG },
             lx: { ...DEFAULT_LX_CONFIG },
           },
         };
@@ -356,10 +344,6 @@
         nextConfig.audio = {
           ...nextConfig.audio,
           ...(config?.audio || {}),
-          unblock: {
-            ...DEFAULT_UNBLOCK_CONFIG,
-            ...(config?.audio?.unblock || {}),
-          },
           lx: normalizeLxConfig(config?.audio?.lx),
         };
         return nextConfig;
@@ -642,41 +626,13 @@
       <div class="card">
         <h3>Provider Chain</h3>
         <label>Provider Order (comma separated)</label>
-        <input v-model="providerOrderStr" placeholder="netease, unblock, fallback">
+        <input v-model="providerOrderStr" placeholder="netease, lx, fallback">
         <div style="margin-top:10px">
           <span class="badge badge-info" v-for="p in providerOrder" :key="p" style="margin-right:8px">{{ p }}</span>
         </div>
       </div>
       <div class="card">
-        <h3>Unblock Provider</h3>
-        <label>Status</label>
-        <select v-model="cfg.audio.unblock.enabled">
-          <option :value="true">Enabled</option>
-          <option :value="false">Disabled</option>
-        </select>
-        <label>Sources</label>
-        <input v-model="cfg.audio.unblock.source" placeholder="ytdl, bilibili, pyncm, kugou">
-        <label>Enable FLAC</label>
-        <select v-model="cfg.audio.unblock.enableFlac">
-          <option :value="true">Enabled</option>
-          <option :value="false">Disabled</option>
-        </select>
-        <label>Search Mode</label>
-        <select v-model="cfg.audio.unblock.searchMode">
-          <option value="fast-first">Fast First</option>
-          <option value="order-first">Order First</option>
-        </select>
-        <label>Proxy URI</label>
-        <input v-model="cfg.audio.unblock.proxyUri" placeholder="http://127.0.0.1:7890">
-        <label>JOOX Cookie</label>
-        <input v-model="cfg.audio.unblock.jooxCookie" placeholder="wmid=...; session_key=...">
-        <label>QQ Cookie</label>
-        <input v-model="cfg.audio.unblock.qqCookie" placeholder="uin=...; qm_keyst=...">
-        <label>yt-dlp Path</label>
-        <input v-model="cfg.audio.unblock.ytDlExe" placeholder="yt-dlp">
-      </div>
-      <div class="card">
-        <h3>LX Provider</h3>
+        <h3>LX Provider (recommended)</h3>
         <label>Status</label>
         <select v-model="cfg.audio.lx.enabled">
           <option :value="true">Enabled</option>

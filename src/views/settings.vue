@@ -529,6 +529,25 @@
         <div class="item">
           <div class="left">
             <div class="title">
+              {{ $t('settings.desktopLyrics.lineCount') }}
+            </div>
+            <div class="description">
+              {{ $t('settings.desktopLyrics.lineCountDescription') }}
+            </div>
+          </div>
+          <div class="right">
+            <select v-model.number="desktopLyricsLineCount">
+              <option v-for="count in [1, 3, 5, 7]" :key="count" :value="count">
+                {{
+                  count === 1 ? $t('settings.desktopLyrics.singleLine') : count
+                }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
               {{ $t('settings.desktopLyrics.colors') }}
             </div>
           </div>
@@ -1088,6 +1107,72 @@
         </div>
       </div>
 
+      <div v-if="isElectron">
+        <h3 id="settings-mcp">
+          {{ $t('settings.mcp.sectionTitle') }}
+        </h3>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.mcp.enable') }}
+            </div>
+            <div class="description">
+              {{ $t('settings.mcp.description') }}
+            </div>
+          </div>
+          <div class="right">
+            <div class="toggle">
+              <input
+                id="enable-mcp-server"
+                v-model="mcpServerEnabled"
+                type="checkbox"
+                name="enable-mcp-server"
+              />
+              <label for="enable-mcp-server"></label>
+            </div>
+          </div>
+        </div>
+        <template v-if="mcpServerEnabled">
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.mcp.host') }}</div>
+            </div>
+            <div class="right">
+              <input
+                v-model.trim="mcpServerHost"
+                class="text-input"
+                type="text"
+                spellcheck="false"
+                :placeholder="$t('settings.mcp.hostPlaceholder')"
+              />
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.mcp.port') }}</div>
+            </div>
+            <div class="right">
+              <input
+                class="text-input"
+                type="number"
+                min="1"
+                max="65535"
+                :value="mcpServerPort"
+                @change="setMcpServerPort($event.target.value)"
+              />
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">{{ $t('settings.mcp.status') }}</div>
+            </div>
+            <div class="right">
+              <span class="mcp-server-status">{{ mcpServerStatusText }}</span>
+            </div>
+          </div>
+        </template>
+      </div>
+
       <div class="footer">
         <p class="author"
           >EDIT BY
@@ -1229,6 +1314,8 @@ export default {
       removeTrackCacheListener: null,
       nativeCacheListener: null,
       lastfmChecker: null,
+      mcpServerStatus: null,
+      removeMcpStatusListener: null,
       allOutputDevices: [
         {
           deviceId: 'default',
@@ -1314,6 +1401,10 @@ export default {
               {
                 id: 'settings-shortcuts',
                 label: this.$t('settings.shortcutSection'),
+              },
+              {
+                id: 'settings-mcp',
+                label: this.$t('settings.mcp.sectionTitle'),
               },
             ]
           : []),
@@ -1542,6 +1633,7 @@ export default {
       'secondaryFontSize',
       18
     ),
+    desktopLyricsLineCount: desktopLyricsSetting('lineCount', 1),
     desktopLyricsTextColor: desktopLyricsSetting('textColor', '#ffffff'),
     desktopLyricsSecondaryColor: desktopLyricsSetting(
       'secondaryColor',
@@ -1577,6 +1669,35 @@ export default {
       },
     },
     enableGlobalShortcut: setting('enableGlobalShortcut', false),
+    mcpServerEnabled: {
+      get() {
+        return this.settings.mcpServer?.enabled === true;
+      },
+      set(value) {
+        this.updateMcpServerSettings({ enabled: value === true });
+      },
+    },
+    mcpServerHost: {
+      get() {
+        return this.settings.mcpServer?.host || '127.0.0.1';
+      },
+      set(value) {
+        this.updateMcpServerSettings({ host: value });
+      },
+    },
+    mcpServerPort() {
+      return this.settings.mcpServer?.port || 27233;
+    },
+    mcpServerStatusText() {
+      const status = this.mcpServerStatus;
+      if (status?.running && status.url) {
+        return this.$t('settings.mcp.runningAt', { url: status.url });
+      }
+      if (status?.error) {
+        return this.$t('settings.mcp.error', { error: status.error });
+      }
+      return this.$t('settings.mcp.stopped');
+    },
     showLibraryDefault: setting('showLibraryDefault', false),
     cacheLimit: {
       get() {
@@ -1665,11 +1786,15 @@ export default {
       );
     }
     this.countDBSize('tracks');
-    if (isElectron) this.getAllOutputDevices();
+    if (isElectron) {
+      this.getAllOutputDevices();
+      this.listenMcpServerStatus();
+    }
   },
   beforeUnmount() {
     this.removeTrackCacheListener?.();
     this.nativeCacheListener?.remove();
+    this.removeMcpStatusListener?.();
     clearInterval(this.lastfmChecker);
     this.lastfmChecker = null;
     this.exitRecordShortcut();
@@ -1677,6 +1802,39 @@ export default {
   methods: {
     ...mapActions(['showToast']),
     ...mapMutations(['updateModal']),
+    listenMcpServerStatus() {
+      const api = window.electronAPI?.mcpServer;
+      if (!api) return;
+      this.removeMcpStatusListener = api.onStatus?.(status => {
+        this.mcpServerStatus = status;
+      });
+      api
+        .getStatus?.()
+        .then(status => {
+          this.mcpServerStatus = status;
+        })
+        .catch(() => {});
+    },
+    updateMcpServerSettings(patch) {
+      this.$store.commit('updateSettings', {
+        key: 'mcpServer',
+        value: {
+          enabled: false,
+          host: '127.0.0.1',
+          port: 27233,
+          ...(this.settings.mcpServer || {}),
+          ...patch,
+        },
+      });
+    },
+    setMcpServerPort(value) {
+      const port = Number(value);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        this.showToast(this.$t('settings.mcp.invalidPort'));
+        return;
+      }
+      this.updateMcpServerSettings({ port });
+    },
     scrollToSettingsSection(id) {
       const target = document.getElementById(id);
       if (!target) return;
@@ -2339,6 +2497,13 @@ input::-webkit-inner-spin-button {
 }
 input[type='number'] {
   -moz-appearance: textfield;
+}
+
+.mcp-server-status {
+  color: var(--color-text);
+  font-size: 14px;
+  opacity: 0.78;
+  word-break: break-all;
 }
 
 #proxy-form,

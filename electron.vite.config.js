@@ -35,6 +35,9 @@ export default defineConfig(({ mode }) => ({
       __static: 'global.__static',
       __APP_ENV__: JSON.stringify(createProcessEnv(mode)),
       __APP_PLATFORM__: JSON.stringify(process.platform),
+      // scripts/xumpctl.mjs + scripts/xump-mcp-http.mjs are bundled into the
+      // main process; this disables their CLI self-execution guards.
+      __XUMP_BUNDLED__: 'true',
     },
     build: {
       outDir: r('./out/main'),

@@ -87,7 +87,7 @@ module.exports = {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      externals: ['@unblockneteasemusic/rust-napi'],
+      externals: [],
       builderOptions: {
         productName: 'YesPlayMusic',
         copyright: 'Copyright © YesPlayMusic',

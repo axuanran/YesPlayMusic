@@ -1,31 +1,72 @@
 <template>
   <div class="next-tracks">
-    <h1>{{ $t('next.nowPlaying') }}</h1>
-    <TrackList
-      :tracks="[currentTrack]"
-      :type="queueTrackType"
-      dbclick-track-func="none"
-    />
-    <h1 v-show="playNextList.length > 0"
-      >插队播放
-      <button @click="player.clearPlayNextList()">清除队列</button>
-    </h1>
-    <TrackList
-      v-show="playNextList.length > 0"
-      :tracks="playNextTracks"
-      :type="queueTrackType"
-      :highlight-playing-track="false"
-      dbclick-track-func="playTrackOnListByID"
-      item-key="id+index"
-      :extra-context-menu-item="['removeTrackFromQueue']"
-    />
-    <h1>{{ $t('next.nextUp') }}</h1>
-    <TrackList
-      :tracks="filteredTracks"
-      :type="queueTrackType"
-      :highlight-playing-track="false"
-      dbclick-track-func="playTrackOnListByID"
-    />
+    <section aria-labelledby="queue-now-playing">
+      <h1 id="queue-now-playing">{{ $t('next.nowPlaying') }}</h1>
+      <TrackList
+        :tracks="[currentTrack]"
+        :type="queueTrackType"
+        dbclick-track-func="none"
+      />
+    </section>
+
+    <section v-if="playNextList.length > 0" aria-labelledby="queue-play-next">
+      <div class="section-heading">
+        <h1 id="queue-play-next">{{ $t('next.playNext') }}</h1>
+        <button type="button" @click="player.clearPlayNextList()">{{
+          $t('next.clearQueue')
+        }}</button>
+      </div>
+      <TrackList
+        :tracks="playNextTracks"
+        :type="queueTrackType"
+        :highlight-playing-track="false"
+        dbclick-track-func="playTrackOnListByID"
+        item-key="id+index"
+        :extra-context-menu-item="['removeTrackFromQueue']"
+      />
+    </section>
+
+    <section aria-labelledby="queue-next-up">
+      <h1 id="queue-next-up">{{ $t('next.nextUp') }}</h1>
+      <div
+        v-if="loading && filteredTracks.length === 0"
+        class="queue-status"
+        role="status"
+      >
+        <span class="status-spinner" aria-hidden="true"></span>
+        {{ $t('next.loading') }}
+      </div>
+      <div
+        v-else-if="loadError && filteredTracks.length === 0"
+        class="queue-status queue-status-error"
+        role="alert"
+      >
+        <span>{{ $t('next.loadFailed') }}</span>
+        <button type="button" @click="loadTracks">{{
+          $t('next.retry')
+        }}</button>
+      </div>
+      <div
+        v-else-if="!loading && filteredTracks.length === 0"
+        class="queue-status"
+      >
+        {{ $t('next.empty') }}
+      </div>
+      <template v-else>
+        <div v-if="loadError" class="partial-error" role="status">
+          {{ $t('next.partialFailure') }}
+          <button type="button" @click="loadTracks">{{
+            $t('next.retry')
+          }}</button>
+        </div>
+        <TrackList
+          :tracks="filteredTracks"
+          :type="queueTrackType"
+          :highlight-playing-track="false"
+          dbclick-track-func="playTrackOnListByID"
+        />
+      </template>
+    </section>
   </div>
 </template>
 
@@ -33,6 +74,12 @@
 import { mapState, mapActions } from 'vuex';
 import { getTrackDetail } from '@/api/track';
 import TrackList from '@/components/TrackList.vue';
+import { createRequestGeneration } from '@/utils/requestGeneration';
+import {
+  collectQueueTrackIds,
+  getMissingTrackIds,
+  retainQueueTracks,
+} from '@/utils/queueTracks';
 
 export default {
   name: 'Next',
@@ -42,6 +89,11 @@ export default {
   data() {
     return {
       tracks: [],
+      loading: false,
+      loadError: false,
+      loadPromise: null,
+      loadQueued: false,
+      trackLoadGeneration: createRequestGeneration(),
     };
   },
   computed: {
@@ -57,22 +109,29 @@ export default {
       if (this.currentTrack?.streaming) return 'streaming';
       return 'playlist';
     },
-    filteredTracks() {
-      let trackIDs = this.player.list.slice(
-        this.player.current + 1,
-        this.player.current + 100
+    desiredTrackIds() {
+      return collectQueueTrackIds(
+        this.player.list,
+        this.player.current,
+        this.playNextList
       );
-      return trackIDs
-        .map(tid => this.tracks.find(t => t.id === tid))
-        .filter(t => t);
+    },
+    trackLookup() {
+      return new Map(this.tracks.map(track => [track.id, track]));
+    },
+    filteredTracks() {
+      return this.player.list
+        .slice(this.player.current + 1, this.player.current + 101)
+        .map(id => this.trackLookup.get(id))
+        .filter(Boolean);
     },
     playNextList() {
       return this.player.playNextList;
     },
     playNextTracks() {
-      return this.playNextList.map(tid => {
-        return this.tracks.find(t => t.id === tid);
-      });
+      return this.playNextList
+        .map(id => this.trackLookup.get(id))
+        .filter(Boolean);
     },
   },
   watch: {
@@ -82,91 +141,210 @@ export default {
     playerShuffle() {
       this.loadTracks();
     },
-    playNextList() {
-      this.loadTracks();
+    playNextList: {
+      deep: true,
+      handler() {
+        this.loadTracks();
+      },
     },
   },
   activated() {
     this.loadTracks();
     this.$parent?.$refs?.scrollbar?.restorePosition?.();
   },
+  deactivated() {
+    this.trackLoadGeneration.invalidate();
+    this.loadQueued = false;
+  },
+  beforeUnmount() {
+    this.trackLoadGeneration.invalidate();
+    this.loadQueued = false;
+  },
   methods: {
     ...mapActions(['playTrackOnListByID']),
-    async loadTracks() {
-      // 获取播放列表当前歌曲后100首歌
-      let trackIDs = this.player.list.slice(
-        this.player.current + 1,
-        this.player.current + 100
-      );
+    resolveLocalTracks(ids) {
+      return Promise.all(
+        ids.map(id => window.electronAPI?.localMusic?.get(id))
+      ).then(tracks => tracks.filter(Boolean));
+    },
+    resolveStreamingTracks(ids) {
+      return Promise.all(
+        ids.map(id => window.electronAPI?.streaming?.getTrack(id))
+      ).then(tracks => tracks.filter(Boolean));
+    },
+    resolveRemoteTracks(ids) {
+      if (ids.length === 0) return Promise.resolve([]);
+      return getTrackDetail(ids.join(',')).then(data => data.songs ?? []);
+    },
+    loadTracks() {
+      if (this.loadPromise) {
+        this.loadQueued = true;
+        return this.loadPromise;
+      }
+      const requestId = this.trackLoadGeneration.next();
 
-      // 将playNextList的歌曲加进trackIDs
-      trackIDs.push(...this.playNextList);
-
-      // 获取已经加载了的歌曲
-      let loadedTrackIDs = this.tracks.map(t => t.id);
-
-      const missingTrackIDs = [
-        ...new Set(trackIDs.filter(id => !loadedTrackIDs.includes(id))),
-      ];
-      const localTrackIDs = missingTrackIDs.filter(
+      const desiredTrackIds = this.desiredTrackIds;
+      const missingTrackIds = getMissingTrackIds(desiredTrackIds, this.tracks);
+      const localTrackIds = missingTrackIds.filter(
         id => typeof id === 'string' && id.startsWith('local:')
       );
-      const streamingTrackIDs = missingTrackIDs.filter(
+      const streamingTrackIds = missingTrackIds.filter(
         id => typeof id === 'string' && id.startsWith('stream:')
       );
-      const remoteTrackIDs = missingTrackIDs.filter(
-        id => !localTrackIDs.includes(id) && !streamingTrackIDs.includes(id)
+      const remoteTrackIds = missingTrackIds.filter(
+        id =>
+          !(
+            typeof id === 'string' &&
+            (id.startsWith('local:') || id.startsWith('stream:'))
+          )
       );
 
-      const [localTracks, streamingTracks, remoteTracks] = await Promise.all([
-        Promise.all(
-          localTrackIDs.map(id => window.electronAPI?.localMusic?.get(id))
-        ),
-        Promise.all(
-          streamingTrackIDs.map(id =>
-            window.electronAPI?.streaming?.getTrack(id)
-          )
-        ),
-        remoteTrackIDs.length
-          ? getTrackDetail(remoteTrackIDs.join(',')).then(data => data.songs)
-          : Promise.resolve([]),
-      ]);
-      this.tracks.push(
-        ...localTracks.filter(Boolean),
-        ...streamingTracks.filter(Boolean),
-        ...remoteTracks
-      );
+      this.loading = true;
+      this.loadError = false;
+      const loadPromise = Promise.allSettled([
+        this.resolveLocalTracks(localTrackIds),
+        this.resolveStreamingTracks(streamingTrackIds),
+        this.resolveRemoteTracks(remoteTrackIds),
+      ])
+        .then(results => {
+          if (!this.trackLoadGeneration.isCurrent(requestId)) return;
+          const loadedTracks = results
+            .filter(result => result.status === 'fulfilled')
+            .flatMap(result => result.value);
+          const currentTrackIds = this.desiredTrackIds;
+          this.tracks = retainQueueTracks(
+            this.tracks,
+            loadedTracks,
+            currentTrackIds
+          );
+          this.loadError =
+            results.some(result => result.status === 'rejected') ||
+            (missingTrackIds.length > 0 &&
+              loadedTracks.length < missingTrackIds.length);
+        })
+        .finally(() => {
+          if (this.loadPromise !== loadPromise) return;
+          this.loadPromise = null;
+          this.loading = false;
+          if (this.loadQueued) {
+            this.loadQueued = false;
+            this.loadTracks();
+          }
+        });
+      this.loadPromise = loadPromise;
+      return loadPromise;
     },
   },
 };
 </script>
 
 <style lang="scss" scoped>
-h1 {
+.next-tracks {
+  padding-bottom: 24px;
+}
+
+section + section {
   margin-top: 36px;
-  margin-bottom: 18px;
-  cursor: default;
+}
+
+h1 {
+  margin: 0 0 18px;
   color: var(--color-text);
+  cursor: default;
+}
+
+.section-heading {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 16px;
+
   button {
-    color: var(--color-text);
-    border-radius: 8px;
+    min-height: 34px;
     padding: 0 14px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: 0.2s;
+    color: var(--color-text);
+    border-radius: 9px;
     opacity: 0.68;
     font-weight: 500;
-    &:hover {
+    transition:
+      opacity 0.2s,
+      background-color 0.2s,
+      transform 0.2s;
+
+    &:hover,
+    &:focus-visible {
       opacity: 1;
       background: var(--color-secondary-bg);
     }
+
     &:active {
-      opacity: 1;
-      transform: scale(0.92);
+      transform: scale(0.94);
     }
+  }
+}
+
+.queue-status {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.queue-status-error {
+  flex-direction: column;
+
+  button {
+    min-height: 36px;
+    padding: 0 18px;
+    border-radius: 10px;
+    color: var(--color-text);
+    background: var(--color-secondary-bg);
+  }
+}
+
+.status-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: queue-spin 0.8s linear infinite;
+}
+
+.partial-error {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-secondary-bg);
+  border-radius: 10px;
+
+  button {
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+}
+
+@keyframes queue-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  section + section {
+    margin-top: 28px;
+  }
+
+  .section-heading button,
+  .queue-status-error button {
+    min-height: 44px;
   }
 }
 </style>

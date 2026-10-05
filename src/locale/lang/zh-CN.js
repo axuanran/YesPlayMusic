@@ -179,6 +179,16 @@ export default {
       '在打开的网易云页面完成登录后，复制该页面的 Cookie 并粘贴到下方。',
     androidWebLoginTip:
       '登录完成后会自动返回 YesPlayMusic 并导入 Cookie，无需手动复制。',
+    webLoginGuideTitle: '登录后请按以下步骤复制 Cookie：',
+    webLoginGuideSteps: [
+      '在打开的网易云页面完成登录，并保持该标签页处于登录状态',
+      '按 F12（Mac 按 Cmd+Opt+I）打开开发者工具，切换到「应用 / Application」选项卡',
+      '在左侧选择 Cookie → https://music.163.com',
+      '在列表中找到 MUSIC_U，双击「值 / Value」列并复制（Ctrl+C）',
+      '回到本页，把复制的内容粘贴到下方输入框，点击登录',
+    ],
+    webLoginGuideTip:
+      '只需要 MUSIC_U 一个值即可；粘贴整条 MUSIC_U=... 也可以。',
     cookiePlaceholder: '粘贴 MUSIC_U=...; __csrf=... 等网易云 Cookie',
     cookieTip: '至少需要 MUSIC_U。Cookie 只会保存在本机浏览器和 localStorage。',
     notice: `YesPlayMusic 承诺不会保存你的任何账号信息到云端。<br />
@@ -241,6 +251,7 @@ export default {
     lyricsAutoFollow: '自动跟随播放',
     lyricsCenterCurrentLine: '当前歌词居中',
     lyricsClickToSeek: '点击歌词跳转',
+    repeatLyricLine: '单句循环（锁定当前歌词）',
     lyricsAutoResume: '手动滚动后 {seconds} 秒恢复跟随',
     lyricsResumeFollow: '回到当前歌词并继续跟随',
   },
@@ -342,6 +353,20 @@ export default {
         '连接本机 AMLL Player（127.0.0.1:11444），同步歌曲、歌词、进度与播放控制。',
     },
     enableGlobalShortcut: '启用全局快捷键',
+    mcp: {
+      sectionTitle: 'MCP 服务',
+      enable: '启用 MCP 服务 (Streamable HTTP)',
+      description:
+        '允许 AI 助手通过 MCP 协议控制播放器（播放、暂停、搜索、队列等）。该服务无鉴权，请保持监听在回环地址。',
+      host: '监听地址',
+      hostPlaceholder: '127.0.0.1',
+      port: '监听端口',
+      status: '运行状态',
+      runningAt: '运行中：{url}',
+      stopped: '未运行',
+      error: '启动失败：{error}',
+      invalidPort: '端口需为 1-65535 的整数',
+    },
     showLibraryDefault: '启动后显示音乐库',
     subTitleDefault: '副标题使用别名',
     enableReversedMode: '启用倒序播放功能 (实验性功能)',
@@ -383,6 +408,10 @@ export default {
       showSecondary: '显示翻译或发音',
       fontSize: '主歌词字号',
       secondaryFontSize: '翻译或发音字号',
+      lineCount: '同时显示行数',
+      lineCountDescription:
+        '多行模式下解锁桌面歌词后，点击歌词可跳转播放进度，滚动滚轮可快进/后退，Ctrl+滚轮调整背景不透明度。',
+      singleLine: '单行',
       colors: '歌词颜色',
       primaryColor: '主歌词颜色',
       secondaryColor: '翻译或发音颜色',
@@ -424,33 +453,6 @@ export default {
         karaoke: '卡拉 OK',
         subtitle: '字幕',
         minimal: '极简',
-      },
-    },
-    unm: {
-      enable: '启用',
-      audioSource: {
-        title: '备选音源',
-      },
-      enableFlac: {
-        title: '启用 FLAC',
-        desc: '启用后需要清除歌曲缓存才能生效',
-      },
-      searchMode: {
-        title: '音源搜索模式',
-        fast: '速度优先',
-        order: '顺序优先',
-      },
-      cookie: {
-        joox: 'Joox 引擎的 Cookie',
-        qq: 'QQ 引擎的 Cookie',
-        desc1: '设置说明请参见此处',
-        desc2: '，留空则不进行相关设置',
-      },
-      ytdl: 'YtDl 引擎要使用的 youtube-dl 可执行文件',
-      proxy: {
-        title: '用于 UNM 的代理服务器',
-        desc1: '请求如 YouTube 音源服务时要使用的代理服务器',
-        desc2: '留空则不进行相关设置',
       },
     },
   },

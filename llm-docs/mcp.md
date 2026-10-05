@@ -31,6 +31,44 @@ From a source checkout use the absolute path so the client can find it:
 `xumpctl mcp --socket /run/user/1000/xump-control.sock` pins the session to one
 instance; the same path can come from `XUMP_CONTROL_SOCKET`.
 
+## Streamable HTTP
+
+The desktop app can run this transport in-process: **Settings → MCP 服务**
+toggle, with configurable listen address and port (persisted as the
+`mcpServer` setting, `{ enabled, host, port }`, default
+`127.0.0.1:27233`). Tool calls dispatch straight into the control channel, so
+it works on Windows too (where the unix control socket is off). Status and
+startup errors are pushed to the settings page over
+`mcp-server:status` / `mcp-server:get-status` IPC.
+
+Without the app, serve the same tools over Streamable HTTP from the CLI:
+
+```sh
+xumpctl mcp-http                    # http://127.0.0.1:27233/mcp
+xumpctl mcp-http --port 3000 --socket /run/user/1000/xump-control.sock
+# or standalone:
+node scripts/xump-mcp-http.mjs --host 127.0.0.1 --port 27233
+```
+
+```jsonc
+// DSH (cordis patch): transport streamable-http
+{
+  "mcpServers": {
+    "xump": { "transport": "streamable-http", "url": "http://127.0.0.1:27233/mcp" }
+  }
+}
+```
+
+The endpoint is stateless: every POST carries one complete JSON-RPC message
+and no `mcp-session-id` is allocated, so GET (SSE) and DELETE answer 405 by
+design. Requests must accept `application/json` or `text/event-stream`
+(406 otherwise); an unsupported `MCP-Protocol-Version` header gets 400, a
+malformed body 400, an oversized body 413.
+
+Keep it on loopback. There is no authentication: anyone who can reach the
+port can drive the player and (with account writes enabled) the NetEase
+account.
+
 ## Protocol
 
 * stdio, newline-delimited JSON-RPC 2.0.

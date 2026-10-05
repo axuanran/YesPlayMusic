@@ -175,6 +175,16 @@ export default {
       '在打開的網易雲頁面完成登入後，複製該頁面的 Cookie 並貼到下方。',
     androidWebLoginTip:
       '登入完成後會自動返回 YesPlayMusic 並匯入 Cookie，無需手動複製。',
+    webLoginGuideTitle: '登入後請依以下步驟複製 Cookie：',
+    webLoginGuideSteps: [
+      '在打開的網易雲頁面完成登入，並保持該分頁處於登入狀態',
+      '按 F12（Mac 按 Cmd+Opt+I）打開開發者工具，切換到「應用程式 / Application」分頁',
+      '在左側選擇 Cookie → https://music.163.com',
+      '在列表中找到 MUSIC_U，雙擊「值 / Value」欄位並複製（Ctrl+C）',
+      '回到本頁，把複製的內容貼到下方輸入框，點擊登入',
+    ],
+    webLoginGuideTip:
+      '只需要 MUSIC_U 一個值即可；貼上整條 MUSIC_U=... 也可以。',
     cookiePlaceholder: '貼上 MUSIC_U=...; __csrf=... 等網易雲 Cookie',
     cookieTip: '至少需要 MUSIC_U。Cookie 只會保存在本機瀏覽器和 localStorage。',
     notice: `YesPlayMusic 承諾不會保存您的任何帳戶資訊到雲端。<br />
@@ -237,6 +247,7 @@ export default {
     lyricsAutoFollow: '自動跟隨播放',
     lyricsCenterCurrentLine: '目前歌詞置中',
     lyricsClickToSeek: '點擊歌詞跳轉',
+    repeatLyricLine: '單句循環（鎖定目前歌詞）',
     lyricsAutoResume: '手動捲動後 {seconds} 秒恢復跟隨',
     lyricsResumeFollow: '回到目前歌詞並繼續跟隨',
   },
@@ -339,6 +350,20 @@ export default {
         '連線本機 AMLL Player（127.0.0.1:11444），同步歌曲、歌詞、進度與播放控制。',
     },
     enableGlobalShortcut: '啟用全域快捷鍵',
+    mcp: {
+      sectionTitle: 'MCP 服務',
+      enable: '啟用 MCP 服務 (Streamable HTTP)',
+      description:
+        '允許 AI 助手透過 MCP 協議控制播放器（播放、暫停、搜尋、佇列等）。該服務無鑑權，請保持監聽在回環位址。',
+      host: '監聽位址',
+      hostPlaceholder: '127.0.0.1',
+      port: '監聽埠',
+      status: '執行狀態',
+      runningAt: '執行中：{url}',
+      stopped: '未執行',
+      error: '啟動失敗：{error}',
+      invalidPort: '埠需為 1-65535 的整數',
+    },
     showLibraryDefault: '啟動後顯示音樂庫',
     subTitleDefault: '副標題使用別名',
     enableReversedMode: '啟用倒序播放功能 (實驗性功能)',
@@ -376,6 +401,10 @@ export default {
       showSecondary: '顯示翻譯或發音',
       fontSize: '主歌詞字級',
       secondaryFontSize: '翻譯或發音字級',
+      lineCount: '同時顯示行數',
+      lineCountDescription:
+        '多行模式下解鎖桌面歌詞後，點擊歌詞可跳轉播放進度，滾動滾輪可快轉/後退，Ctrl+滾輪調整背景不透明度。',
+      singleLine: '單行',
       colors: '歌詞顏色',
       primaryColor: '主歌詞顏色',
       secondaryColor: '翻譯或發音顏色',
@@ -417,33 +446,6 @@ export default {
         karaoke: '卡拉 OK',
         subtitle: '字幕',
         minimal: '極簡',
-      },
-    },
-    unm: {
-      enable: '啟用',
-      audioSource: {
-        title: '備選音源',
-      },
-      enableFlac: {
-        title: '啟用 FLAC',
-        desc: '啟用後需要清除歌曲快取才能生效',
-      },
-      searchMode: {
-        title: '音源搜尋模式',
-        fast: '速度優先',
-        order: '順序優先',
-      },
-      cookie: {
-        joox: 'Joox 引擎的 Cookie',
-        qq: 'QQ 引擎的 Cookie',
-        desc1: '設定說明請參見此處',
-        desc2: '，留空則不進行相關設定',
-      },
-      ytdl: 'YtDl 引擎要使用的 youtube-dl 執行檔',
-      proxy: {
-        title: '用於 UNM 的 Proxy 伺服器',
-        desc1: '請求如 YouTube 音源服務時要使用的 Proxy 伺服器',
-        desc2: '留空則不進行相關設定',
       },
     },
   },

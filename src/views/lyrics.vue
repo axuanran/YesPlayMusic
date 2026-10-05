@@ -288,6 +288,17 @@
             />
           </button>
           <button
+            class="lyrics-behavior-button lyrics-repeat-button"
+            :class="{ active: repeatLyricIndex >= 0 }"
+            :title="$t('player.repeatLyricLine')"
+            :aria-label="$t('player.repeatLyricLine')"
+            :aria-pressed="repeatLyricIndex >= 0"
+            type="button"
+            @click="toggleRepeatLyricLine"
+          >
+            <svg-icon icon-class="repeat-1" />
+          </button>
+          <button
             v-if="isShowLyricTypeSwitch"
             class="lyrics-translation-button"
             :title="$t(lyricDisplayModeTitle)"
@@ -424,6 +435,7 @@ export default {
       romalyric: [],
       lyricType: 'translation', // or 'romaPronunciation'
       highlightLyricIndex: -1,
+      repeatLyricIndex: -1,
       isAutoScrollingLyrics: false,
       shouldAutoScrollLyrics: true,
       lyricsAutoScrollTimer: null,
@@ -431,6 +443,8 @@ export default {
       lyricsEdgeSpacerHeight: '50%',
       showLyricsBehaviorPanel: false,
       minimize: true,
+      desktopLyricsSequence: 0,
+      desktopLyricsLinesKey: '',
       background: '',
       coverColorRequests: createRequestGeneration(),
       date: this.formatTime(new Date()),
@@ -667,6 +681,7 @@ export default {
     currentTrack() {
       this.shouldAutoScrollLyrics = this.lyricsAutoFollowEnabled;
       this.highlightLyricIndex = -1;
+      this.repeatLyricIndex = -1;
       this.clearDesktopLyrics();
       clearTimeout(this.lyricsAutoResumeTimer);
       Promise.resolve(this.getLyric()).then(() => {
@@ -1031,6 +1046,13 @@ export default {
       if (window.getSelection().toString().length === 0 && !jumpFlag) {
         this.shouldAutoScrollLyrics = this.lyricsAutoFollowEnabled;
         this.player.seek(value);
+        if (this.repeatLyricIndex >= 0) {
+          // 锁定单句时点击其他歌词，把锁定目标切换到被点击的行
+          const clickedIndex = this.lyric.findIndex(
+            item => item.time === value
+          );
+          if (clickedIndex >= 0) this.repeatLyricIndex = clickedIndex;
+        }
       }
       if (startPlay === true) {
         this.player.play();
@@ -1075,6 +1097,7 @@ export default {
       const progress = this.player.seek(null, false) ?? 0;
       const oldHighlightLyricIndex = this.highlightLyricIndex;
       this.highlightLyricIndex = findActiveLyricIndex(this.lyric, progress);
+      this.enforceRepeatLyricLine();
       const lyricChanged =
         force || oldHighlightLyricIndex !== this.highlightLyricIndex;
       if (lyricChanged) this.publishDesktopLyrics();
@@ -1084,6 +1107,29 @@ export default {
         this.highlightLyricIndex >= 0 &&
         lyricChanged
       );
+    },
+    toggleRepeatLyricLine() {
+      if (this.repeatLyricIndex >= 0) {
+        this.repeatLyricIndex = -1;
+        return;
+      }
+      // 锁定当前播放行；没有可锁定的行（前奏/间奏）时不开启
+      if (this.highlightLyricIndex < 0) return;
+      this.repeatLyricIndex = this.highlightLyricIndex;
+      this.enforceRepeatLyricLine();
+    },
+    // 单句锁定播放：高亮行一旦离开被锁定的歌词，立即跳回该行开头，
+    // 实现同一句歌词的循环重复。
+    enforceRepeatLyricLine() {
+      if (this.repeatLyricIndex < 0) return;
+      const lockedLyric = this.lyric[this.repeatLyricIndex];
+      if (!lockedLyric || !Number.isFinite(lockedLyric.time)) {
+        this.repeatLyricIndex = -1;
+        return;
+      }
+      if (this.highlightLyricIndex === this.repeatLyricIndex) return;
+      this.player.seek(lockedLyric.time);
+      this.highlightLyricIndex = this.repeatLyricIndex;
     },
     publishDesktopLyrics() {
       if (!this.desktopLyricsEnabled) return;
@@ -1098,6 +1144,7 @@ export default {
             ?.content || ''
         : '';
       const hideLine = isDesktopLyricPlaceholder(line);
+      const { lines, active } = this.buildDesktopLyricLines();
       window.electronAPI?.desktopLyrics?.update({
         line: hideLine ? '' : line,
         translation:
@@ -1108,7 +1155,72 @@ export default {
             : '',
         playing: this.player.playing,
         volume: this.player.volume,
+        active,
       });
+      this.publishDesktopLyricLines(lines);
+    },
+    // The whole lyric list only crosses IPC when its content actually changes
+    // (new track, translation mode switch). Per-line highlight updates travel
+    // with the light `update` payload via `active`.
+    buildDesktopLyricLines() {
+      const secondarySource =
+        this.lyricType === LYRIC_DISPLAY_MODE.PRONUNCIATION
+          ? this.romalyric
+          : this.tlyric;
+      const lines = [];
+      let active = -1;
+      this.lyric.forEach((lyricLine, index) => {
+        const content = lyricLine?.content || '';
+        if (!content || isDesktopLyricPlaceholder(content)) return;
+        if (index === this.highlightLyricIndex) active = lines.length;
+        const secondary = secondarySource.find(
+          item => item.rawTime === lyricLine.rawTime
+        )?.content;
+        const translation =
+          this.desktopLyricsTranslationEnabled &&
+          secondary &&
+          !isDesktopLyricPlaceholder(secondary)
+            ? secondary
+            : '';
+        lines.push({ time: lyricLine.time, content, translation });
+      });
+      return { lines, active };
+    },
+    publishDesktopLyricLines(lines = null) {
+      const api = window.electronAPI?.desktopLyrics;
+      if (!api?.updateLines || !this.desktopLyricsEnabled) return;
+      const payload = lines || this.buildDesktopLyricLines().lines;
+      const key = payload.length
+        ? [
+            this.currentTrack?.id ?? this.currentTrack?.name ?? '',
+            this.lyricType,
+            this.desktopLyricsTranslationEnabled,
+            payload.length,
+            payload[0].time,
+            payload[0].content,
+            payload[payload.length - 1].time,
+            payload[payload.length - 1].content,
+          ].join('|')
+        : '';
+      if (key && key === this.desktopLyricsLinesKey) return;
+      this.desktopLyricsLinesKey = key;
+      // The preload sanitizer drops arrays longer than 256 entries, so the
+      // list crosses the bridge in fixed-size pages sharing one sequence id.
+      const CHUNK_SIZE = 200;
+      const total = Math.ceil(payload.length / CHUNK_SIZE);
+      const sequence = ++this.desktopLyricsSequence;
+      if (total === 0) {
+        api.updateLines({ sequence, index: 0, total: 0, lines: [] });
+        return;
+      }
+      for (let index = 0; index < total; index++) {
+        api.updateLines({
+          sequence,
+          index,
+          total,
+          lines: payload.slice(index * CHUNK_SIZE, (index + 1) * CHUNK_SIZE),
+        });
+      }
     },
     publishAmllLyrics() {
       if (!this.amllEnabled) return;
@@ -1161,9 +1273,17 @@ export default {
       });
     },
     clearDesktopLyrics() {
+      this.desktopLyricsLinesKey = '';
+      window.electronAPI?.desktopLyrics?.updateLines?.({
+        sequence: ++this.desktopLyricsSequence,
+        index: 0,
+        total: 0,
+        lines: [],
+      });
       window.electronAPI?.desktopLyrics?.update({
         line: '',
         translation: '',
+        active: -1,
       });
     },
     handleLyricsScroll() {
@@ -1610,6 +1730,13 @@ export default {
       &.restoring {
         color: var(--color-primary);
         opacity: 0.9;
+      }
+    }
+
+    .lyrics-repeat-button {
+      .svg-icon {
+        width: 16px;
+        height: 16px;
       }
     }
 

@@ -122,7 +122,9 @@ describe('desktop lyrics window', () => {
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       'desktop-lyrics:render',
       {
+        active: -1,
         line: 'Line',
+        lines: [],
         playing: false,
         settings: expect.objectContaining({
           enabled: true,
@@ -196,16 +198,48 @@ describe('desktop lyrics window', () => {
     });
     expect(controller.settings.backgroundOpacity).toBe(0.1);
   });
-  it('routes the native Windows wheel message without double adjustment', () => {
+  it('routes a plain native wheel to playback seek without double firing', () => {
+    const mainWindow = { webContents: { send: vi.fn() } };
     const controller = createController({
       platform: 'win32',
+      mainWindow,
       store: disabledUnlockedStore(),
     });
     controller.setEnabled(true);
+    mainWindow.webContents.send.mockClear();
     const [, handleNativeWheel] =
       controller.window.hookWindowMessage.mock.calls[0];
     const wParam = Buffer.alloc(4);
     wParam.writeInt16LE(120, 2);
+
+    handleNativeWheel(wParam);
+    controller.handleCommand({ type: 'seek', value: 5 });
+
+    const seekCalls = mainWindow.webContents.send.mock.calls.filter(
+      call => call[0] === 'mpris:command'
+    );
+    expect(seekCalls).toHaveLength(1);
+    expect(seekCalls[0]).toEqual([
+      'mpris:command',
+      { type: 'seek', offset: 5 },
+    ]);
+    expect(controller.settings.backgroundOpacity).toBe(0.1);
+  });
+
+  it('keeps Ctrl+wheel on background opacity without double adjustment', () => {
+    const mainWindow = { webContents: { send: vi.fn() } };
+    const controller = createController({
+      platform: 'win32',
+      mainWindow,
+      store: disabledUnlockedStore(),
+    });
+    controller.setEnabled(true);
+    mainWindow.webContents.send.mockClear();
+    const [, handleNativeWheel] =
+      controller.window.hookWindowMessage.mock.calls[0];
+    const wParam = Buffer.alloc(4);
+    // low word: MK_CONTROL; high word: wheel delta 120
+    wParam.writeUInt32LE((120 << 16) | 0x0008, 0);
 
     handleNativeWheel(wParam);
     controller.handleCommand({
@@ -214,6 +248,34 @@ describe('desktop lyrics window', () => {
     });
 
     expect(controller.settings.backgroundOpacity).toBe(0.2);
+    expect(mainWindow.webContents.send).not.toHaveBeenCalledWith(
+      'mpris:command',
+      expect.anything()
+    );
+  });
+
+  it('forwards seek commands from the lyrics window to the main window', () => {
+    const mainWindow = { webContents: { send: vi.fn() } };
+    const controller = createController({
+      mainWindow,
+      store: disabledUnlockedStore(),
+    });
+
+    controller.handleCommand({ type: 'seekTo', value: 42.5 });
+    expect(mainWindow.webContents.send).toHaveBeenLastCalledWith(
+      'setPosition',
+      42.5
+    );
+
+    controller.handleCommand({ type: 'seek', value: -5 });
+    expect(mainWindow.webContents.send).toHaveBeenLastCalledWith(
+      'mpris:command',
+      { type: 'seek', offset: -5 }
+    );
+
+    controller.handleCommand({ type: 'seekTo', value: -1 });
+    controller.handleCommand({ type: 'seekTo', value: 'NaN' });
+    expect(mainWindow.webContents.send).toHaveBeenCalledTimes(2);
   });
 
   it('uses native dragging while disabling native resizing', () => {
@@ -373,5 +435,64 @@ describe('desktop lyrics window', () => {
       x: 130,
       y: 604,
     });
+  });
+
+  it('assembles paged lyric lists and keeps the active index in range', () => {
+    const controller = createController();
+    controller.updateLines({
+      sequence: 1,
+      index: 0,
+      total: 2,
+      lines: [
+        { time: 0, content: 'one', translation: '' },
+        { time: 3, content: 'two', translation: '二' },
+      ],
+    });
+    // incomplete sequence: nothing replaces the rendered state yet
+    expect(controller.currentLyrics.lines).toEqual([]);
+
+    controller.updateLines({
+      sequence: 1,
+      index: 1,
+      total: 2,
+      lines: [{ time: 6, content: 'three', translation: '' }],
+    });
+    expect(controller.currentLyrics.lines).toEqual([
+      { time: 0, content: 'one', translation: '' },
+      { time: 3, content: 'two', translation: '二' },
+      { time: 6, content: 'three', translation: '' },
+    ]);
+
+    // a newer sequence replaces the pending buffer entirely
+    controller.updateLines({ sequence: 2, index: 0, total: 0, lines: [] });
+    expect(controller.currentLyrics.lines).toEqual([]);
+    expect(controller.currentLyrics.active).toBe(-1);
+
+    controller.updateLines({
+      sequence: 3,
+      index: 0,
+      total: 1,
+      lines: [
+        { time: 0, content: 'one', translation: '' },
+        { time: 3, content: 'two', translation: '' },
+      ],
+    });
+    controller.update({ line: 'two', active: 5 });
+    expect(controller.currentLyrics.active).toBe(1);
+    controller.update({ line: 'two', active: 0 });
+    expect(controller.currentLyrics.active).toBe(0);
+  });
+
+  it('grows the window height when the visible line count increases', () => {
+    const controller = createController();
+    controller.setEnabled(true);
+    const initialBounds = controller.window.getBounds();
+
+    controller.patchSettings({ lineCount: 3 });
+    const nextBounds = controller.window.getBounds();
+
+    expect(controller.settings.lineCount).toBe(3);
+    expect(nextBounds.height).toBeGreaterThan(initialBounds.height);
+    expect(nextBounds.height).toBeLessThanOrEqual(400);
   });
 });

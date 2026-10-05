@@ -74,6 +74,15 @@
     border: 0 !important;
     transform: none !important;
     pointer-events: none;
+
+    /*
+     * Older mobile styles (mobile.scss / mobile-adaptive.scss) give this
+     * element a full-screen backdrop-filter because it used to be a bottom
+     * control bar. As a fullscreen overlay that blur would cover the lyrics
+     * behind it, so it must be disabled here.
+     */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   .lyrics-page .left-side::before {
@@ -505,48 +514,43 @@
   }
 
   /* Keep lyric behavior tools available without crowding the transport row. */
-  .lyrics-page .left-side .controls .lyric-behavior-menu {
+  .lyrics-page .lyrics-tools {
     position: absolute !important;
     top: calc(env(safe-area-inset-top) + 8px) !important;
     right: max(12px, env(safe-area-inset-right)) !important;
     bottom: auto !important;
     left: auto !important;
     z-index: 6 !important;
-    width: 42px !important;
-    height: 42px !important;
     margin: 0 !important;
     pointer-events: auto;
   }
 
-  .lyrics-page
-    .left-side
-    .controls
-    .lyric-behavior-menu
-    .lyric-behavior-trigger {
+  .lyrics-page .lyrics-tools .lyrics-tools-segment button {
     width: 42px !important;
     height: 42px !important;
-    padding: 11px !important;
     border-radius: 14px !important;
     color: #fff !important;
+    opacity: 0.88;
   }
 
-  .lyrics-page
-    .left-side
-    .controls
-    .lyric-behavior-menu
-    .lyric-behavior-trigger
-    .svg-icon {
+  .lyrics-page .lyrics-tools .lyrics-behavior-button {
+    padding: 11px !important;
+  }
+
+  .lyrics-page .lyrics-tools .lyrics-behavior-button .svg-icon {
     width: 20px !important;
     height: 20px !important;
     color: #fff !important;
     opacity: 0.76 !important;
   }
 
-  .lyrics-page
-    .left-side
-    .controls
-    .lyric-behavior-menu
-    .lyric-behavior-actions {
+  .lyrics-page .lyrics-tools .lyrics-translation-button {
+    width: auto !important;
+    min-width: 42px !important;
+    padding: 0 10px !important;
+  }
+
+  .lyrics-page .lyrics-tools .lyrics-behavior-panel {
     top: calc(100% + 8px) !important;
     right: 0 !important;
     bottom: auto !important;
@@ -558,21 +562,11 @@
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
     backdrop-filter: blur(22px) saturate(145%) !important;
     -webkit-backdrop-filter: blur(22px) saturate(145%) !important;
-    transform: translateY(-6px) scale(0.94) !important;
-    transform-origin: top right !important;
+    color: #fff;
   }
 
-  .lyrics-page
-    .left-side
-    .controls
-    .lyric-behavior-menu:focus-within
-    .lyric-behavior-actions,
-  .lyrics-page
-    .left-side
-    .controls
-    .lyric-behavior-menu:hover
-    .lyric-behavior-actions {
-    transform: translateY(0) scale(1) !important;
+  .lyrics-page .lyrics-tools .lyrics-behavior-panel button {
+    color: #fff;
   }
 
   /* Top-left close affordance; fullscreen remains desktop-only. */

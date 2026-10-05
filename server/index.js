@@ -5,7 +5,6 @@ import { loadConfig } from './config.js';
 import { registerProvider } from './resolver/providerManager.js';
 import * as neteaseProvider from './providers/netease.js';
 import * as lxProvider from './providers/lx.js';
-import * as unblockProvider from './providers/unblock.js';
 import * as fallbackProvider from './providers/fallback.js';
 import audioRoutes from './routes/audio.js';
 import adminRoutes, { setRestartHandler } from './routes/admin.js';
@@ -26,7 +25,6 @@ const __dirname = path.dirname(currentModulePath(import.meta.url));
 // Register providers
 registerProvider(neteaseProvider);
 registerProvider(lxProvider);
-registerProvider(unblockProvider);
 registerProvider(fallbackProvider);
 setRestartHandler(() => {
   setTimeout(() => process.exit(0), 100);
@@ -76,7 +74,6 @@ app.listen(port, host, () => {
       new Set([
         neteaseProvider.providerName,
         lxProvider.providerName,
-        unblockProvider?.providerName,
         fallbackProvider.providerName,
       ])
     ).join(', ')}`

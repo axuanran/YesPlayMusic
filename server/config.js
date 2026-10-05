@@ -17,20 +17,10 @@ const DEFAULT_CONFIG = {
     defaultQuality: 'standard',
     cacheTtl: 1800,
     cacheDir: '',
-    providerOrder: ['netease', 'lx', 'unblock', 'fallback'],
+    providerOrder: ['netease', 'lx', 'fallback'],
     fallbackToLegacy: true,
-    unblock: {
-      enabled: true,
-      source: 'ytdl, bilibili, pyncm, kugou',
-      enableFlac: false,
-      proxyUri: '',
-      searchMode: 'fast-first',
-      jooxCookie: '',
-      qqCookie: '',
-      ytDlExe: '',
-    },
     lx: {
-      enabled: false,
+      enabled: true,
       source: 'kw',
       scriptUrl: '',
       timeoutMs: 15000,
@@ -77,6 +67,25 @@ export function getConfigPath() {
 
 function normalizeConfig(config) {
   const normalized = deepMerge(DEFAULT_CONFIG, config || {});
+  // UNM provider was removed; drop stale keys from older configs.
+  if (normalized.audio) {
+    delete normalized.audio.unblock;
+    if (Array.isArray(normalized.audio.providerOrder)) {
+      normalized.audio.providerOrder = normalized.audio.providerOrder.filter(
+        provider => provider !== 'unblock'
+      );
+    }
+  }
+  // Older configs were persisted with lx disabled by default. With no source
+  // configured the provider is a no-op anyway, so re-enable it to match the
+  // new recommended default. An explicit disable with sources stays untouched.
+  if (normalized.audio?.lx?.enabled === false) {
+    const hasSources =
+      normalized.audio.lx.sources?.length > 0 || normalized.audio.lx.scriptUrl;
+    if (!hasSources) {
+      normalized.audio.lx.enabled = true;
+    }
+  }
   if (normalized.audio?.lx) {
     delete normalized.audio.lx.scriptPath;
     if (Array.isArray(normalized.audio.lx.sources)) {

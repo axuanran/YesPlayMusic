@@ -38,6 +38,11 @@ let localStorage = {
     enableDiscordRichPresence: false,
     enableAmllWsProtocol: false,
     enableGlobalShortcut: false,
+    mcpServer: {
+      enabled: false,
+      host: '127.0.0.1',
+      port: 27233,
+    },
     showLibraryDefault: false,
     subTitleDefault: false,
     linuxEnableCustomTitlebar: false,

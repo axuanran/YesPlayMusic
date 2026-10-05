@@ -1,6 +1,7 @@
 import { BrowserWindow, screen } from 'electron';
 import {
   DEFAULT_DESKTOP_LYRICS_SETTINGS,
+  estimateDesktopLyricsHeight,
   mergeDesktopLyricsSettings,
   normalizeDesktopLyricsSettings,
 } from '../utils/desktopLyricsSettings.js';
@@ -11,10 +12,12 @@ const WINDOW_MARGIN = 16;
 const WINDOW_BOTTOM_OFFSET = 96;
 const SAVE_BOUNDS_DELAY = 250;
 const WM_MOUSEWHEEL = 0x020a;
+const MK_CONTROL = 0x0008;
 const MIN_WINDOW_WIDTH = 360;
 const MIN_WINDOW_HEIGHT = 92;
 const MAX_WINDOW_WIDTH = 1920;
 const MAX_WINDOW_HEIGHT = 400;
+const WHEEL_SEEK_STEP_SECONDS = 5;
 
 const normalizeText = value =>
   typeof value === 'string' ? value.slice(0, 2048) : '';
@@ -119,6 +122,50 @@ export function buildDesktopLyricsHtml() {
       #line { color: var(--lyrics-text-color); font-size: var(--lyrics-font-size); font-weight: 750; line-height: 1.35; }
       #translation { margin-top: 3px; color: var(--lyrics-secondary-color); font-size: var(--lyrics-secondary-font-size); font-weight: 600; line-height: 1.3; }
       #translation:empty, .hide-secondary #translation { display: none; }
+      #lines {
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+        max-height: 100%;
+        overflow: hidden;
+        mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
+      }
+      .multi-line #lines { display: flex; }
+      .multi-line #line, .multi-line #translation { display: none; }
+      .lyric-item {
+        cursor: pointer;
+        opacity: .45;
+        transition: opacity .18s ease;
+        -webkit-app-region: no-drag;
+      }
+      .lyric-item:hover { opacity: .8; }
+      .lyric-item.is-active { opacity: 1; }
+      .lyric-item-primary {
+        overflow: hidden;
+        color: var(--lyrics-text-color);
+        font-size: var(--lyrics-font-size);
+        font-weight: 750;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .lyric-item-secondary {
+        margin-top: 2px;
+        overflow: hidden;
+        color: var(--lyrics-secondary-color);
+        font-size: var(--lyrics-secondary-font-size);
+        font-weight: 600;
+        line-height: 1.3;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .wrap-lines .lyric-item-primary,
+      .wrap-lines .lyric-item-secondary {
+        overflow-wrap: anywhere;
+        text-overflow: clip;
+        white-space: normal;
+      }
       #controls {
         z-index: 2;
         position: absolute;
@@ -203,6 +250,7 @@ export function buildDesktopLyricsHtml() {
     <div id="lyrics">
       <div id="line"></div>
       <div id="translation"></div>
+      <div id="lines"></div>
     </div>
     <div id="controls">
       <button id="previous" type="button">上一首</button>
@@ -247,11 +295,14 @@ export class DesktopLyricsWindow {
     this.saveBoundsTimer = null;
     this.resizeState = null;
     this.lastWheelInput = null;
+    this.pendingLyricLines = null;
     this.currentLyrics = {
       line: '',
       translation: '',
       playing: false,
       volume: 1,
+      lines: [],
+      active: -1,
     };
     this.settings = this.readSettings();
   }
@@ -317,7 +368,21 @@ export class DesktopLyricsWindow {
   }
 
   patchSettings(patch) {
-    this.applySettings(patch, { persist: true, notify: true });
+    let safePatch = patch && typeof patch === 'object' ? patch : {};
+    // Growing the visible line count needs more vertical space: grow the
+    // window once so multi-line mode is usable without manual resizing. The
+    // estimate only ever grows the height; shrinking stays a manual action.
+    if (Object.prototype.hasOwnProperty.call(safePatch, 'lineCount')) {
+      const merged = mergeDesktopLyricsSettings(this.settings, safePatch);
+      const estimatedHeight = Math.min(
+        MAX_WINDOW_HEIGHT,
+        estimateDesktopLyricsHeight(merged)
+      );
+      if (estimatedHeight > merged.height) {
+        safePatch = { ...safePatch, height: estimatedHeight };
+      }
+    }
+    this.applySettings(safePatch, { persist: true, notify: true });
   }
 
   setEnabled(enabled) {
@@ -368,6 +433,7 @@ export class DesktopLyricsWindow {
 
   update(payload = {}) {
     this.currentLyrics = {
+      ...this.currentLyrics,
       line: normalizeText(payload.line),
       translation: normalizeText(payload.translation),
       playing:
@@ -378,6 +444,48 @@ export class DesktopLyricsWindow {
         ? Math.min(1, Math.max(0, payload.volume))
         : this.currentLyrics.volume,
     };
+    if (Number.isInteger(payload.active)) {
+      const maxActive = this.currentLyrics.lines.length - 1;
+      this.currentLyrics.active =
+        maxActive < 0 ? -1 : Math.max(-1, Math.min(payload.active, maxActive));
+    }
+    if (!this.settings.enabled || !this.settings.visible) return;
+    this.ensureWindow();
+    this.render();
+  }
+
+  // The renderer sends the full lyric list in fixed-size pages that share one
+  // sequence id (the preload sanitizer caps arrays at 256 entries per IPC
+  // message). Pages may arrive interleaved with per-line `update` calls; the
+  // list only replaces the rendered state once every page of a sequence was
+  // received.
+  updateLines({ sequence = 0, index = 0, total = 0, lines = [] } = {}) {
+    const safeSequence = Number.isFinite(sequence) ? Math.floor(sequence) : 0;
+    if (
+      !this.pendingLyricLines ||
+      this.pendingLyricLines.sequence !== safeSequence
+    ) {
+      this.pendingLyricLines = { sequence: safeSequence, chunks: new Map() };
+    }
+    const safeTotal = Number.isFinite(total)
+      ? Math.max(0, Math.floor(total))
+      : 0;
+    this.pendingLyricLines.chunks.set(
+      Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0,
+      Array.isArray(lines) ? lines : []
+    );
+    if (this.pendingLyricLines.chunks.size < safeTotal) return;
+    const merged = [];
+    for (let chunkIndex = 0; chunkIndex < safeTotal; chunkIndex++) {
+      merged.push(...(this.pendingLyricLines.chunks.get(chunkIndex) || []));
+    }
+    this.pendingLyricLines = null;
+    this.currentLyrics.lines = merged;
+    const maxActive = merged.length - 1;
+    this.currentLyrics.active =
+      maxActive < 0
+        ? -1
+        : Math.max(-1, Math.min(this.currentLyrics.active, maxActive));
     if (!this.settings.enabled || !this.settings.visible) return;
     this.ensureWindow();
     this.render();
@@ -485,7 +593,9 @@ export class DesktopLyricsWindow {
         const unsignedDelta = (value >>> 16) & 0xffff;
         const delta =
           unsignedDelta & 0x8000 ? unsignedDelta - 0x10000 : unsignedDelta;
-        this.handleWheelDelta(delta, 'native');
+        // The low word carries the modifier key state: Ctrl+wheel keeps the
+        // legacy background-opacity control, a plain wheel seeks playback.
+        this.routeWheel(delta, 'native', (value & 0xffff & MK_CONTROL) !== 0);
       });
     }
     lyricsWindow.on('closed', () => {
@@ -576,6 +686,14 @@ export class DesktopLyricsWindow {
           this.mainWindow?.webContents.send('setVolume', volume);
         }
         break;
+      case 'seekTo':
+        if (Number.isFinite(command.value) && command.value >= 0) {
+          this.mainWindow?.webContents.send('setPosition', command.value);
+        }
+        break;
+      case 'seek':
+        this.routeWheel(command.value, 'renderer', false);
+        break;
       case 'adjustBackgroundOpacity':
         this.handleWheelDelta(command.value, 'renderer');
         break;
@@ -603,6 +721,13 @@ export class DesktopLyricsWindow {
   }
 
   handleWheelDelta(delta, source) {
+    this.routeWheel(delta, source, true);
+  }
+
+  // One entry point for every wheel source (the native Windows hook and the
+  // renderer DOM event can both fire for the same gesture). A plain wheel
+  // seeks playback in fixed steps; Ctrl+wheel adjusts background opacity.
+  routeWheel(delta, source, adjustOpacity) {
     if (this.settings.locked || !Number.isFinite(delta) || delta === 0) return;
     const direction = Math.sign(delta);
     const now = Date.now();
@@ -610,12 +735,31 @@ export class DesktopLyricsWindow {
       this.lastWheelInput &&
       this.lastWheelInput.source !== source &&
       this.lastWheelInput.direction === direction &&
+      this.lastWheelInput.opacity === adjustOpacity &&
       now - this.lastWheelInput.at <= 50
     ) {
       return;
     }
-    this.lastWheelInput = { at: now, direction, source };
-    this.adjustBackgroundOpacity(direction);
+    this.lastWheelInput = {
+      at: now,
+      direction,
+      source,
+      opacity: adjustOpacity,
+    };
+    if (adjustOpacity) {
+      this.adjustBackgroundOpacity(direction);
+    } else {
+      this.seekByWheel(direction);
+    }
+  }
+
+  seekByWheel(direction) {
+    const normalizedDirection = Math.sign(Number(direction));
+    if (normalizedDirection === 0) return;
+    this.mainWindow?.webContents.send('mpris:command', {
+      type: 'seek',
+      offset: normalizedDirection * WHEEL_SEEK_STEP_SECONDS,
+    });
   }
 
   adjustBackgroundOpacity(direction) {
@@ -727,6 +871,7 @@ export class DesktopLyricsWindow {
   dispose() {
     clearTimeout(this.saveBoundsTimer);
     this.settings.enabled = false;
+    this.pendingLyricLines = null;
     this.destroyWindow();
   }
 }

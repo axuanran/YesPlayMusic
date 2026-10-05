@@ -11,9 +11,23 @@ vi.mock('electron', () => ({
   ipcRenderer: mocks.ipcRenderer,
 }));
 
+const unlockedSettings = {
+  backgroundOpacity: 0.1,
+  fontSize: 32,
+  locked: false,
+  overflowMode: 'ellipsis',
+  secondaryColor: '#d6e0ff',
+  secondaryFontSize: 18,
+  showSecondary: true,
+  textAlign: 'center',
+  textColor: '#ffffff',
+  verticalPosition: 'center',
+};
+
 describe('desktop lyrics preload', () => {
   let bodyClasses;
   let documentListeners;
+  let elements;
   let ipcListeners;
   let windowListeners;
 
@@ -22,6 +36,7 @@ describe('desktop lyrics preload', () => {
     vi.clearAllMocks();
     bodyClasses = new Set();
     documentListeners = new Map();
+    elements = new Map();
     ipcListeners = new Map();
     windowListeners = new Map();
     mocks.ipcRenderer.on.mockImplementation((channel, listener) => {
@@ -43,7 +58,7 @@ describe('desktop lyrics preload', () => {
       documentElement: {
         style: { setProperty: vi.fn() },
       },
-      getElementById: vi.fn(() => null),
+      getElementById: vi.fn(id => elements.get(id) ?? null),
     });
     vi.stubGlobal('window', {
       addEventListener: vi.fn((event, listener) => {
@@ -61,23 +76,13 @@ describe('desktop lyrics preload', () => {
     vi.unstubAllGlobals();
   });
 
-  it('routes an unlocked renderer wheel event to opacity adjustment', () => {
-    ipcListeners.get('desktop-lyrics:settings')(
-      {},
-      {
-        backgroundOpacity: 0.1,
-        fontSize: 32,
-        locked: false,
-        overflowMode: 'ellipsis',
-        secondaryColor: '#d6e0ff',
-        secondaryFontSize: 18,
-        showSecondary: true,
-        textAlign: 'center',
-        textColor: '#ffffff',
-        verticalPosition: 'center',
-      }
-    );
-    const event = { deltaY: -120, preventDefault: vi.fn() };
+  it('routes an unlocked Ctrl+wheel to opacity adjustment', () => {
+    ipcListeners.get('desktop-lyrics:settings')({}, unlockedSettings);
+    const event = {
+      ctrlKey: true,
+      deltaY: -120,
+      preventDefault: vi.fn(),
+    };
 
     windowListeners.get('wheel')(event);
 
@@ -85,6 +90,19 @@ describe('desktop lyrics preload', () => {
     expect(mocks.ipcRenderer.send).toHaveBeenCalledWith(
       'desktop-lyrics:command',
       { type: 'adjustBackgroundOpacity', value: 120 }
+    );
+  });
+
+  it('routes a plain unlocked wheel to playback seek', () => {
+    ipcListeners.get('desktop-lyrics:settings')({}, unlockedSettings);
+    const event = { deltaY: 120, preventDefault: vi.fn() };
+
+    windowListeners.get('wheel')(event);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(mocks.ipcRenderer.send).toHaveBeenCalledWith(
+      'desktop-lyrics:command',
+      { type: 'seek', value: 5 }
     );
   });
 
@@ -97,6 +115,48 @@ describe('desktop lyrics preload', () => {
     expect(mocks.ipcRenderer.send).not.toHaveBeenCalledWith(
       'desktop-lyrics:command',
       expect.objectContaining({ type: 'adjustBackgroundOpacity' })
+    );
+    expect(mocks.ipcRenderer.send).not.toHaveBeenCalledWith(
+      'desktop-lyrics:command',
+      expect.objectContaining({ type: 'seek' })
+    );
+  });
+
+  it('seeks to a lyric line when it is clicked while unlocked', () => {
+    ipcListeners.get('desktop-lyrics:settings')({}, unlockedSettings);
+    const lineListeners = new Map();
+    const item = { dataset: { time: '42.5' }, closest: () => item };
+    elements.set('lines', {
+      addEventListener: (event, listener) => {
+        lineListeners.set(event, listener);
+      },
+    });
+
+    // re-register listeners against the mocked #lines element
+    windowListeners.get('DOMContentLoaded')();
+    lineListeners.get('click')({ target: item });
+
+    expect(mocks.ipcRenderer.send).toHaveBeenCalledWith(
+      'desktop-lyrics:command',
+      { type: 'seekTo', value: 42.5 }
+    );
+  });
+
+  it('ignores lyric line clicks while locked', () => {
+    const lineListeners = new Map();
+    const item = { dataset: { time: '42.5' }, closest: () => item };
+    elements.set('lines', {
+      addEventListener: (event, listener) => {
+        lineListeners.set(event, listener);
+      },
+    });
+
+    windowListeners.get('DOMContentLoaded')();
+    lineListeners.get('click')({ target: item });
+
+    expect(mocks.ipcRenderer.send).not.toHaveBeenCalledWith(
+      'desktop-lyrics:command',
+      expect.objectContaining({ type: 'seekTo' })
     );
   });
 });

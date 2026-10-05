@@ -27,10 +27,10 @@ import {
 import { registerProvider } from '../../server/resolver/providerManager.js';
 import * as neteaseProvider from '../../server/providers/netease.js';
 import * as lxProvider from '../../server/providers/lx.js';
-import * as unblockProvider from '../../server/providers/unblock.js';
 import * as fallbackProvider from '../../server/providers/fallback.js';
 import { initIpcMain } from '../electron/ipcMain.js';
 import { startControlServer } from '../electron/controlServer.js';
+import { createMcpServerManager } from '../electron/mcpServer.js';
 import { DesktopLyricsWindow } from '../electron/desktopLyricsWindow.js';
 import { createMenu } from '../electron/menu';
 import { createTray } from '@/electron/tray';
@@ -269,9 +269,8 @@ class Background {
     // Register audio resolver providers
     registerProvider(neteaseProvider);
     registerProvider(lxProvider);
-    registerProvider(unblockProvider);
     registerProvider(fallbackProvider);
-    log('audio resolver providers registered: netease, lx, unblock, fallback');
+    log('audio resolver providers registered: netease, lx, fallback');
     setRestartHandler(() => this.restartExpressApp());
 
     // create Express app
@@ -650,22 +649,8 @@ class Background {
         );
       }
 
-      // init ipcMain
-      initIpcMain(
-        this.window,
-        this.store,
-        this.trayEventEmitter,
-        this.desktopLyrics,
-        this.localMusicService,
-        this.streamingService
-      );
-
-      // expose the player to Linux desktop environments through MPRIS
-      if (isLinux) {
-        this.mpris = createMpris(this.window);
-      }
-
-      // local control socket for scripts and agents (xumpctl / MCP)
+      // local control channel for scripts/agents (socket where supported) and
+      // the built-in MCP server (streamable HTTP) that reuses its dispatch
       this.controlServer = startControlServer({
         getWindow: () => this.window,
         getAccountWriteAllowed: () =>
@@ -673,6 +658,28 @@ class Background {
           process.env.XUMP_CONTROL_ACCOUNT_WRITE === '1',
         log,
       });
+      this.mcpServer = createMcpServerManager({
+        dispatch: (method, params) =>
+          this.controlServer.handle(method, params),
+        log,
+      });
+
+      // init ipcMain
+      initIpcMain(
+        this.window,
+        this.store,
+        this.trayEventEmitter,
+        this.desktopLyrics,
+        this.localMusicService,
+        this.streamingService,
+        this.mcpServer
+      );
+      this.mcpServer.startFromSettings(this.store.get('settings.mcpServer'));
+
+      // expose the player to Linux desktop environments through MPRIS
+      if (isLinux) {
+        this.mpris = createMpris(this.window);
+      }
 
       // set proxy
       const proxyRules = this.store.get('proxy');
@@ -727,6 +734,7 @@ class Background {
       }
       this.mpris?.dispose();
       this.controlServer?.stop();
+      this.mcpServer?.dispose();
       this.desktopLyrics?.dispose();
       this.localMusicService?.dispose();
       if (this.expressApp) {

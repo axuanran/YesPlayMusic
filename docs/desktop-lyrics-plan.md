@@ -11,12 +11,18 @@
 - 窗口使用 `contextIsolation` 和 preload API，不启用 Node 集成。
 - 本地歌曲、流媒体歌曲及无歌词状态会清空旧歌词。
 
+多句歌词与进度控制已经完成：
+
+- `desktopLyrics.lineCount`（1–9，默认 1）允许同时显示多句歌词；设置页提供 1/3/5/7 行选项，行数增加时窗口高度自动增长一次。
+- 完整歌词列表经 `desktop-lyrics:lines` 分页发送（每页 ≤200 行，共享 sequence，主进程合并），高亮行号经 `desktop-lyrics:update` 的 `active` 字段轻量更新。
+- 解锁后点击任意歌词行经 `seekTo` 命令跳转播放进度；点击当前行从该行开头重复播放。
+- 解锁后滚动滚轮经 `seek` 命令按固定步长（5 秒）快进/后退；Ctrl+滚轮保留背景不透明度调节。Windows 原生 `WM_MOUSEWHEEL` 钩子按修饰键走同一逻辑。
+
 当前限制：
 
-- 窗口固定在主屏幕底部，不能移动或缩放。
-- 始终点击穿透，没有临时解锁模式。
-- 只能设置启用状态，不能调整字体、颜色、透明度和对齐方式。
-- 没有播放控制栏、托盘入口或标准化快捷键。
+- 锁定时窗口点击穿透，歌词行交互需要先解锁。
+- 窗口背景透明度只在解锁状态下可调节。
+- 歌词行点击/滚轮跳转的步长暂不可配置。
 
 ## 设计原则
 
@@ -45,6 +51,7 @@ desktopLyrics: {
   textColor: '#ffffff',
   secondaryColor: '#d6e0ff',
   backgroundOpacity: 0,
+  lineCount: 1,
   width: 960,
   height: 120,
   x: null,

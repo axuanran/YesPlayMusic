@@ -21,7 +21,7 @@ export async function resolveTrack(trackId, context = {}) {
     context.useProxy !== false && config.audio?.proxyStream !== false;
   const providerOrder = Array.isArray(context.providerOrder)
     ? context.providerOrder
-    : config.audio?.providerOrder || ['netease', 'unblock', 'fallback'];
+    : config.audio?.providerOrder || ['netease', 'lx', 'fallback'];
   const skipProviders = new Set(
     Array.isArray(context.skipProviders) ? context.skipProviders : []
   );
@@ -92,7 +92,6 @@ export async function resolveTrack(trackId, context = {}) {
           ...context,
           quality: currentQuality,
           lx: config.audio?.lx || {},
-          unblock: config.audio?.unblock || {},
         });
 
         if (result?.ok && result.url) {

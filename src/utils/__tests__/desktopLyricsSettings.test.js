@@ -3,6 +3,7 @@ import {
   BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES,
   DEFAULT_DESKTOP_LYRICS_SETTINGS,
   DESKTOP_LYRICS_STYLE_KEYS,
+  estimateDesktopLyricsHeight,
   getDesktopLyricsStyle,
   mergeDesktopLyricsSettings,
   normalizeDesktopLyricsSettings,
@@ -63,6 +64,31 @@ describe('desktop lyrics settings', () => {
       overflowMode: 'wrap',
       verticalPosition: 'top',
     });
+  });
+
+  it('defaults to single-line mode and clamps the visible line count', () => {
+    expect(normalizeDesktopLyricsSettings()).toMatchObject({
+      lineCount: DEFAULT_DESKTOP_LYRICS_SETTINGS.lineCount,
+    });
+    expect(normalizeDesktopLyricsSettings({ lineCount: 0 }).lineCount).toBe(1);
+    expect(normalizeDesktopLyricsSettings({ lineCount: 99 }).lineCount).toBe(9);
+    expect(normalizeDesktopLyricsSettings({ lineCount: 5 }).lineCount).toBe(5);
+    expect(
+      normalizeDesktopLyricsSettings({ lineCount: 'invalid' }).lineCount
+    ).toBe(DEFAULT_DESKTOP_LYRICS_SETTINGS.lineCount);
+  });
+
+  it('estimates the height needed for the configured line count', () => {
+    const single = estimateDesktopLyricsHeight({ lineCount: 1 });
+    const multi = estimateDesktopLyricsHeight({ lineCount: 3 });
+    const withoutSecondary = estimateDesktopLyricsHeight({
+      lineCount: 3,
+      showSecondary: false,
+    });
+
+    expect(single).toBeGreaterThan(92);
+    expect(multi).toBeGreaterThan(single);
+    expect(withoutSecondary).toBeLessThan(multi);
   });
 
   it('merges a partial update without losing saved values', () => {
@@ -151,7 +177,9 @@ describe('desktop lyrics settings', () => {
     expect(Object.keys(parsed.style).sort()).toEqual(
       [...DESKTOP_LYRICS_STYLE_KEYS].sort()
     );
-    expect(parseDesktopLyricsStyle(json)).toEqual(getDesktopLyricsStyle(settings));
+    expect(parseDesktopLyricsStyle(json)).toEqual(
+      getDesktopLyricsStyle(settings)
+    );
   });
 
   it('imports a bare style object without export metadata', () => {

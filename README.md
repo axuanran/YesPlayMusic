@@ -133,6 +133,27 @@ chmod +x XuMP-*.AppImage
 ./XuMP-*.AppImage
 ```
 
+### 命令行（xump）
+
+桌面客户端的主程序命令为 `xump`（Windows 下为 `XuMP.exe`，因文件名不区分大小写，直接在终端输入 `xump` 即可）。各端加入 PATH 的方式：
+
+- Windows：NSIS 安装包在安装时勾选 **Add XuMP to PATH**（默认勾选，写入系统 PATH；应用自动更新会保留你的选择）。免安装版请自行将所在目录加入 PATH。
+- Linux：deb、rpm、snap、pacman 包安装后自带 `/usr/bin/xump`，可直接使用；AppImage 与 tar.gz 可将可执行文件链接进 `~/.local/bin`：
+
+  ```bash
+  mkdir -p ~/.local/bin
+  ln -s "$PWD/XuMP-0.1.1.AppImage" ~/.local/bin/xump
+  ```
+
+  tar.gz 解压目录内附带 `scripts/install-cli.sh`，也可直接运行 `./scripts/install-cli.sh install`（卸载用 `uninstall`）。
+- macOS：app 内附带安装脚本，运行一次即可创建 `/usr/local/bin/xump` 链接：
+
+  ```bash
+  sudo /Applications/XuMP.app/Contents/Resources/scripts/install-cli.sh install
+  ```
+
+终端控制（`xumpctl`）与独立 TUI（`xump-tui`）见下文「TUI」。
+
 ### Arch Linux
 
 ```bash

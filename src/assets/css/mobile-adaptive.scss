@@ -374,21 +374,6 @@ body.mobile-keyboard-open {
     height: 38px !important;
   }
 
-  body.mobile-shell .lyrics-page .left-side .lyric-behavior-menu {
-    margin-left: 0 !important;
-  }
-
-  body.mobile-shell
-    .lyrics-page
-    .left-side
-    .lyric-behavior-menu
-    .lyric-behavior-actions {
-    top: auto !important;
-    right: 0 !important;
-    bottom: calc(100% + 6px) !important;
-    left: auto !important;
-  }
-
   body.mobile-shell .lyrics-page > .close-button {
     top: calc(env(safe-area-inset-top) + 4px) !important;
     right: calc(env(safe-area-inset-right) + 8px) !important;

@@ -184,6 +184,17 @@ export default {
       'NetEase sayfasında giriş yaptıktan sonra sayfanın Cookie bilgisini kopyalayıp aşağıya yapıştır.',
     androidWebLoginTip:
       'Girişten sonra YesPlayMusic otomatik olarak geri döner ve Cookie bilgisini içe aktarır.',
+    webLoginGuideTitle:
+      'Giriş yaptıktan sonra Cookie bilgisini şu adımlarla kopyalayın:',
+    webLoginGuideSteps: [
+      'Açılan NetEase sayfasında girişi tamamlayın ve sekmeyi açık tutun',
+      'Geliştirici araçlarını açmak için F12 (Mac\'te Cmd+Opt+I) tuşuna basın ve "Application" sekmesine geçin',
+      'Sol menüden Cookies → https://music.163.com seçin',
+      'Listede MUSIC_U değerini bulun, Value sütununa çift tıklayın ve kopyalayın (Ctrl+C)',
+      'Bu sayfaya dönün, kopyaladığınız içeriği aşağıdaki kutuya yapıştırın ve giriş yapın',
+    ],
+    webLoginGuideTip:
+      'Yalnızca MUSIC_U değeri yeterlidir; "MUSIC_U=..." şeklindeki tam kaydı yapıştırmak da çalışır.',
     cookiePlaceholder:
       'MUSIC_U=...; __csrf=... gibi NetEase Cookie bilgisini yapıştır',
     cookieTip:
@@ -244,6 +255,7 @@ export default {
     lyricsAutoFollow: 'Oynatmayı otomatik takip et',
     lyricsCenterCurrentLine: 'Geçerli sözü ortala',
     lyricsClickToSeek: 'Atlamak için söze tıkla',
+    repeatLyricLine: 'Bu dizeyi tekrarla (mevcut dizeyi kilitle)',
     lyricsAutoResume: 'Elle kaydırmadan {seconds} sn sonra takibe devam et',
     lyricsResumeFollow: 'Geçerli söze dön ve takibe devam et',
   },
@@ -346,6 +358,20 @@ export default {
       description:
         '127.0.0.1:11444 adresindeki AMLL Player ile parça, şarkı sözü, ilerleme ve oynatma denetimlerini eşitle.',
     },
+    mcp: {
+      sectionTitle: 'MCP Sunucusu',
+      enable: 'MCP Sunucusunu Etkinleştir (Streamable HTTP)',
+      description:
+        'Yapay zekâ asistanlarının MCP protokolüyle çaları denetlemesine izin verir (oynat, duraklat, ara, kuyruk...). Uç noktada kimlik doğrulama yoktur — döngüsel adreste tutun.',
+      host: 'Dinleme adresi',
+      hostPlaceholder: '127.0.0.1',
+      port: 'Dinleme portu',
+      status: 'Durum',
+      runningAt: 'Çalışıyor: {url}',
+      stopped: 'Çalışmıyor',
+      error: 'Başlatılamadı: {error}',
+      invalidPort: 'Port 1-65535 arasında bir tamsayı olmalı',
+    },
     showLibraryDefault: 'Kitaplık Varsayılanını göster',
     subTitleDefault: 'Show Alias for Subtitle by default',
     enableReversedMode: 'Enable Reversed Mode (Experimental)',
@@ -384,6 +410,10 @@ export default {
       showSecondary: 'Çeviri veya telaffuzu göster',
       fontSize: 'Ana söz boyutu',
       secondaryFontSize: 'Çeviri veya telaffuz boyutu',
+      lineCount: 'Aynı anda gösterilen satır',
+      lineCountDescription:
+        'Çok satır modunda masaüstü sözlerin kilidini açıp bir satıra tıklayarak ilerleyebilir; tekerlekle sarabilir veya Ctrl+tekerlekle arka plan saydamlığını ayarlayabilirsiniz.',
+      singleLine: 'Tek satır',
       colors: 'Söz renkleri',
       primaryColor: 'Ana söz rengi',
       secondaryColor: 'Çeviri veya telaffuz rengi',
@@ -426,34 +456,6 @@ export default {
         karaoke: 'Karaoke',
         subtitle: 'Altyazı',
         minimal: 'Minimal',
-      },
-    },
-    unm: {
-      enable: 'Enable',
-      audioSource: {
-        title: 'Audio Sources',
-      },
-      enableFlac: {
-        title: 'Enable FLAC Sources',
-        desc: 'To take effect, it may be required to clear the cache after enabling this function.',
-      },
-      searchMode: {
-        title: 'Audio Search Mode',
-        fast: 'Speed Priority',
-        order: 'Order Priority',
-      },
-      cookie: {
-        joox: 'Cookie for Joox use',
-        qq: 'Cookie for QQ use',
-        desc1: 'Click here for the configuration instruction. ',
-        desc2: 'Leave empty to pick up the default value',
-      },
-      ytdl: 'The youtube-dl Executable File for YtDl',
-      proxy: {
-        title: 'Proxy Server for UNM',
-        desc1:
-          'The proxy server to use for requesting services such as YouTube',
-        desc2: 'Leave empty to pick up the default value',
       },
     },
   },

@@ -32,12 +32,14 @@ usage:
   xumpctl search <query> [--type song|album|artist|playlist] [--limit N] [--offset N]
   xumpctl lyrics <song id> [--offset N] [--limit N]
   xumpctl mcp                               run as an MCP server over stdio
+  xumpctl mcp-http [--host H] [--port P]    run as an MCP server over streamable HTTP
   xumpctl raw '{"method":"status"}'         send a raw request (debugging)
 
 flags:
   --json              print the raw JSON result (also for errors)
   --socket <path>     talk to a specific control socket
   --limit/--offset    page sizes for queue/search/lyrics (max ${MAX_PAGE})
+  --host/--port       streamable HTTP bind address (default 127.0.0.1:27233)
 
 The socket lives at $XDG_RUNTIME_DIR/xump-control.sock unless XUMP_CONTROL_SOCKET
 overrides it. CLI output is English; the app UI has its own translations.
@@ -46,6 +48,8 @@ overrides it. CLI output is English; the app UI has its own translations.
 const BOOLEAN_FLAGS = new Set(['json', 'help', 'playlist-next']);
 const VALUE_FLAGS = new Set([
   'socket',
+  'host',
+  'port',
   'playlist',
   'album',
   'artist',
@@ -144,7 +148,11 @@ export const socketCandidates = () => {
 
 export const findSocket = () => {
   const explicit = process.env.XUMP_CONTROL_SOCKET;
-  const candidates = explicit ? [explicit] : socketCandidates();
+  // Trust an explicit path without stat probing: fs.statSync().isSocket()
+  // cannot see Windows named pipes, and a stale path still fails the same
+  // way on connect (app_not_running).
+  if (explicit) return explicit;
+  const candidates = socketCandidates();
   const existing = candidates.filter(candidate => {
     try {
       return fs.statSync(candidate).isSocket();
@@ -338,7 +346,7 @@ const trackLine = track =>
 // MCP over stdio
 // ---------------------------------------------------------------------------
 
-const MCP_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26'];
+export const MCP_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26'];
 const SERVER_INFO = {
   name: 'xump',
   title: 'XuMP player control',
@@ -355,7 +363,7 @@ export const MCP_TOOLS = [
       properties: {},
       additionalProperties: false,
     },
-    handler: params => request('status', params),
+    handler: (params, call = request) => call('status', params),
   },
   {
     name: 'music_control',
@@ -388,7 +396,7 @@ export const MCP_TOOLS = [
       required: ['action'],
       additionalProperties: false,
     },
-    handler: ({ action, value }) => {
+    handler: ({ action, value }, call = request) => {
       const map = {
         play: { type: 'play' },
         pause: { type: 'pause' },
@@ -407,7 +415,7 @@ export const MCP_TOOLS = [
             }
           );
         }
-        return request('control', { type: 'setVolume', volume: percent / 100 });
+        return call('control', { type: 'setVolume', volume: percent / 100 });
       }
       if (action === 'seek') {
         const seconds = Number(value);
@@ -416,7 +424,7 @@ export const MCP_TOOLS = [
             code: 'invalid_params',
           });
         }
-        return request('control', { type: 'setPosition', position: seconds });
+        return call('control', { type: 'setPosition', position: seconds });
       }
       if (action === 'repeat') {
         if (!['off', 'on', 'one'].includes(value)) {
@@ -424,7 +432,7 @@ export const MCP_TOOLS = [
             code: 'invalid_params',
           });
         }
-        return request('control', { type: 'setLoopStatus', mode: value });
+        return call('control', { type: 'setLoopStatus', mode: value });
       }
       if (action === 'shuffle') {
         if (!['on', 'off'].includes(value)) {
@@ -432,7 +440,7 @@ export const MCP_TOOLS = [
             code: 'invalid_params',
           });
         }
-        return request('control', {
+        return call('control', {
           type: 'setShuffle',
           enabled: value === 'on',
         });
@@ -443,7 +451,7 @@ export const MCP_TOOLS = [
           code: 'invalid_params',
         });
       }
-      return request('control', command);
+      return call('control', command);
     },
   },
   {
@@ -467,8 +475,8 @@ export const MCP_TOOLS = [
       required: ['query'],
       additionalProperties: false,
     },
-    handler: ({ query, type = 'song', offset = 0, limit = 10 }) =>
-      request('search', { keywords: query, type, offset, limit }),
+    handler: ({ query, type = 'song', offset = 0, limit = 10 }, call = request) =>
+      call('search', { keywords: query, type, offset, limit }),
   },
   {
     name: 'music_play',
@@ -488,7 +496,7 @@ export const MCP_TOOLS = [
       },
       additionalProperties: false,
     },
-    handler: async params => {
+    handler: async (params, call = request) => {
       const targets = [
         'id',
         'query',
@@ -505,12 +513,12 @@ export const MCP_TOOLS = [
         );
       }
       if (params.playlist_id)
-        return request('play', { playlistId: params.playlist_id });
-      if (params.album_id) return request('play', { albumId: params.album_id });
+        return call('play', { playlistId: params.playlist_id });
+      if (params.album_id) return call('play', { albumId: params.album_id });
       if (params.artist_id)
-        return request('play', { artistId: params.artist_id });
-      if (params.id) return request('play', { id: params.id });
-      const found = await request('search', {
+        return call('play', { artistId: params.artist_id });
+      if (params.id) return call('play', { id: params.id });
+      const found = await call('search', {
         keywords: params.query,
         limit: 5,
       });
@@ -520,7 +528,7 @@ export const MCP_TOOLS = [
           code: 'no_match',
         });
       }
-      const accepted = await request('play', { id: match.id });
+      const accepted = await call('play', { id: match.id });
       return { ...accepted, track: match };
     },
   },
@@ -552,9 +560,9 @@ export const MCP_TOOLS = [
       },
       additionalProperties: false,
     },
-    handler: ({ action = 'list', id, ids, offset = 0, limit = 100 }) => {
-      if (action === 'list') return request('queue', { offset, limit });
-      if (action === 'add') return request('enqueue', ids ? { ids } : { id });
+    handler: ({ action = 'list', id, ids, offset = 0, limit = 100 }, call = request) => {
+      if (action === 'list') return call('queue', { offset, limit });
+      if (action === 'add') return call('enqueue', ids ? { ids } : { id });
       throw Object.assign(new Error(`unsupported action "${action}"`), {
         code: 'invalid_params',
       });
@@ -574,8 +582,8 @@ export const MCP_TOOLS = [
       required: ['id'],
       additionalProperties: false,
     },
-    handler: ({ id, offset = 0, limit = 100 }) =>
-      request('lyrics', { id, offset, limit }),
+    handler: ({ id, offset = 0, limit = 100 }, call = request) =>
+      call('lyrics', { id, offset, limit }),
   },
   {
     name: 'music_recommend',
@@ -589,8 +597,8 @@ export const MCP_TOOLS = [
       },
       additionalProperties: false,
     },
-    handler: ({ offset = 0, limit = 20 } = {}) =>
-      request('recommend', { offset, limit }),
+    handler: ({ offset = 0, limit = 20 } = {}, call = request) =>
+      call('recommend', { offset, limit }),
   },
   {
     name: 'music_like',
@@ -608,7 +616,7 @@ export const MCP_TOOLS = [
       required: ['id', 'liked'],
       additionalProperties: false,
     },
-    handler: ({ id, liked }) => request('like', { id, liked }),
+    handler: ({ id, liked }, call = request) => call('like', { id, liked }),
   },
 ];
 
@@ -669,10 +677,14 @@ export const validateToolArguments = (schema, args) => {
 export const createMcpServer = ({
   socketPath,
   write = line => process.stdout.write(`${line}\n`),
+  // In-process dispatch override: Electron's built-in MCP server injects a
+  // `call` that talks to the renderer directly instead of the control socket.
+  call = null,
 } = {}) => {
   // an explicitly configured socket must win over discovery inside the session
   if (socketPath) process.env.XUMP_CONTROL_SOCKET = socketPath;
   let initialized = false;
+  const invoke = call || ((method, params) => request(method, params));
   const send = message => write(JSON.stringify(message));
   const reply = (id, result) => send({ jsonrpc: '2.0', id, result });
   const fail = (id, code, message) =>
@@ -762,7 +774,7 @@ export const createMcpServer = ({
           return;
         }
         try {
-          const result = await tool.handler(params.arguments || {});
+          const result = await tool.handler(params.arguments || {}, invoke);
           reply(id, {
             content: [
               {
@@ -865,6 +877,22 @@ export const runCommand = async (argv, io = console) => {
     case 'mcp': {
       const server = createMcpServer({ socketPath });
       await server.run(process.stdin);
+      return 0;
+    }
+    case 'mcp-http': {
+      const { startMcpHttpServer } = await import('./xump-mcp-http.mjs');
+      const host = flags.get('host') || '127.0.0.1';
+      const port = Number(flags.get('port') || 27233);
+      if (!Number.isInteger(port) || port < 0 || port > 65535) {
+        throw Object.assign(
+          new Error(`--port needs an integer between 0 and 65535`),
+          { code: 'invalid_usage' }
+        );
+      }
+      const handle = await startMcpHttpServer({ socketPath, host, port });
+      io.log(`xump MCP (streamable http) listening on ${handle.url}`);
+      // keep serving until killed
+      await new Promise(() => {});
       return 0;
     }
     case 'status':
@@ -1061,7 +1089,11 @@ const main = async () => {
   }
 };
 
+// `__XUMP_BUNDLED__` is defined by electron-vite when this file is bundled
+// into the desktop app's main process; the self-exec guard must not fire
+// there (typeof keeps plain node / vitest runs working unchanged).
 if (
+  typeof __XUMP_BUNDLED__ === 'undefined' &&
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
