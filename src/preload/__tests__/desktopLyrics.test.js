@@ -173,12 +173,14 @@ describe('desktop lyrics preload', () => {
     );
   });
 
-  it('does not consume wheel input while the window is locked', () => {
+  it('swallows forwarded wheel input while locked without side effects', () => {
+    // locked windows receive forwarded wheel events; the page must consume
+    // them so Chromium cannot apply Ctrl+wheel as page zoom
     const event = { deltaY: -120, preventDefault: vi.fn() };
 
     windowListeners.get('wheel')(event);
 
-    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(mocks.ipcRenderer.send).not.toHaveBeenCalledWith(
       'desktop-lyrics:command',
       expect.objectContaining({ type: 'adjustBackgroundOpacity' })
@@ -189,10 +191,22 @@ describe('desktop lyrics preload', () => {
     );
   });
 
+  it('blocks keyboard zoom shortcuts', () => {
+    const event = { ctrlKey: true, key: '=', preventDefault: vi.fn() };
+
+    windowListeners.get('keydown')(event);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+  });
+
   it('seeks to a lyric line when it is clicked while unlocked', () => {
     ipcListeners.get('desktop-lyrics:settings')({}, unlockedSettings);
     const lineListeners = new Map();
-    const item = { dataset: { time: '42.5' }, closest: () => item };
+    const item = {
+      dataset: { time: '42.5' },
+      classList: { contains: () => true },
+      closest: () => item,
+    };
     elements.set('lines', {
       addEventListener: (event, listener) => {
         lineListeners.set(event, listener);
@@ -209,9 +223,14 @@ describe('desktop lyrics preload', () => {
     );
   });
 
-  it('ignores lyric line clicks while locked', () => {
+  it('ignores clicks on lines outside the clickable center band', () => {
+    ipcListeners.get('desktop-lyrics:settings')({}, unlockedSettings);
     const lineListeners = new Map();
-    const item = { dataset: { time: '42.5' }, closest: () => item };
+    const item = {
+      dataset: { time: '42.5' },
+      classList: { contains: () => false },
+      closest: () => item,
+    };
     elements.set('lines', {
       addEventListener: (event, listener) => {
         lineListeners.set(event, listener);
@@ -225,5 +244,92 @@ describe('desktop lyrics preload', () => {
       'desktop-lyrics:command',
       expect.objectContaining({ type: 'seekTo' })
     );
+  });
+
+  it('ignores lyric line clicks in whole-window drag mode', () => {
+    ipcListeners.get('desktop-lyrics:settings')(
+      {},
+      {
+        ...unlockedSettings,
+        dragMode: 'window',
+      }
+    );
+    const lineListeners = new Map();
+    const item = {
+      dataset: { time: '42.5' },
+      classList: { contains: () => true },
+      closest: () => item,
+    };
+    elements.set('lines', {
+      addEventListener: (event, listener) => {
+        lineListeners.set(event, listener);
+      },
+    });
+
+    windowListeners.get('DOMContentLoaded')();
+    lineListeners.get('click')({ target: item });
+
+    expect(mocks.ipcRenderer.send).not.toHaveBeenCalledWith(
+      'desktop-lyrics:command',
+      expect.objectContaining({ type: 'seekTo' })
+    );
+  });
+
+  it('ignores lyric line clicks while locked', () => {
+    const lineListeners = new Map();
+    const item = {
+      dataset: { time: '42.5' },
+      classList: { contains: () => true },
+      closest: () => item,
+    };
+    elements.set('lines', {
+      addEventListener: (event, listener) => {
+        lineListeners.set(event, listener);
+      },
+    });
+
+    windowListeners.get('DOMContentLoaded')();
+    lineListeners.get('click')({ target: item });
+
+    expect(mocks.ipcRenderer.send).not.toHaveBeenCalledWith(
+      'desktop-lyrics:command',
+      expect.objectContaining({ type: 'seekTo' })
+    );
+  });
+
+  it('sends the repeat-lyric-line command when the repeat button is clicked', () => {
+    const repeatListeners = new Map();
+    elements.set('repeat', {
+      addEventListener: (event, listener) => {
+        repeatListeners.set(event, listener);
+      },
+    });
+
+    // re-register listeners against the mocked #repeat element
+    windowListeners.get('DOMContentLoaded')();
+    repeatListeners.get('click')();
+
+    expect(mocks.ipcRenderer.send).toHaveBeenCalledWith(
+      'desktop-lyrics:command',
+      { type: 'repeatLyricLine' }
+    );
+  });
+
+  it('marks the repeat button active while repeatLyric is on', () => {
+    const classes = new Set();
+    elements.set('repeat', {
+      classList: {
+        toggle: (name, enabled) => {
+          if (enabled) classes.add(name);
+          else classes.delete(name);
+        },
+      },
+    });
+
+    ipcListeners.get('desktop-lyrics:render')({}, { repeatLyric: true });
+    expect(classes.has('is-active')).toBe(true);
+
+    ipcListeners.get('desktop-lyrics:render')({}, { repeatLyric: false });
+    expect(classes.has('is-active')).toBe(false);
   });
 });

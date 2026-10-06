@@ -15,6 +15,7 @@ const createHandlers = (win, desktopLyrics) => ({
   decreaseVolume: () => win.webContents.send('decreaseVolume'),
   like: () => win.webContents.send('like'),
   repeat: () => win.webContents.send('repeat'),
+  repeatLyricLine: () => win.webContents.send('repeatLyricLine'),
   shuffle: () => win.webContents.send('shuffle'),
   toggleDesktopLyrics: () => desktopLyrics?.toggle(),
   toggleDesktopLyricsLocked: () => desktopLyrics?.toggleLocked(),

@@ -75,6 +75,18 @@ describe('global shortcut registration', () => {
     expect(desktopLyrics.toggleLocked).toHaveBeenCalledOnce();
   });
 
+  it('routes the repeat lyric line shortcut to the main window', () => {
+    const win = createWindow();
+    registerGlobalShortcuts(win, createStore());
+
+    const handler = mocks.globalShortcut.register.mock.calls.find(
+      ([accelerator]) => accelerator === 'Alt+CommandOrControl+E'
+    )[1];
+    handler();
+
+    expect(win.webContents.send).toHaveBeenCalledWith('repeatLyricLine');
+  });
+
   it('skips one disabled shortcut without affecting the others', () => {
     const shortcuts = normalizeShortcuts(defaultShortcuts);
     shortcuts.find(shortcut => shortcut.id === 'like').global.enabled = false;

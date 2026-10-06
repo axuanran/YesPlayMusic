@@ -125,6 +125,13 @@ export function createMenu(win, store, desktopLyrics) {
           },
         },
         {
+          label: 'Repeat Lyric Line',
+          accelerator: accelerator('repeatLyricLine'),
+          click: () => {
+            win.webContents.send('repeatLyricLine');
+          },
+        },
+        {
           label: 'Shuffle',
           accelerator: accelerator('shuffle'),
           click: () => {

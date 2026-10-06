@@ -371,6 +371,28 @@ export default {
     cacheLimitApplyFailed: 'Failed to apply the cache limit; check the logs',
     cacheCount: 'Cached {song} songs ({size})',
     viewCachedTracks: 'View cache',
+    cacheLocation: 'Cache location',
+    cacheLocationDefault: 'Default location',
+    changeCacheLocation: 'Change location',
+    openCacheLocation: 'Open folder',
+    cacheLocationRestarting: 'Restarting…',
+    cacheLocationInvalid: 'The selected cache directory is invalid',
+    cacheLocationSame: 'The new location is the same as the current one',
+    cacheLocationNested:
+      'The new location must not be inside the current cache directory',
+    cacheLocationOpenFailed: 'Failed to open the cache directory',
+    cacheLocationFailed: 'Failed to change the cache location',
+    cacheLocationModal: {
+      title: 'Change cache location',
+      message:
+        'Switch the cache location to "{dir}". What should happen to the current cache?',
+      move: 'Move to the new location',
+      delete: 'Delete the old cache',
+      moveNote: 'Moving keeps your cached songs and local settings.',
+      deleteWarning:
+        'Deleting removes all cached songs and local settings at the old location. The app restarts immediately to apply the change.',
+      cancel: 'Cancel',
+    },
     showLyricsTranslation: 'Show lyrics translation',
     autoMatchLocalLyrics: {
       title: 'Automatically match local lyrics',
@@ -439,18 +461,25 @@ export default {
         'Show synchronized lyrics above other windows without taking focus.',
       locked: 'Lock the window and enable click-through',
       alwaysOnTop: 'Always on top',
+      allDesktops: 'Show on all virtual desktops',
+      allDesktopsDescription:
+        'Pin the desktop lyrics window to every virtual desktop at the same position (Windows virtual desktops).',
       showSecondary: 'Show translation or pronunciation',
       fontSize: 'Primary lyric size',
       secondaryFontSize: 'Translation or pronunciation size',
-      lineCount: 'Lines shown at once',
+      lineCount: 'Show multiple lyric lines',
       lineCountDescription:
-        'In multi-line mode, unlock the desktop lyrics and click a line to seek; wheel behavior is configurable below.',
-      singleLine: 'Single line',
+        'When on, the desktop lyrics show surrounding lines with the active line highlighted; when off, only the current line is shown. Unlock to scrub playback with the wheel and drag the window to move it.',
       wheelBehavior: 'Wheel behavior',
       wheelBehaviorDescription:
         '"Seek": plain wheel scrubs playback, Ctrl+wheel adjusts background opacity. "Scroll lyrics": over the multi-line list a plain wheel browses the lyrics; everywhere else it matches "Seek".',
       wheelBehaviorClassic: 'Seek',
       wheelBehaviorScroll: 'Scroll lyrics',
+      dragMode: 'Drag behavior',
+      dragModeDescription:
+        '"Select lyrics": click a lyric to seek, drag near the window edges to move it. "Whole window": drag anywhere to move the window; lyrics are not clickable.',
+      dragModeLyrics: 'Select lyrics',
+      dragModeWindow: 'Whole window',
       colors: 'Lyric colors',
       primaryColor: 'Primary lyric color',
       secondaryColor: 'Translation or pronunciation color',

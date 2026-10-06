@@ -419,6 +419,13 @@ import {
   createSizedCoverUrl,
   resolveCoverImageUrl,
 } from '@/utils/coverImageUrl';
+import {
+  clearRepeatLyricLineDriver,
+  getRepeatLyricIndex,
+  onRepeatLyricIndexChange,
+  registerRepeatLyricLineDriver,
+  setRepeatLyricIndex,
+} from '@/utils/repeatLyricLine';
 
 export default {
   name: 'Lyrics',
@@ -435,7 +442,9 @@ export default {
       romalyric: [],
       lyricType: 'translation', // or 'romaPronunciation'
       highlightLyricIndex: -1,
-      repeatLyricIndex: -1,
+      // mirrored from the shared repeatLyricLine module so the template and
+      // external toggles (desktop lyrics button, shortcuts) stay in sync
+      repeatLyricIndex: getRepeatLyricIndex(),
       isAutoScrollingLyrics: false,
       shouldAutoScrollLyrics: true,
       lyricsAutoScrollTimer: null,
@@ -452,6 +461,8 @@ export default {
       rightClickLyric: null,
       updateLyricsEdgeSpacerOnResize: null,
       updateLyricsClockOnVisibility: null,
+      removeRepeatLyricListener: null,
+      repeatLyricLineDriver: null,
       handleLyricsFullscreenShortcut: null,
       handleLyricsFullscreenChange: null,
     };
@@ -681,7 +692,7 @@ export default {
     currentTrack() {
       this.shouldAutoScrollLyrics = this.lyricsAutoFollowEnabled;
       this.highlightLyricIndex = -1;
-      this.repeatLyricIndex = -1;
+      setRepeatLyricIndex(-1);
       this.clearDesktopLyrics();
       clearTimeout(this.lyricsAutoResumeTimer);
       Promise.resolve(this.getLyric()).then(() => {
@@ -729,6 +740,10 @@ export default {
     desktopLyricsPlayerState() {
       this.publishDesktopLyrics();
     },
+    // 外部（桌面歌词按钮、快捷键）切换单句循环时同步桌面歌词按钮状态
+    repeatLyricIndex() {
+      this.publishDesktopLyrics();
+    },
     autoMatchLocalLyrics() {
       if (this.currentTrack?.local) this.getLyric();
     },
@@ -739,6 +754,16 @@ export default {
   created() {
     this.getLyric();
     this.configureLyricsClock();
+    // Mirror the shared repeat-lyric state and act as its driver so the
+    // desktop lyrics button and the shortcuts can toggle the lock through
+    // the repeatLyricLine module even when this page is hidden.
+    this.removeRepeatLyricListener = onRepeatLyricIndexChange(index => {
+      this.repeatLyricIndex = index;
+    });
+    this.repeatLyricLineDriver = {
+      toggle: () => this.toggleRepeatLyricLine(),
+    };
+    registerRepeatLyricLineDriver(this.repeatLyricLineDriver);
     this.updateLyricsClockOnVisibility = () => this.configureLyricsClock();
     document.addEventListener(
       'visibilitychange',
@@ -775,6 +800,8 @@ export default {
   unmounted() {
     this.coverColorRequests.invalidate();
     this.clearDesktopLyrics();
+    this.removeRepeatLyricListener?.();
+    clearRepeatLyricLineDriver(this.repeatLyricLineDriver);
     clearInterval(this.lyricsInterval);
     clearTimeout(this.lyricsAutoScrollTimer);
     clearTimeout(this.lyricsAutoResumeTimer);
@@ -1051,7 +1078,7 @@ export default {
           const clickedIndex = this.lyric.findIndex(
             item => item.time === value
           );
-          if (clickedIndex >= 0) this.repeatLyricIndex = clickedIndex;
+          if (clickedIndex >= 0) setRepeatLyricIndex(clickedIndex);
         }
       }
       if (startPlay === true) {
@@ -1110,12 +1137,12 @@ export default {
     },
     toggleRepeatLyricLine() {
       if (this.repeatLyricIndex >= 0) {
-        this.repeatLyricIndex = -1;
+        setRepeatLyricIndex(-1);
         return;
       }
       // 锁定当前播放行；没有可锁定的行（前奏/间奏）时不开启
       if (this.highlightLyricIndex < 0) return;
-      this.repeatLyricIndex = this.highlightLyricIndex;
+      setRepeatLyricIndex(this.highlightLyricIndex);
       this.enforceRepeatLyricLine();
     },
     // 单句锁定播放：高亮行一旦离开被锁定的歌词，立即跳回该行开头，
@@ -1124,7 +1151,7 @@ export default {
       if (this.repeatLyricIndex < 0) return;
       const lockedLyric = this.lyric[this.repeatLyricIndex];
       if (!lockedLyric || !Number.isFinite(lockedLyric.time)) {
-        this.repeatLyricIndex = -1;
+        setRepeatLyricIndex(-1);
         return;
       }
       if (this.highlightLyricIndex === this.repeatLyricIndex) return;
@@ -1156,6 +1183,7 @@ export default {
         playing: this.player.playing,
         volume: this.player.volume,
         active,
+        repeatLyric: this.repeatLyricIndex >= 0,
       });
       this.publishDesktopLyricLines(lines);
     },
@@ -1284,6 +1312,7 @@ export default {
         line: '',
         translation: '',
         active: -1,
+        repeatLyric: false,
       });
     },
     handleLyricsScroll() {

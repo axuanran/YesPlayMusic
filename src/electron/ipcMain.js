@@ -22,6 +22,11 @@ import {
 import { createLazyDiscordRpcClient } from './discordRpcClient.js';
 import { clearSessionDiskCache } from './cache.js';
 import {
+  CacheLocationError,
+  getCacheLocationInfo,
+  prepareRelocation,
+} from './cacheLocation.js';
+import {
   MCP_SERVER_GET_STATUS_CHANNEL,
   MCP_SERVER_STATUS_CHANNEL,
   normalizeMcpServerConfig,
@@ -233,6 +238,40 @@ export function initIpcMain(
   ipcMain.handle('cache:clear-disk', () =>
     clearSessionDiskCache(win.webContents.session, win.webContents.getURL())
   );
+  ipcMain.handle('cache:get-location', () =>
+    getCacheLocationInfo(app.getPath('userData'))
+  );
+  ipcMain.handle('cache:choose-location', async () => {
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
+  ipcMain.handle('cache:open-location', async () => {
+    const info = getCacheLocationInfo(app.getPath('userData'));
+    return shell.openPath(info.location || info.defaultLocation);
+  });
+  ipcMain.handle('cache:set-location', async (event, payload) => {
+    if (event.sender !== win.webContents) {
+      throw new Error('Invalid cache relocation sender');
+    }
+    try {
+      await prepareRelocation(app.getPath('userData'), {
+        targetDir: payload?.dir,
+        mode: payload?.mode,
+      });
+    } catch (error) {
+      if (error instanceof CacheLocationError) {
+        return { ok: false, code: error.code };
+      }
+      throw error;
+    }
+    // The relocation itself runs at the next startup, before any session
+    // touches the storage. Restart immediately so it takes effect.
+    app.relaunch();
+    app.exit(0);
+    return { ok: true };
+  });
   ipcMain.handle('download:track', (event, payload) => {
     if (event.sender !== win.webContents) {
       throw new Error('Invalid download sender');

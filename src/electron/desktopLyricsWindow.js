@@ -1,10 +1,10 @@
 import { BrowserWindow, screen } from 'electron';
 import {
   DEFAULT_DESKTOP_LYRICS_SETTINGS,
-  estimateDesktopLyricsHeight,
   mergeDesktopLyricsSettings,
   normalizeDesktopLyricsSettings,
 } from '../utils/desktopLyricsSettings.js';
+import { setWindowPinnedOnAllDesktops } from './virtualDesktops.js';
 
 const DESKTOP_LYRICS_CHANNEL = 'desktop-lyrics:render';
 const SETTINGS_CHANNEL = 'desktop-lyrics:settings';
@@ -97,6 +97,7 @@ export function buildDesktopLyricsHtml() {
         z-index: 1;
         width: 100%;
         padding: 20px 32px 44px;
+        overflow: hidden;
         filter:
           drop-shadow(0 2px 5px rgba(0,0,0,.95))
           drop-shadow(0 0 12px rgba(0,0,0,.75));
@@ -141,10 +142,15 @@ export function buildDesktopLyricsHtml() {
         -webkit-app-region: drag;
       }
       .multi-line #line, .multi-line #translation { display: none; }
+      .lyric-spacer { flex: 0 0 auto; pointer-events: none; }
       .lyric-item {
-        cursor: pointer;
         opacity: .45;
         transition: opacity .18s ease;
+      }
+      /* only the center band of the list opts out of dragging, so the window
+         stays movable near its edges */
+      .lyric-item.is-clickable {
+        cursor: pointer;
         -webkit-app-region: no-drag;
       }
       .lyric-item:hover { opacity: .8; }
@@ -196,6 +202,9 @@ export function buildDesktopLyricsHtml() {
         color: #fff;
         background: rgba(0, 0, 0, .55);
         cursor: pointer;
+      }
+      #controls button.is-active {
+        background: rgba(58, 130, 246, .85);
       }
       #volume { width: 90px; }
       .is-locked #controls { display: none; }
@@ -264,6 +273,7 @@ export function buildDesktopLyricsHtml() {
       <button id="previous" type="button">上一首</button>
       <button id="play" type="button">播放</button>
       <button id="next" type="button">下一首</button>
+      <button id="repeat" type="button" title="单句循环">单句循环</button>
       <input id="volume" aria-label="音量" type="range" min="0" max="100" value="100">
       <button id="settings" type="button">设置</button>
       <button id="lock" type="button">锁定</button>
@@ -291,6 +301,7 @@ export class DesktopLyricsWindow {
     preloadPath,
     store = null,
     mainWindow = null,
+    setWindowPinned = setWindowPinnedOnAllDesktops,
   }) {
     this.WindowClass = WindowClass;
     this.getCursorPoint = getCursorPoint;
@@ -299,6 +310,9 @@ export class DesktopLyricsWindow {
     this.preloadPath = preloadPath;
     this.store = store;
     this.mainWindow = mainWindow;
+    this.setWindowPinned = setWindowPinned;
+    // a fresh window is never pinned, so false is the correct baseline
+    this.appliedAllDesktopsPin = false;
     this.window = null;
     this.saveBoundsTimer = null;
     this.resizeState = null;
@@ -311,6 +325,7 @@ export class DesktopLyricsWindow {
       volume: 1,
       lines: [],
       active: -1,
+      repeatLyric: false,
     };
     this.settings = this.readSettings();
   }
@@ -372,24 +387,32 @@ export class DesktopLyricsWindow {
     const lyricsWindow = this.ensureWindow();
     this.applyWindowSettings(lyricsWindow);
     this.render();
+    this.syncAllDesktopsPin();
     lyricsWindow.showInactive?.();
   }
 
-  patchSettings(patch) {
-    let safePatch = patch && typeof patch === 'object' ? patch : {};
-    // Growing the visible line count needs more vertical space: grow the
-    // window once so multi-line mode is usable without manual resizing. The
-    // estimate only ever grows the height; shrinking stays a manual action.
-    if (Object.prototype.hasOwnProperty.call(safePatch, 'lineCount')) {
-      const merged = mergeDesktopLyricsSettings(this.settings, safePatch);
-      const estimatedHeight = Math.min(
-        MAX_WINDOW_HEIGHT,
-        estimateDesktopLyricsHeight(merged)
-      );
-      if (estimatedHeight > merged.height) {
-        safePatch = { ...safePatch, height: estimatedHeight };
-      }
+  // Windows only: pin the window to every virtual desktop at the same
+  // position while the setting is on. The pin call crosses into the shell's
+  // undocumented COM API, so it is debounced to actual state changes and
+  // never allowed to break the window itself.
+  syncAllDesktopsPin() {
+    if (this.platform !== 'win32') return;
+    const want = this.settings.allDesktops === true;
+    if (this.appliedAllDesktopsPin === want) return;
+    if (!this.window || this.window.isDestroyed()) return;
+    const handle = this.window.getNativeWindowHandle?.();
+    const hwnd = handle && handle.length >= 4 ? handle.readInt32LE(0) : 0;
+    if (!Number.isInteger(hwnd) || hwnd <= 0) return;
+    this.appliedAllDesktopsPin = want;
+    try {
+      this.setWindowPinned({ hwnd, pinned: want });
+    } catch {
+      this.appliedAllDesktopsPin = null;
     }
+  }
+
+  patchSettings(patch) {
+    const safePatch = patch && typeof patch === 'object' ? patch : {};
     this.applySettings(safePatch, { persist: true, notify: true });
   }
 
@@ -451,6 +474,10 @@ export class DesktopLyricsWindow {
       volume: Number.isFinite(payload.volume)
         ? Math.min(1, Math.max(0, payload.volume))
         : this.currentLyrics.volume,
+      repeatLyric:
+        typeof payload.repeatLyric === 'boolean'
+          ? payload.repeatLyric
+          : this.currentLyrics.repeatLyric,
     };
     if (Number.isInteger(payload.active)) {
       const maxActive = this.currentLyrics.lines.length - 1;
@@ -624,6 +651,7 @@ export class DesktopLyricsWindow {
       lyricsWindow.webContents.setVisualZoomLevelLimits?.(1, 1);
       lyricsWindow.webContents.setZoomLevel?.(0);
       this.render();
+      this.syncAllDesktopsPin();
       lyricsWindow.showInactive();
     });
     lyricsWindow.loadURL(
@@ -702,6 +730,10 @@ export class DesktopLyricsWindow {
         break;
       case 'next':
         this.mainWindow?.webContents.send('next');
+        break;
+      case 'repeatLyricLine':
+        // 单句循环的状态和强制跳转都在主窗口的歌词页里，这里只转发
+        this.mainWindow?.webContents.send('repeatLyricLine');
         break;
       case 'setVolume':
         if (Number.isFinite(command.value)) {
@@ -882,6 +914,7 @@ export class DesktopLyricsWindow {
 
   destroyWindow() {
     this.resizeState = null;
+    this.appliedAllDesktopsPin = false;
     if (this.window && !this.window.isDestroyed()) {
       this.window.destroy();
     }

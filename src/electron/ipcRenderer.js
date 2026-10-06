@@ -1,4 +1,5 @@
 import store from '@/store';
+import { toggleRepeatLyricLine } from '@/utils/repeatLyricLine';
 import {
   CONTROL_MAX_RESULT_BYTES,
   createControlHandlers,
@@ -142,6 +143,11 @@ export function ipcRenderer(vueInstance) {
 
   appEvents?.onRepeat(() => {
     player.switchRepeatMode();
+  });
+
+  // 单句循环的状态和强制跳回都由歌词页驱动（它持有解析后的歌词）
+  appEvents?.onRepeatLyricLine(() => {
+    toggleRepeatLyricLine();
   });
 
   appEvents?.onShuffle(() => {

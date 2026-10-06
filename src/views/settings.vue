@@ -209,6 +209,26 @@
           </select>
         </div>
       </div>
+      <div v-if="isElectron" class="item">
+        <div class="left">
+          <div class="title">{{ $t('settings.cacheLocation') }}</div>
+        </div>
+        <div class="right cache-location">
+          <span class="path" :title="cacheLocationTitle">{{
+            cacheLocationText
+          }}</span>
+          <button @click="openCacheLocation">
+            {{ $t('settings.openCacheLocation') }}
+          </button>
+          <button :disabled="relocatingCache" @click="changeCacheLocation">
+            {{
+              relocatingCache
+                ? $t('settings.cacheLocationRestarting')
+                : $t('settings.changeCacheLocation')
+            }}
+          </button>
+        </div>
+      </div>
       <div v-if="isElectron || isCapacitor" class="item">
         <div class="left">
           <div class="title">
@@ -536,13 +556,14 @@
             </div>
           </div>
           <div class="right">
-            <select v-model.number="desktopLyricsLineCount">
-              <option v-for="count in [1, 3, 5, 7]" :key="count" :value="count">
-                {{
-                  count === 1 ? $t('settings.desktopLyrics.singleLine') : count
-                }}
-              </option>
-            </select>
+            <div class="toggle">
+              <input
+                id="desktop-lyrics-multiline"
+                v-model="desktopLyricsMultiLine"
+                type="checkbox"
+              />
+              <label for="desktop-lyrics-multiline"></label>
+            </div>
           </div>
         </div>
         <div class="item">
@@ -561,6 +582,26 @@
               </option>
               <option value="scroll">
                 {{ $t('settings.desktopLyrics.wheelBehaviorScroll') }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.dragMode') }}
+            </div>
+            <div class="description">
+              {{ $t('settings.desktopLyrics.dragModeDescription') }}
+            </div>
+          </div>
+          <div class="right">
+            <select v-model="desktopLyricsDragMode">
+              <option value="lyrics">
+                {{ $t('settings.desktopLyrics.dragModeLyrics') }}
+              </option>
+              <option value="window">
+                {{ $t('settings.desktopLyrics.dragModeWindow') }}
               </option>
             </select>
           </div>
@@ -598,6 +639,26 @@
                 type="checkbox"
               />
               <label for="desktop-lyrics-always-on-top"></label>
+            </div>
+          </div>
+        </div>
+        <div v-if="isWindows" class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.desktopLyrics.allDesktops') }}
+            </div>
+            <div class="description">
+              {{ $t('settings.desktopLyrics.allDesktopsDescription') }}
+            </div>
+          </div>
+          <div class="right">
+            <div class="toggle">
+              <input
+                id="desktop-lyrics-all-desktops"
+                v-model="desktopLyricsAllDesktops"
+                type="checkbox"
+              />
+              <label for="desktop-lyrics-all-desktops"></label>
             </div>
           </div>
         </div>
@@ -1460,6 +1521,49 @@
         </a>
       </div>
     </div>
+
+    <Modal
+      :show="showCacheLocationModal"
+      :close="cancelCacheRelocation"
+      :title="$t('settings.cacheLocationModal.title')"
+      width="30rem"
+      min-width="calc(min(30rem, 92vw))"
+    >
+      <template #default>
+        <p class="cache-location-message">
+          {{
+            $t('settings.cacheLocationModal.message', {
+              dir: pendingCacheDir,
+            })
+          }}
+        </p>
+        <p class="cache-location-note">
+          {{ $t('settings.cacheLocationModal.moveNote') }}
+        </p>
+        <p class="cache-location-warning">
+          {{ $t('settings.cacheLocationModal.deleteWarning') }}
+        </p>
+      </template>
+      <template #footer>
+        <button
+          class="primary"
+          :disabled="relocatingCache"
+          @click="confirmCacheRelocation('move')"
+        >
+          {{ $t('settings.cacheLocationModal.move') }}
+        </button>
+        <button
+          class="danger"
+          :disabled="relocatingCache"
+          @click="confirmCacheRelocation('delete')"
+        >
+          {{ $t('settings.cacheLocationModal.delete') }}
+        </button>
+        <button :disabled="relocatingCache" @click="cancelCacheRelocation">
+          {{ $t('settings.cacheLocationModal.cancel') }}
+        </button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -1482,7 +1586,7 @@ import {
 import { getResolverConfig, updateResolverConfig } from '@/api/audioResolver';
 import pkg from '../../package.json';
 import { isCapacitor, isElectron } from '@/utils/env';
-import { isLinux, isMac } from '@/utils/platform';
+import { isLinux, isMac, isWindows } from '@/utils/platform';
 import { getBuiltinPlugins, setPluginEnabled, syncPlugins } from '@/plugins';
 import {
   getDefaultUiLayout,
@@ -1491,6 +1595,7 @@ import {
   unassignedWidgets,
 } from '@/utils/uiLayout';
 import StreamingServerSettings from '@/components/StreamingServerSettings.vue';
+import Modal from '@/components/Modal.vue';
 import {
   adaptDesktopLyricsStyleImport,
   BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES,
@@ -1579,7 +1684,7 @@ const desktopLyricsSetting = (key, fallback) => ({
 
 export default {
   name: 'Settings',
-  components: { StreamingServerSettings },
+  components: { StreamingServerSettings, Modal },
   data() {
     return {
       tracksCache: {
@@ -1587,6 +1692,10 @@ export default {
         length: 0,
       },
       clearingCache: false,
+      cacheLocation: null,
+      relocatingCache: false,
+      showCacheLocationModal: false,
+      pendingCacheDir: '',
       removeTrackCacheListener: null,
       nativeCacheListener: null,
       lastfmChecker: null,
@@ -1624,6 +1733,9 @@ export default {
     },
     isLinux() {
       return isLinux;
+    },
+    isWindows() {
+      return isWindows;
     },
     normalizedDesktopLyricsSettings() {
       return normalizeDesktopLyricsSettings(
@@ -1936,11 +2048,20 @@ export default {
       'secondaryFontSize',
       18
     ),
-    desktopLyricsLineCount: desktopLyricsSetting('lineCount', 1),
+    desktopLyricsMultiLine: {
+      get() {
+        return (this.normalizedDesktopLyricsSettings.lineCount ?? 1) > 1;
+      },
+      set(value) {
+        this.updateDesktopLyricsSettings({ lineCount: value === true ? 3 : 1 });
+      },
+    },
     desktopLyricsWheelBehavior: desktopLyricsSetting(
       'wheelBehavior',
       'classic'
     ),
+    desktopLyricsDragMode: desktopLyricsSetting('dragMode', 'lyrics'),
+    desktopLyricsAllDesktops: desktopLyricsSetting('allDesktops', false),
     desktopLyricsTextColor: desktopLyricsSetting('textColor', '#ffffff'),
     desktopLyricsSecondaryColor: desktopLyricsSetting(
       'secondaryColor',
@@ -2017,6 +2138,20 @@ export default {
         });
         this.applyCacheLimit(value);
       },
+    },
+    cacheLocationText() {
+      const location = this.cacheLocation;
+      if (!location) return this.$t('settings.cacheLocationDefault');
+      return location.isCustom
+        ? location.location
+        : this.$t('settings.cacheLocationDefault');
+    },
+    cacheLocationTitle() {
+      const location = this.cacheLocation;
+      if (!location) return '';
+      return location.isCustom
+        ? location.location
+        : location.defaultLocation || '';
     },
     proxyProtocol: {
       get() {
@@ -2108,6 +2243,7 @@ export default {
     if (isElectron) {
       this.getAllOutputDevices();
       this.listenMcpServerStatus();
+      this.loadCacheLocation();
     }
   },
   beforeUnmount() {
@@ -2245,6 +2381,65 @@ export default {
         key: 'show',
         value: true,
       });
+    },
+    async loadCacheLocation() {
+      try {
+        this.cacheLocation =
+          (await window.electronAPI?.cache?.getLocation?.()) || null;
+      } catch (error) {
+        console.error('[cache-location] failed to load cache location', error);
+      }
+    },
+    async openCacheLocation() {
+      try {
+        const failure = await window.electronAPI?.cache?.openLocation?.();
+        if (failure)
+          this.showToast(this.$t('settings.cacheLocationOpenFailed'));
+      } catch (error) {
+        console.error('[cache-location] failed to open cache location', error);
+        this.showToast(this.$t('settings.cacheLocationOpenFailed'));
+      }
+    },
+    async changeCacheLocation() {
+      if (this.relocatingCache) return;
+      const dir = await window.electronAPI?.cache?.chooseLocation?.();
+      if (!dir) return;
+      this.pendingCacheDir = dir;
+      this.showCacheLocationModal = true;
+    },
+    cacheLocationErrorText(code) {
+      const key = {
+        invalid: 'settings.cacheLocationInvalid',
+        same: 'settings.cacheLocationSame',
+        nested: 'settings.cacheLocationNested',
+      }[code];
+      return key ? this.$t(key) : this.$t('settings.cacheLocationFailed');
+    },
+    async confirmCacheRelocation(mode) {
+      if (this.relocatingCache) return;
+      this.relocatingCache = true;
+      try {
+        const result = await window.electronAPI?.cache?.setLocation?.({
+          dir: this.pendingCacheDir,
+          mode,
+        });
+        if (result && result.ok === false) {
+          this.relocatingCache = false;
+          this.showCacheLocationModal = false;
+          this.showToast(this.cacheLocationErrorText(result.code));
+        }
+        // result.ok === true → the app relaunches right away; nothing to do.
+      } catch (error) {
+        console.error('[cache-location] relocation failed', error);
+        this.relocatingCache = false;
+        this.showCacheLocationModal = false;
+        this.showToast(this.$t('settings.cacheLocationFailed'));
+      }
+    },
+    cancelCacheRelocation() {
+      if (this.relocatingCache) return;
+      this.showCacheLocationModal = false;
+      this.pendingCacheDir = '';
     },
     updateDesktopLyricsSettings(patch) {
       const value = mergeDesktopLyricsSettings(
@@ -2934,6 +3129,44 @@ h3[id] {
     margin-top: 0.5em;
     color: #e04f5f;
   }
+}
+
+.cache-location {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  .path {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0.58;
+  }
+}
+
+.cache-location-message {
+  margin: 0 0 8px 0;
+  word-break: break-all;
+}
+
+.cache-location-note,
+.cache-location-warning {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  opacity: 0.68;
+}
+
+.cache-location-warning {
+  color: #d33a31;
+  opacity: 0.9;
+}
+
+button.danger {
+  color: #d33a31;
 }
 
 select {

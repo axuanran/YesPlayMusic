@@ -4,7 +4,6 @@ import {
   BUILTIN_DESKTOP_LYRICS_STYLE_TEMPLATES,
   DEFAULT_DESKTOP_LYRICS_SETTINGS,
   DESKTOP_LYRICS_STYLE_KEYS,
-  estimateDesktopLyricsHeight,
   getDesktopLyricsStyle,
   mergeDesktopLyricsSettings,
   normalizeDesktopLyricsSettings,
@@ -78,19 +77,6 @@ describe('desktop lyrics settings', () => {
     expect(
       normalizeDesktopLyricsSettings({ lineCount: 'invalid' }).lineCount
     ).toBe(DEFAULT_DESKTOP_LYRICS_SETTINGS.lineCount);
-  });
-
-  it('estimates the height needed for the configured line count', () => {
-    const single = estimateDesktopLyricsHeight({ lineCount: 1 });
-    const multi = estimateDesktopLyricsHeight({ lineCount: 3 });
-    const withoutSecondary = estimateDesktopLyricsHeight({
-      lineCount: 3,
-      showSecondary: false,
-    });
-
-    expect(single).toBeGreaterThan(92);
-    expect(multi).toBeGreaterThan(single);
-    expect(withoutSecondary).toBeLessThan(multi);
   });
 
   it('merges a partial update without losing saved values', () => {
@@ -232,6 +218,30 @@ describe('desktop lyrics settings', () => {
     expect(
       normalizeDesktopLyricsSettings({ wheelBehavior: 'zoom' })
     ).toMatchObject({ wheelBehavior: 'classic' });
+  });
+
+  it('defaults the drag mode to lyrics and rejects unknown values', () => {
+    expect(normalizeDesktopLyricsSettings()).toMatchObject({
+      dragMode: 'lyrics',
+    });
+    expect(
+      normalizeDesktopLyricsSettings({ dragMode: 'window' })
+    ).toMatchObject({ dragMode: 'window' });
+    expect(normalizeDesktopLyricsSettings({ dragMode: 'both' })).toMatchObject({
+      dragMode: 'lyrics',
+    });
+  });
+
+  it('normalizes the all-desktops pin flag', () => {
+    expect(normalizeDesktopLyricsSettings()).toMatchObject({
+      allDesktops: false,
+    });
+    expect(normalizeDesktopLyricsSettings({ allDesktops: true })).toMatchObject(
+      { allDesktops: true }
+    );
+    expect(
+      normalizeDesktopLyricsSettings({ allDesktops: 'yes' })
+    ).toMatchObject({ allDesktops: false });
   });
 
   it('exports dpi and relative window placement alongside the style', () => {

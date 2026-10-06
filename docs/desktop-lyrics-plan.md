@@ -13,14 +13,16 @@
 
 多句歌词与进度控制已经完成：
 
-- `desktopLyrics.lineCount`（1–9，默认 1）允许同时显示多句歌词；设置页提供 1/3/5/7 行选项，行数增加时窗口高度自动增长一次。
+- `desktopLyrics.lineCount`（内部值，默认 1 = 单行）由设置页开关切换单行/多句显示；多句模式显示前后文并高亮当前行。窗口尺寸只随用户手动调整变化，行数切换不会自动改变窗口大小。
 - 完整歌词列表经 `desktop-lyrics:lines` 分页发送（每页 ≤200 行，共享 sequence，主进程合并），高亮行号经 `desktop-lyrics:update` 的 `active` 字段轻量更新。
-- 解锁后点击任意歌词行经 `seekTo` 命令跳转播放进度；点击当前行从该行开头重复播放。
+- 解锁后点击歌词（仅中部区域，见下）经 `seekTo` 命令跳转播放进度；点击当前行从该行开头重复播放。
+- 拖动行为由 `desktopLyrics.dragMode` 配置（默认 `lyrics`）：`lyrics` 下只有列表垂直中间 50% 区域可点击（no-drag），窗口边缘保持可拖动；`window` 下整个窗口都是拖动面，歌词不可点击。可点击区随滚动实时更新。
 - 滚轮行为由 `desktopLyrics.wheelBehavior` 配置（默认 `classic`）：`classic` 下直接滚轮按 5 秒步长快进/后退（`seek` 命令），`scroll` 下多行列表上直接滚轮原生滚动浏览歌词并暂停自动跟随 3 秒、其他地方与 `classic` 一致；两种模式都是 Ctrl+滚轮调整背景不透明度。Windows 原生 `WM_MOUSEWHEEL` 钩子负责 Ctrl 组合，与渲染进程事件 50ms 去重。
 - 页面缩放被锁定（`setVisualZoomLevelLimits(1, 1)` + `setZoomLevel(0)`），Ctrl+滚轮/触摸板捏合不会逐步放大歌词；所有被处理的滚轮事件都 `preventDefault`。
 - 窗口允许拖到屏幕边缘外（部分可见即可保存）；完全离开所有工作区时才恢复默认位置（水平居中、垂直中间偏下，`DEFAULT_POSITION_RATIO = 0.6`）。
 - “恢复窗口”同时重置样式（默认“经典”外观）并恢复默认位置。
 - 样式导出为 version 2：附带导出机 DPI 与工作区内相对位置；导入时按 DPI 比例缩放字号和窗口尺寸，并把相对位置映射到当前工作区。v1 文件仍可导入。
+- `desktopLyrics.allDesktops`（默认关，仅 Windows）把歌词窗口固定到所有虚拟桌面并保持相同位置：主进程通过内置 PowerShell 运行时编译最小 C# COM 互操作，按 OS build 选择 `IApplicationView`/`IApplicationViewCollection` GUID 调用 `IVirtualDesktopPinnedApps.PinView/UnpinView`；失败静默降级不影响窗口本身，pin 调用按状态变化去重。
 
 当前限制：
 

@@ -168,6 +168,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   cache: {
     clearDiskCache: () => ipcRenderer.invoke('cache:clear-disk'),
+    getLocation: () => ipcRenderer.invoke('cache:get-location'),
+    chooseLocation: () => ipcRenderer.invoke('cache:choose-location'),
+    openLocation: () => ipcRenderer.invoke('cache:open-location'),
+    setLocation: payload => {
+      const sanitizedPayload = sanitizeSerializableValue(payload);
+      if (
+        !isPlainObject(sanitizedPayload) ||
+        !isBoundedString(sanitizedPayload.dir, 1, 4096) ||
+        !['move', 'delete'].includes(sanitizedPayload.mode)
+      ) {
+        return Promise.reject(new Error('Invalid cache relocation request'));
+      }
+      return ipcRenderer.invoke('cache:set-location', sanitizedPayload);
+    },
   },
   download: {
     saveArtwork: payload => {
@@ -247,6 +261,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onSetVolume: callback => on('setVolume', callback),
     onLike: callback => on('like', callback),
     onRepeat: callback => on('repeat', callback),
+    onRepeatLyricLine: callback => on('repeatLyricLine', callback),
     onShuffle: callback => on('shuffle', callback),
     onRouterGo: callback => on('routerGo', callback),
     onNextUp: callback => on('nextUp', callback),

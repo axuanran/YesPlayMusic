@@ -41,6 +41,11 @@ class MockWindow extends EventEmitter {
     this.hide = vi.fn();
     this.webContents.setVisualZoomLevelLimits = vi.fn();
     this.webContents.setZoomLevel = vi.fn();
+    this.getNativeWindowHandle = vi.fn(() => {
+      const handle = Buffer.alloc(8);
+      handle.writeInt32LE(4242, 0);
+      return handle;
+    });
     this.bounds = {
       height: options.height,
       width: options.width,
@@ -83,6 +88,7 @@ describe('desktop lyrics window', () => {
     expect(html).not.toContain('<script');
     expect(html).not.toContain('innerHTML');
     expect(html).toContain('id="opacity-indicator"');
+    expect(html).toContain('id="repeat"');
     expect(html).toContain('-webkit-app-region: drag');
     expect(html).toContain('.wrap-lines #line');
     expect(html).toContain('align-items: var(--lyrics-vertical-align)');
@@ -128,6 +134,7 @@ describe('desktop lyrics window', () => {
         line: 'Line',
         lines: [],
         playing: false,
+        repeatLyric: false,
         settings: expect.objectContaining({
           enabled: true,
           locked: false,
@@ -280,6 +287,32 @@ describe('desktop lyrics window', () => {
     controller.handleCommand({ type: 'seekTo', value: -1 });
     controller.handleCommand({ type: 'seekTo', value: 'NaN' });
     expect(mainWindow.webContents.send).toHaveBeenCalledTimes(2);
+  });
+
+  it('forwards the repeat-lyric-line command to the main window', () => {
+    const mainWindow = { webContents: { send: vi.fn() } };
+    const controller = createController({
+      mainWindow,
+      store: disabledUnlockedStore(),
+    });
+
+    controller.handleCommand({ type: 'repeatLyricLine' });
+
+    expect(mainWindow.webContents.send).toHaveBeenLastCalledWith(
+      'repeatLyricLine'
+    );
+  });
+
+  it('passes the repeat lyric state through to the renderer', () => {
+    const controller = createController({ store: disabledUnlockedStore() });
+
+    controller.update({ repeatLyric: true });
+    controller.setEnabled(true);
+
+    expect(controller.window.webContents.send).toHaveBeenLastCalledWith(
+      'desktop-lyrics:render',
+      expect.objectContaining({ repeatLyric: true })
+    );
   });
 
   it('uses native dragging while disabling native resizing', () => {
@@ -505,16 +538,67 @@ describe('desktop lyrics window', () => {
     expect(controller.currentLyrics.active).toBe(0);
   });
 
-  it('grows the window height when the visible line count increases', () => {
+  it('never resizes the window on its own when the line count changes', () => {
     const controller = createController();
     controller.setEnabled(true);
     const initialBounds = controller.window.getBounds();
+    controller.window.setBounds.mockClear();
 
     controller.patchSettings({ lineCount: 3 });
-    const nextBounds = controller.window.getBounds();
 
     expect(controller.settings.lineCount).toBe(3);
-    expect(nextBounds.height).toBeGreaterThan(initialBounds.height);
-    expect(nextBounds.height).toBeLessThanOrEqual(400);
+    expect(controller.window.setBounds).not.toHaveBeenCalled();
+    expect(controller.window.getBounds()).toEqual(initialBounds);
+  });
+
+  it('pins the window to all virtual desktops only when enabled on Windows', () => {
+    const setWindowPinned = vi.fn();
+    const controller = createController({
+      platform: 'win32',
+      setWindowPinned,
+      store: disabledUnlockedStore(),
+    });
+    controller.setEnabled(true);
+    controller.patchSettings({ allDesktops: true });
+
+    expect(setWindowPinned).toHaveBeenLastCalledWith({
+      hwnd: 4242,
+      pinned: true,
+    });
+
+    controller.patchSettings({ allDesktops: false });
+    expect(setWindowPinned).toHaveBeenLastCalledWith({
+      hwnd: 4242,
+      pinned: false,
+    });
+    expect(setWindowPinned).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not repeat the pin call while the state is unchanged', () => {
+    const setWindowPinned = vi.fn();
+    const controller = createController({
+      platform: 'win32',
+      setWindowPinned,
+      store: disabledUnlockedStore(),
+    });
+    controller.setEnabled(true);
+    controller.patchSettings({ allDesktops: true });
+    controller.applySettings({ ...controller.settings });
+    controller.update({ line: 'still pinned' });
+
+    expect(setWindowPinned).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores the all-desktops pin outside Windows', () => {
+    const setWindowPinned = vi.fn();
+    const controller = createController({
+      platform: 'darwin',
+      setWindowPinned,
+      store: disabledUnlockedStore(),
+    });
+    controller.setEnabled(true);
+    controller.patchSettings({ allDesktops: true });
+
+    expect(setWindowPinned).not.toHaveBeenCalled();
   });
 });

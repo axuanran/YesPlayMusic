@@ -53,6 +53,12 @@ const defaultShortcuts = [
     global: createBinding('', false),
   },
   {
+    id: 'repeatLyricLine',
+    name: '单句循环（锁定当前歌词）',
+    local: createBinding('Alt+E'),
+    global: createBinding('Alt+CommandOrControl+E'),
+  },
+  {
     id: 'minimize',
     name: '隐藏/显示播放器',
     local: createBinding('CommandOrControl+M'),

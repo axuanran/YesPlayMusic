@@ -26,6 +26,8 @@ export const DEFAULT_DESKTOP_LYRICS_SETTINGS = Object.freeze({
   backgroundOpacity: 0,
   lineCount: 1,
   wheelBehavior: 'classic',
+  dragMode: 'lyrics',
+  allDesktops: false,
   width: 960,
   height: 120,
   x: null,
@@ -96,6 +98,7 @@ const ALIGNMENTS = new Set(['left', 'center', 'right']);
 const OVERFLOW_MODES = new Set(['ellipsis', 'wrap']);
 const VERTICAL_POSITIONS = new Set(['top', 'center', 'bottom']);
 const WHEEL_BEHAVIORS = new Set(['classic', 'scroll']);
+const DRAG_MODES = new Set(['lyrics', 'window']);
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const TEMPLATE_ID_PATTERN = /^[a-z0-9_-]{1,64}$/i;
 const MAX_CUSTOM_STYLE_TEMPLATES = 20;
@@ -204,6 +207,13 @@ export function normalizeDesktopLyricsSettings(value = {}, legacyEnabled) {
     wheelBehavior: WHEEL_BEHAVIORS.has(source.wheelBehavior)
       ? source.wheelBehavior
       : defaults.wheelBehavior,
+    dragMode: DRAG_MODES.has(source.dragMode)
+      ? source.dragMode
+      : defaults.dragMode,
+    allDesktops:
+      typeof source.allDesktops === 'boolean'
+        ? source.allDesktops
+        : defaults.allDesktops,
     width: Math.round(clamp(source.width, 360, 1920, defaults.width)),
     height: Math.round(clamp(source.height, 92, 400, defaults.height)),
     x: coordinate(source.x),
@@ -222,22 +232,6 @@ export function mergeDesktopLyricsSettings(current, patch, legacyEnabled) {
       ...safePatch,
     },
     legacyEnabled
-  );
-}
-
-// Vertical space needed to show `lineCount` rows without internal scrolling.
-// Mirrors the renderer CSS: #lyrics padding, primary/secondary line heights
-// and the control bar clearance. The window layer clamps the result to its
-// own min/max bounds.
-export function estimateDesktopLyricsHeight(value = {}) {
-  const settings = normalizeDesktopLyricsSettings(value);
-  const primaryRow = settings.fontSize * 1.35;
-  const secondaryRow = settings.showSecondary
-    ? settings.secondaryFontSize * 1.3 + 3
-    : 0;
-  const verticalPadding = 20 + 44 + 16;
-  return Math.ceil(
-    verticalPadding + settings.lineCount * (primaryRow + secondaryRow)
   );
 }
 

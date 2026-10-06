@@ -11,6 +11,7 @@ import {
   globalShortcut,
   nativeTheme,
   screen,
+  session,
 } from 'electron';
 import {
   isWindows,
@@ -29,6 +30,10 @@ import * as neteaseProvider from '../../server/providers/netease.js';
 import * as lxProvider from '../../server/providers/lx.js';
 import * as fallbackProvider from '../../server/providers/fallback.js';
 import { initIpcMain } from '../electron/ipcMain.js';
+import {
+  readCacheLocationStateSync,
+  runPendingRelocation,
+} from '../electron/cacheLocation.js';
 import { startControlServer } from '../electron/controlServer.js';
 import { createMcpServerManager } from '../electron/mcpServer.js';
 import { DesktopLyricsWindow } from '../electron/desktopLyricsWindow.js';
@@ -247,6 +252,16 @@ class Background {
     });
     this.willQuitApp = !isMac;
 
+    // Execute a pending cache-location relocation as early as possible; it is
+    // awaited before the first window is created, so no session is using the
+    // storage while it is being moved or deleted.
+    this.pendingCacheRelocation = runPendingRelocation(
+      app.getPath('userData'),
+      {
+        log: message => log(`[cache-location] ${message}`),
+      }
+    );
+
     this.init();
   }
 
@@ -464,6 +479,25 @@ class Background {
           : '#fff',
     };
 
+    // Relocate the main window session (HTTP cache + IndexedDB track cache +
+    // local storage) when a custom cache location is configured. The actual
+    // data transfer happens at the previous shutdown/startup boundary via
+    // runPendingRelocation; here we only point the session at the directory.
+    const cacheLocationState = readCacheLocationStateSync(
+      app.getPath('userData')
+    );
+    if (cacheLocationState.location) {
+      try {
+        fs.mkdirSync(cacheLocationState.location, { recursive: true });
+        options.webPreferences.session = session.fromPath(
+          cacheLocationState.location
+        );
+        log(`using custom cache location: ${cacheLocationState.location}`);
+      } catch (error) {
+        log(`failed to apply custom cache location: ${error?.message}`);
+      }
+    }
+
     if (this.store.get('window.x') && this.store.get('window.y')) {
       let x = this.store.get('window.x');
       let y = this.store.get('window.y');
@@ -627,6 +661,9 @@ class Background {
       // The local API starts in parallel. Its proxy gates API requests without
       // blocking BrowserWindow creation and first paint.
       await this.expressReady;
+
+      // Finish a pending cache relocation before any window/session exists.
+      await this.pendingCacheRelocation;
 
       // create window
       this.createWindow();
