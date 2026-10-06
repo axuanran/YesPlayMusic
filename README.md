@@ -37,6 +37,8 @@ dev分支会自动编译到Release。被合并后可以安装查看自己编写�
 
 如何提交pr：先fork然后clone下来后拿ai实现下后提交到你自己的仓库然后提交pr。最后将pr从草稿改为准备好审核
 
+### Windows平台建议下载标注为latest的版本的 XuMP Setup xxx.exe
+
 ---
 
 此 README 以及本项目的修改部分基本由 AI 编写。由于 dev 分支不稳定，请尽量使用手动标注为 Latest 的版本。Docker 的 latest 跟随 dev，建议部署固定版本标签。目前docker仅为测试版本，不保证可用性
@@ -69,6 +71,12 @@ dev分支会自动编译到Release。被合并后可以安装查看自己编写�
     <td align="center"><sub>音频 Resolver 状态与 Provider 管理</sub></td>
   </tr>
 </table>
+
+<p align="center">
+  <img src="images/mcp.png" alt="通过内置 MCP 服务器用 AI 控制播放" width="92%">
+</p>
+
+<p align="center"><sub>内置 MCP 服务器：AI 助手直接搜索、播放并管理播放队列</sub></p>
 
 <details>
 <summary>查看更多界面截图</summary>
