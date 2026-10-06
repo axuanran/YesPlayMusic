@@ -20,11 +20,13 @@ const MAX_WINDOW_WIDTH = 1920;
 const MAX_WINDOW_HEIGHT = 400;
 const WHEEL_SEEK_STEP_SECONDS = 5;
 
-// 'seek' scrubs playback, 'opacity' adjusts the background, null means the
-// gesture is handled by the renderer (seek command or lyric list scrolling)
-// or ignored.
-const wheelModeFromModifiers = modifiers =>
-  (modifiers & MK_CONTROL) !== 0 ? 'opacity' : null;
+// 'seek' scrubs playback, 'opacity' adjusts the background, 'scroll-list'
+// scrolls the multi-line lyric list, null means the gesture is handled by the
+// renderer (seek command) or ignored.
+const wheelModeFromModifiers = (modifiers, wheelBehavior) => {
+  if ((modifiers & MK_CONTROL) !== 0) return 'opacity';
+  return wheelBehavior === 'scroll' ? 'scroll-list' : null;
+};
 
 const normalizeText = value =>
   typeof value === 'string' ? value.slice(0, 2048) : '';
@@ -116,7 +118,8 @@ export function buildDesktopLyricsHtml() {
       }
       #line { color: var(--lyrics-text-color); font-size: var(--lyrics-font-size); font-weight: 750; line-height: 1.35; }
       #translation { margin-top: 3px; color: var(--lyrics-secondary-color); font-size: var(--lyrics-secondary-font-size); font-weight: 600; line-height: 1.3; }
-      #translation:empty, .hide-secondary #translation { display: none; }
+      #roman { margin-top: 2px; color: var(--lyrics-secondary-color); font-size: calc(var(--lyrics-secondary-font-size) * 0.85); font-weight: 600; font-style: italic; line-height: 1.3; opacity: .8; }
+      #translation:empty, #roman:empty, .hide-secondary #translation, .hide-secondary #roman { display: none; }
       #lines {
         display: none;
         flex-direction: column;
@@ -141,7 +144,7 @@ export function buildDesktopLyricsHtml() {
         /* gaps between lyric items stay draggable so the window can be moved */
         -webkit-app-region: drag;
       }
-      .multi-line #line, .multi-line #translation { display: none; }
+      .multi-line #line, .multi-line #translation, .multi-line #roman { display: none; }
       .lyric-spacer { flex: 0 0 auto; pointer-events: none; }
       .lyric-item {
         opacity: .45;
@@ -174,8 +177,21 @@ export function buildDesktopLyricsHtml() {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .lyric-item-roman {
+        margin-top: 1px;
+        overflow: hidden;
+        color: var(--lyrics-secondary-color);
+        font-size: calc(var(--lyrics-secondary-font-size) * 0.85);
+        font-weight: 600;
+        font-style: italic;
+        line-height: 1.3;
+        opacity: .8;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .wrap-lines .lyric-item-primary,
-      .wrap-lines .lyric-item-secondary {
+      .wrap-lines .lyric-item-secondary,
+      .wrap-lines .lyric-item-roman {
         overflow-wrap: anywhere;
         text-overflow: clip;
         white-space: normal;
@@ -267,6 +283,7 @@ export function buildDesktopLyricsHtml() {
     <div id="lyrics">
       <div id="line"></div>
       <div id="translation"></div>
+      <div id="roman"></div>
       <div id="lines"></div>
     </div>
     <div id="controls">
@@ -321,6 +338,7 @@ export class DesktopLyricsWindow {
     this.currentLyrics = {
       line: '',
       translation: '',
+      roman: '',
       playing: false,
       volume: 1,
       lines: [],
@@ -467,6 +485,7 @@ export class DesktopLyricsWindow {
       ...this.currentLyrics,
       line: normalizeText(payload.line),
       translation: normalizeText(payload.translation),
+      roman: normalizeText(payload.roman),
       playing:
         typeof payload.playing === 'boolean'
           ? payload.playing
@@ -632,12 +651,14 @@ export class DesktopLyricsWindow {
         const delta =
           unsignedDelta & 0x8000 ? unsignedDelta - 0x10000 : unsignedDelta;
         // The low word carries the modifier key state: Ctrl+wheel adjusts the
-        // background opacity, a plain wheel is left to the renderer (playback
-        // seek or, in scroll mode, browsing the lyric list).
+        // background opacity. A plain wheel reaches the renderer as a DOM
+        // event only over non-drag areas — drag regions hit-test as HTCAPTION
+        // on Windows — so in scroll mode the hook also forwards the delta for
+        // the lyric list; routeWheel dedups the two sources.
         this.routeWheel(
           delta,
           'native',
-          wheelModeFromModifiers(value & 0xffff)
+          wheelModeFromModifiers(value & 0xffff, this.settings.wheelBehavior)
         );
       });
     }
@@ -749,6 +770,9 @@ export class DesktopLyricsWindow {
       case 'seek':
         this.routeWheel(command.value, 'renderer', 'seek');
         break;
+      case 'wheelScroll':
+        this.routeWheel(command.value, 'renderer', 'scroll-list');
+        break;
       case 'adjustBackgroundOpacity':
         this.handleWheelDelta(command.value, 'renderer');
         break;
@@ -780,12 +804,14 @@ export class DesktopLyricsWindow {
   }
 
   // One entry point for every wheel source (the native Windows hook and the
-  // renderer DOM event can both fire for the same gesture). Scrolling the
-  // lyric list and plain-wheel seeking stay in the renderer; here only
-  // Ctrl+wheel lands, adjusting the background opacity.
+  // renderer DOM event can both fire for the same gesture). Plain-wheel
+  // seeking stays in the renderer; lyric list scrolling is mirrored back to
+  // the lyrics window so it also works over drag regions, which hit-test as
+  // HTCAPTION on Windows and never deliver DOM wheel events; here only
+  // Ctrl+wheel lands locally, adjusting the background opacity.
   routeWheel(delta, source, mode) {
     if (this.settings.locked || !Number.isFinite(delta) || delta === 0) return;
-    if (mode !== 'seek' && mode !== 'opacity') return;
+    if (!['seek', 'opacity', 'scroll-list'].includes(mode)) return;
     const direction = Math.sign(delta);
     const now = Date.now();
     if (
@@ -800,8 +826,10 @@ export class DesktopLyricsWindow {
     this.lastWheelInput = { at: now, direction, source, mode };
     if (mode === 'opacity') {
       this.adjustBackgroundOpacity(direction);
-    } else {
+    } else if (mode === 'seek') {
       this.seekByWheel(direction);
+    } else {
+      this.window?.webContents.send?.('desktop-lyrics:wheel', delta);
     }
   }
 

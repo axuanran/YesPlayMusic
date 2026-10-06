@@ -114,7 +114,7 @@ describe('desktop lyrics preload', () => {
     );
   });
 
-  it('lets a plain wheel scroll the list natively in scroll mode', () => {
+  it('routes a plain wheel over the list through the wheelScroll command', () => {
     ipcListeners.get('desktop-lyrics:settings')(
       {},
       { ...unlockedSettings, wheelBehavior: 'scroll' }
@@ -130,10 +130,10 @@ describe('desktop lyrics preload', () => {
 
     windowListeners.get('wheel')(event);
 
-    expect(event.preventDefault).not.toHaveBeenCalled();
-    expect(mocks.ipcRenderer.send).not.toHaveBeenCalledWith(
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(mocks.ipcRenderer.send).toHaveBeenCalledWith(
       'desktop-lyrics:command',
-      expect.objectContaining({ type: 'seek' })
+      { type: 'wheelScroll', value: 120 }
     );
   });
 

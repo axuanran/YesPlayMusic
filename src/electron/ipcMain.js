@@ -722,6 +722,7 @@ export function initIpcMain(
       line: typeof payload.line === 'string' ? payload.line : '',
       translation:
         typeof payload.translation === 'string' ? payload.translation : '',
+      roman: typeof payload.roman === 'string' ? payload.roman : '',
       playing:
         typeof payload.playing === 'boolean' ? payload.playing : undefined,
       volume: isFiniteNumberInRange(payload.volume, 0, 1)
@@ -756,6 +757,7 @@ export function initIpcMain(
             typeof line.translation === 'string'
               ? line.translation.slice(0, 512)
               : '',
+          roman: typeof line.roman === 'string' ? line.roman.slice(0, 512) : '',
         }))
         .filter(line => line.content),
     });

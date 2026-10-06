@@ -15,6 +15,7 @@ describe('lyric display mode', () => {
     expect(modes).toEqual([
       LYRIC_DISPLAY_MODE.TRANSLATION,
       LYRIC_DISPLAY_MODE.PRONUNCIATION,
+      LYRIC_DISPLAY_MODE.BOTH,
       LYRIC_DISPLAY_MODE.NONE,
     ]);
     expect(getNextLyricDisplayMode(modes, LYRIC_DISPLAY_MODE.TRANSLATION)).toBe(
@@ -22,7 +23,10 @@ describe('lyric display mode', () => {
     );
     expect(
       getNextLyricDisplayMode(modes, LYRIC_DISPLAY_MODE.PRONUNCIATION)
-    ).toBe(LYRIC_DISPLAY_MODE.NONE);
+    ).toBe(LYRIC_DISPLAY_MODE.BOTH);
+    expect(getNextLyricDisplayMode(modes, LYRIC_DISPLAY_MODE.BOTH)).toBe(
+      LYRIC_DISPLAY_MODE.NONE
+    );
     expect(getNextLyricDisplayMode(modes, LYRIC_DISPLAY_MODE.NONE)).toBe(
       LYRIC_DISPLAY_MODE.TRANSLATION
     );

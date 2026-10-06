@@ -36,7 +36,8 @@ const linesEqual = (left, right) => {
     if (
       a?.time !== b?.time ||
       a?.content !== b?.content ||
-      a?.translation !== b?.translation
+      a?.translation !== b?.translation ||
+      a?.roman !== b?.roman
     ) {
       return false;
     }
@@ -96,6 +97,18 @@ const scheduleDragZoneUpdate = () => {
   );
 };
 
+// The list never scrolls natively: drag regions hit-test as HTCAPTION on
+// Windows, so wheel gestures there never become DOM events. Every source
+// (DOM events over non-drag areas and the native WM_MOUSEWHEEL hook) routes
+// through the main process and comes back as 'desktop-lyrics:wheel'.
+const scrollLyricListBy = delta => {
+  const container = document.getElementById('lines');
+  if (!container || !document.body.classList.contains('multi-line')) return;
+  if (!Number.isFinite(delta) || delta === 0) return;
+  userScrollUntil = Date.now() + USER_SCROLL_FOLLOW_PAUSE_MS;
+  container.scrollTop += delta;
+};
+
 // Multi-line mode renders the whole (bounded) lyric list and keeps the active
 // line centered and highlighted as playback advances.
 const renderLines = (lines, active) => {
@@ -120,6 +133,12 @@ const renderLines = (lines, active) => {
         secondary.className = 'lyric-item-secondary';
         secondary.textContent = line.translation;
         item.appendChild(secondary);
+      }
+      if (typeof line?.roman === 'string' && line.roman) {
+        const roman = document.createElement('div');
+        roman.className = 'lyric-item-roman';
+        roman.textContent = line.roman;
+        item.appendChild(roman);
       }
       fragment.appendChild(item);
     });
@@ -225,10 +244,12 @@ const applyState = payload => {
   if (multiLine) {
     setText('line', '');
     setText('translation', '');
+    setText('roman', '');
     renderLines(lines, Number.isInteger(payload.active) ? payload.active : -1);
   } else {
     setText('line', payload.line);
     setText('translation', payload.translation);
+    setText('roman', payload.roman);
   }
   const volume = document.getElementById('volume');
   if (volume && Number.isFinite(payload.volume)) {
@@ -291,9 +312,10 @@ window.addEventListener('DOMContentLoaded', () => {
       // progressively enlarge the lyrics.
       const scrollMode = appliedSettings.wheelBehavior === 'scroll';
       if (scrollMode && !event.ctrlKey && event.target?.closest?.('#lines')) {
-        // browsing: pause auto-follow for a few seconds so the list is not
-        // yanked back to the active line on every line change
-        userScrollUntil = Date.now() + USER_SCROLL_FOLLOW_PAUSE_MS;
+        // browsing: hand the delta to the main process, which dedups the
+        // native hook and mirrors it back as 'desktop-lyrics:wheel'
+        event.preventDefault();
+        sendCommand('wheelScroll', deltaY);
         return;
       }
       event.preventDefault();
@@ -360,6 +382,9 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   ipcRenderer.on('desktop-lyrics:settings', (_event, settings) => {
     applySettings(settings);
+  });
+  ipcRenderer.on('desktop-lyrics:wheel', (_event, delta) => {
+    scrollLyricListBy(Number(delta));
   });
   sendCommand('ready');
 });

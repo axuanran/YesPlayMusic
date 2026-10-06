@@ -135,6 +135,7 @@ describe('desktop lyrics window', () => {
         lines: [],
         playing: false,
         repeatLyric: false,
+        roman: '',
         settings: expect.objectContaining({
           enabled: true,
           locked: false,
@@ -235,6 +236,70 @@ describe('desktop lyrics window', () => {
       { type: 'seek', offset: 5 },
     ]);
     expect(controller.settings.backgroundOpacity).toBe(0.1);
+  });
+
+  it('mirrors a plain native wheel to the lyric list in scroll mode', () => {
+    const controller = createController({
+      platform: 'win32',
+      store: disabledUnlockedStore(),
+    });
+    controller.setEnabled(true);
+    controller.patchSettings({ wheelBehavior: 'scroll' });
+    controller.window.webContents.send.mockClear();
+    const [, handleNativeWheel] =
+      controller.window.hookWindowMessage.mock.calls[0];
+    const wParam = Buffer.alloc(4);
+    wParam.writeInt16LE(120, 2);
+
+    handleNativeWheel(wParam);
+
+    expect(controller.window.webContents.send).toHaveBeenCalledWith(
+      'desktop-lyrics:wheel',
+      120
+    );
+  });
+
+  it('dedups native and renderer scroll-list wheel input', () => {
+    const controller = createController({
+      platform: 'win32',
+      store: disabledUnlockedStore(),
+    });
+    controller.setEnabled(true);
+    controller.patchSettings({ wheelBehavior: 'scroll' });
+    controller.window.webContents.send.mockClear();
+    const [, handleNativeWheel] =
+      controller.window.hookWindowMessage.mock.calls[0];
+    const wParam = Buffer.alloc(4);
+    wParam.writeInt16LE(120, 2);
+
+    handleNativeWheel(wParam);
+    controller.handleCommand({ type: 'wheelScroll', value: 120 });
+
+    expect(controller.window.webContents.send).toHaveBeenCalledTimes(1);
+    expect(controller.window.webContents.send).toHaveBeenCalledWith(
+      'desktop-lyrics:wheel',
+      120
+    );
+  });
+
+  it('ignores a plain native wheel in the default classic mode', () => {
+    const controller = createController({
+      platform: 'win32',
+      store: disabledUnlockedStore(),
+    });
+    controller.setEnabled(true);
+    controller.window.webContents.send.mockClear();
+    const [, handleNativeWheel] =
+      controller.window.hookWindowMessage.mock.calls[0];
+    const wParam = Buffer.alloc(4);
+    wParam.writeInt16LE(120, 2);
+
+    handleNativeWheel(wParam);
+
+    expect(controller.window.webContents.send).not.toHaveBeenCalledWith(
+      'desktop-lyrics:wheel',
+      expect.anything()
+    );
   });
 
   it('keeps Ctrl+wheel on background opacity without double adjustment', () => {

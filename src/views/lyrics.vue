@@ -242,6 +242,13 @@
                   @click.right="openLyricMenu($event, line, 1)"
                   >{{ line.contents[1] }}</span
                 >
+                <br v-if="line.contents[1] && line.contents[2]" />
+                <span
+                  v-if="line.contents[2] && showSecondaryLyric"
+                  class="translation pronunciation"
+                  @click.right="openLyricMenu($event, line, 2)"
+                  >{{ line.contents[2] }}</span
+                >
               </div>
             </div>
             <div
@@ -525,6 +532,7 @@ export default {
           'player.secondaryLyricTranslationShort',
         [LYRIC_DISPLAY_MODE.PRONUNCIATION]:
           'player.secondaryLyricPronunciationShort',
+        [LYRIC_DISPLAY_MODE.BOTH]: 'player.secondaryLyricBothShort',
         [LYRIC_DISPLAY_MODE.NONE]: 'player.secondaryLyricHiddenShort',
       }[this.lyricType];
     },
@@ -532,6 +540,7 @@ export default {
       return {
         [LYRIC_DISPLAY_MODE.TRANSLATION]: 'player.translationLyric',
         [LYRIC_DISPLAY_MODE.PRONUNCIATION]: 'player.PronunciationLyric',
+        [LYRIC_DISPLAY_MODE.BOTH]: 'player.bothLyrics',
         [LYRIC_DISPLAY_MODE.NONE]: 'player.secondaryLyricHidden',
       }[this.lyricType];
     },
@@ -588,6 +597,9 @@ export default {
       }
       if (this.lyricType === LYRIC_DISPLAY_MODE.TRANSLATION) {
         return this.lyricWithTranslation;
+      }
+      if (this.lyricType === LYRIC_DISPLAY_MODE.BOTH) {
+        return this.lyricWithTranslationAndRoma;
       }
       return this.lyricWithoutSecondary;
     },
@@ -661,6 +673,23 @@ export default {
         }));
       }
       return ret;
+    },
+    // 翻译与发音同时展示：contents = [原文, 翻译, 发音]
+    lyricWithTranslationAndRoma() {
+      return this.lyric
+        .filter(({ content }) => Boolean(content))
+        .map(({ rawTime, time, content }) => {
+          const contents = [content];
+          const sameTimeTLyric = this.tlyric.find(
+            ({ rawTime: tLyricRawTime }) => tLyricRawTime === rawTime
+          );
+          if (sameTimeTLyric) contents.push(sameTimeTLyric.content);
+          const sameTimeRomaLyric = this.romalyric.find(
+            ({ rawTime: romaLyricRawTime }) => romaLyricRawTime === rawTime
+          );
+          if (sameTimeRomaLyric) contents.push(sameTimeRomaLyric.content);
+          return { time, content, contents };
+        });
     },
     lyricFontSize() {
       return {
@@ -1162,13 +1191,19 @@ export default {
       if (!this.desktopLyricsEnabled) return;
       const lyric = this.lyric[this.highlightLyricIndex];
       const line = lyric?.content || '';
+      const showBoth = this.lyricType === LYRIC_DISPLAY_MODE.BOTH;
       const secondaryLyrics =
         this.lyricType === LYRIC_DISPLAY_MODE.PRONUNCIATION
           ? this.romalyric
           : this.tlyric;
+      const romanLyrics = showBoth ? this.romalyric : [];
       const secondaryLyric = lyric
         ? secondaryLyrics.find(item => item.rawTime === lyric.rawTime)
             ?.content || ''
+        : '';
+      const romanLyric = lyric
+        ? romanLyrics.find(item => item.rawTime === lyric.rawTime)?.content ||
+          ''
         : '';
       const hideLine = isDesktopLyricPlaceholder(line);
       const { lines, active } = this.buildDesktopLyricLines();
@@ -1179,6 +1214,12 @@ export default {
           !hideLine &&
           !isDesktopLyricPlaceholder(secondaryLyric)
             ? secondaryLyric
+            : '',
+        roman:
+          this.desktopLyricsTranslationEnabled &&
+          !hideLine &&
+          !isDesktopLyricPlaceholder(romanLyric)
+            ? romanLyric
             : '',
         playing: this.player.playing,
         volume: this.player.volume,
@@ -1191,10 +1232,12 @@ export default {
     // (new track, translation mode switch). Per-line highlight updates travel
     // with the light `update` payload via `active`.
     buildDesktopLyricLines() {
+      const showBoth = this.lyricType === LYRIC_DISPLAY_MODE.BOTH;
       const secondarySource =
         this.lyricType === LYRIC_DISPLAY_MODE.PRONUNCIATION
           ? this.romalyric
           : this.tlyric;
+      const romanSource = showBoth ? this.romalyric : [];
       const lines = [];
       let active = -1;
       this.lyric.forEach((lyricLine, index) => {
@@ -1210,7 +1253,16 @@ export default {
           !isDesktopLyricPlaceholder(secondary)
             ? secondary
             : '';
-        lines.push({ time: lyricLine.time, content, translation });
+        const roman =
+          this.desktopLyricsTranslationEnabled && romanSource.length
+            ? (() => {
+                const value = romanSource.find(
+                  item => item.rawTime === lyricLine.rawTime
+                )?.content;
+                return value && !isDesktopLyricPlaceholder(value) ? value : '';
+              })()
+            : '';
+        lines.push({ time: lyricLine.time, content, translation, roman });
       });
       return { lines, active };
     },
@@ -1311,6 +1363,7 @@ export default {
       window.electronAPI?.desktopLyrics?.update({
         line: '',
         translation: '',
+        roman: '',
         active: -1,
         repeatLyric: false,
       });
@@ -1871,6 +1924,11 @@ export default {
 
     .translation {
       margin-top: 0.1em;
+    }
+
+    .pronunciation {
+      font-size: 0.85em;
+      font-style: italic;
     }
 
     .highlight div.content {
