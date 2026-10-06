@@ -441,6 +441,26 @@ jobs:
             --no-progress
           echo "Uploaded release artifacts to: $destination"
 
+          # Keep only the newest release in the bucket: tagged releases drop
+          # everything published before them. Dev-branch runs keep uploading
+          # without cleanup so their download links stay valid.
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            aws s3 ls "s3://${R2_BUCKET_NAME}/releases/" --endpoint-url "$endpoint" \
+              | awk '{print $2}' \
+              | while IFS= read -r prefix; do
+                  prefix="${prefix%/}"
+                  [[ -n "$prefix" && "$prefix" != "${RELEASE_TAG}" ]] || continue
+                  if aws s3 rm "s3://${R2_BUCKET_NAME}/releases/${prefix}/" \
+                    --recursive \
+                    --endpoint-url "$endpoint" \
+                    --no-progress; then
+                    echo "Removed old release: releases/${prefix}"
+                  else
+                    echo "Warning: failed to remove releases/${prefix}" >&2
+                  fi
+                done
+          fi
+
           python - <<'PY' > r2-public-links.txt
           import os
           from pathlib import Path
