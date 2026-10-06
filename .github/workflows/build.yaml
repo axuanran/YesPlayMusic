@@ -441,25 +441,52 @@ jobs:
             --no-progress
           echo "Uploaded release artifacts to: $destination"
 
-          # Keep only the newest release in the bucket: tagged releases drop
-          # everything published before them. Dev-branch runs keep uploading
-          # without cleanup so their download links stay valid.
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            aws s3 ls "s3://${R2_BUCKET_NAME}/releases/" --endpoint-url "$endpoint" \
-              | awk '{print $2}' \
-              | while IFS= read -r prefix; do
-                  prefix="${prefix%/}"
-                  [[ -n "$prefix" && "$prefix" != "${RELEASE_TAG}" ]] || continue
-                  if aws s3 rm "s3://${R2_BUCKET_NAME}/releases/${prefix}/" \
-                    --recursive \
-                    --endpoint-url "$endpoint" \
-                    --no-progress; then
-                    echo "Removed old release: releases/${prefix}"
-                  else
-                    echo "Warning: failed to remove releases/${prefix}" >&2
-                  fi
-                done
+          # Keep only the newest dev build and the newest release in the
+          # bucket; every older prefix is removed after each upload.
+          mapfile -t prefixes < <(aws s3 ls "s3://${R2_BUCKET_NAME}/releases/" --endpoint-url "$endpoint" | awk '{print $2}' | sed 's:/$::')
+
+          dev_prefixes=()
+          release_prefixes=()
+          for prefix in "${prefixes[@]}"; do
+            [[ -n "$prefix" ]] || continue
+            if [[ "$prefix" == *-dev-run* ]]; then
+              dev_prefixes+=("$prefix")
+            elif [[ "$prefix" == v* ]]; then
+              release_prefixes+=("$prefix")
+            fi
+          done
+
+          # newest dev build = highest run number
+          keep_dev=""
+          if ((${#dev_prefixes[@]})); then
+            keep_dev="$(for p in "${dev_prefixes[@]}"; do printf '%s %s\n' "${p##*-run}" "$p"; done | sort -rn | head -n1 | cut -d' ' -f2-)"
           fi
+
+          # the release being published always survives; dev runs keep the
+          # newest existing release untouched
+          keep_release=""
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            keep_release="${RELEASE_TAG}"
+          elif ((${#release_prefixes[@]})); then
+            keep_release="$(printf '%s\n' "${release_prefixes[@]}" | sort -rV | head -n1)"
+          fi
+
+          for prefix in "${prefixes[@]}"; do
+            [[ -n "$prefix" ]] || continue
+            # never delete what was just uploaded
+            [[ "$prefix" == "${RELEASE_TAG}" ]] && continue
+            if [[ "$prefix" == "$keep_dev" || "$prefix" == "$keep_release" ]]; then
+              continue
+            fi
+            if aws s3 rm "s3://${R2_BUCKET_NAME}/releases/${prefix}/" \
+              --recursive \
+              --endpoint-url "$endpoint" \
+              --no-progress; then
+              echo "Removed old release: releases/${prefix}"
+            else
+              echo "Warning: failed to remove releases/${prefix}" >&2
+            fi
+          done
 
           python - <<'PY' > r2-public-links.txt
           import os
