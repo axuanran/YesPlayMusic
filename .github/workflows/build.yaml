@@ -345,17 +345,13 @@ jobs:
       - name: Decide publish mode
         id: mode
         shell: bash
-        env:
-          VERSION_IS_PRERELEASE: ${{ steps.version.outputs.is_prerelease }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             mode="${{ inputs.release_mode }}"
           elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            if [[ "$VERSION_IS_PRERELEASE" == "true" ]]; then
-              mode="prerelease"
-            else
-              mode="release"
-            fi
+            # Tag pushes always come from the Prepare XuMP Release flow and
+            # must publish as a full release, even for alpha/beta/rc tags.
+            mode="release"
           elif [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
             mode="prerelease"
           else
