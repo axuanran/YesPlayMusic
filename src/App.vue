@@ -150,6 +150,16 @@ export default {
     showNavbar() {
       return this.$route.name !== 'lastfmCallback';
     },
+    // Desktop lyrics (and the single-line repeat driver) are fed by the
+    // lyrics page component, so it must be mounted even when the full lyrics
+    // view was never opened.
+    desktopLyricsActive() {
+      const desktopLyrics = this.settings.desktopLyrics;
+      if (typeof desktopLyrics?.enabled === 'boolean') {
+        return desktopLyrics.enabled === true && desktopLyrics.visible === true;
+      }
+      return this.settings.enableDesktopLyrics === true;
+    },
   },
   watch: {
     showLyrics: {
@@ -158,8 +168,14 @@ export default {
         if (value) this.lyricsMounted = true;
       },
     },
+    desktopLyricsActive: {
+      handler(value) {
+        if (value) this.lyricsMounted = true;
+      },
+    },
   },
   created() {
+    if (this.desktopLyricsActive) this.lyricsMounted = true;
     if (this.isElectron) {
       ipcRenderer(this);
       this.removeDesktopLyricsSettingsListener =
