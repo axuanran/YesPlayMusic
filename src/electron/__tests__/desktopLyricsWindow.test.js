@@ -385,7 +385,7 @@ describe('desktop lyrics window', () => {
     controller.setEnabled(true);
     const win = controller.window;
     expect(win.options).toMatchObject({
-      maxHeight: 400,
+      maxHeight: 3000,
       maxWidth: 7680,
       minHeight: 92,
       minWidth: 360,
@@ -411,7 +411,7 @@ describe('desktop lyrics window', () => {
 
     expect(win.setBounds).toHaveBeenLastCalledWith(
       {
-        height: 400,
+        height: 1120,
         width: 2960,
         x: initialBounds.x,
         y: initialBounds.y,

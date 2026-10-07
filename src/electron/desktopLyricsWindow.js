@@ -17,7 +17,7 @@ const MK_CONTROL = 0x0008;
 const MIN_WINDOW_WIDTH = 360;
 const MIN_WINDOW_HEIGHT = 92;
 const MAX_WINDOW_WIDTH = 7680;
-const MAX_WINDOW_HEIGHT = 400;
+const MAX_WINDOW_HEIGHT = 3000;
 const WHEEL_SEEK_STEP_SECONDS = 5;
 
 // 'seek' scrubs playback, 'opacity' adjusts the background, 'scroll-list'

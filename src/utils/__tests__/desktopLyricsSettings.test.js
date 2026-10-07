@@ -250,6 +250,12 @@ describe('desktop lyrics settings', () => {
     expect(normalizeDesktopLyricsSettings({ width: 200 }).width).toBe(360);
   });
 
+  it('allows tall lyric windows up to the new maximum', () => {
+    expect(normalizeDesktopLyricsSettings({ height: 99999 }).height).toBe(3000);
+    expect(normalizeDesktopLyricsSettings({ height: 1500 }).height).toBe(1500);
+    expect(normalizeDesktopLyricsSettings({ height: 10 }).height).toBe(92);
+  });
+
   it('exports dpi and relative window placement alongside the style', () => {
     const json = serializeDesktopLyricsStyle(
       { ...DEFAULT_DESKTOP_LYRICS_SETTINGS, x: 400, y: 500 },

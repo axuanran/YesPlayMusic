@@ -215,7 +215,7 @@ export function normalizeDesktopLyricsSettings(value = {}, legacyEnabled) {
         ? source.allDesktops
         : defaults.allDesktops,
     width: Math.round(clamp(source.width, 360, 7680, defaults.width)),
-    height: Math.round(clamp(source.height, 92, 400, defaults.height)),
+    height: Math.round(clamp(source.height, 92, 3000, defaults.height)),
     x: coordinate(source.x),
     y: coordinate(source.y),
     styleTemplates: normalizeStyleTemplates(source.styleTemplates),
