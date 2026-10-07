@@ -214,7 +214,7 @@ export function normalizeDesktopLyricsSettings(value = {}, legacyEnabled) {
       typeof source.allDesktops === 'boolean'
         ? source.allDesktops
         : defaults.allDesktops,
-    width: Math.round(clamp(source.width, 360, 1920, defaults.width)),
+    width: Math.round(clamp(source.width, 360, 7680, defaults.width)),
     height: Math.round(clamp(source.height, 92, 400, defaults.height)),
     x: coordinate(source.x),
     y: coordinate(source.y),

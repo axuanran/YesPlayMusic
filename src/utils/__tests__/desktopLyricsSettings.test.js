@@ -244,6 +244,12 @@ describe('desktop lyrics settings', () => {
     ).toMatchObject({ allDesktops: false });
   });
 
+  it('allows very wide windows up to the new maximum', () => {
+    expect(normalizeDesktopLyricsSettings({ width: 99999 }).width).toBe(7680);
+    expect(normalizeDesktopLyricsSettings({ width: 5120 }).width).toBe(5120);
+    expect(normalizeDesktopLyricsSettings({ width: 200 }).width).toBe(360);
+  });
+
   it('exports dpi and relative window placement alongside the style', () => {
     const json = serializeDesktopLyricsStyle(
       { ...DEFAULT_DESKTOP_LYRICS_SETTINGS, x: 400, y: 500 },

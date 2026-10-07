@@ -386,7 +386,7 @@ describe('desktop lyrics window', () => {
     const win = controller.window;
     expect(win.options).toMatchObject({
       maxHeight: 400,
-      maxWidth: 1920,
+      maxWidth: 7680,
       minHeight: 92,
       minWidth: 360,
       resizable: false,
@@ -412,7 +412,7 @@ describe('desktop lyrics window', () => {
     expect(win.setBounds).toHaveBeenLastCalledWith(
       {
         height: 400,
-        width: 1920,
+        width: 2960,
         x: initialBounds.x,
         y: initialBounds.y,
       },
@@ -424,6 +424,31 @@ describe('desktop lyrics window', () => {
     cursorPoint = { x: 0, y: 0 };
     controller.handleCommand({ type: 'moveResize' });
     expect(win.setBounds).toHaveBeenCalledOnce();
+  });
+
+  it('clamps a very wide drag at the new maximum width', () => {
+    let cursorPoint = { x: 100, y: 200 };
+    const controller = createController({
+      getCursorPoint: () => cursorPoint,
+      store: disabledUnlockedStore(),
+    });
+    controller.setEnabled(true);
+    const win = controller.window;
+    const initialBounds = win.getBounds();
+
+    controller.handleCommand({ type: 'startResize', value: 'e' });
+    cursorPoint = { x: 30000, y: 200 };
+    controller.handleCommand({ type: 'moveResize' });
+
+    expect(win.setBounds).toHaveBeenLastCalledWith(
+      {
+        height: initialBounds.height,
+        width: 7680,
+        x: initialBounds.x,
+        y: initialBounds.y,
+      },
+      false
+    );
   });
 
   it('blocks native resize attempts for the frameless window', () => {
