@@ -3,7 +3,12 @@ import pkg from '../../package.json';
 import updateApp from '@/utils/updateApp';
 import { loadClientPlaybackHistory } from '@/utils/clientPlaybackHistory';
 
-if (localStorage.getItem('appVersion') === null) {
+// True when this origin never stored app data (e.g. the dev server started
+// on a different port and localStorage is origin-scoped). The Electron main
+// process mirrors the settings, so store/index.js can rehydrate them.
+export const isFreshProfile = localStorage.getItem('appVersion') === null;
+
+if (isFreshProfile) {
   localStorage.setItem('settings', JSON.stringify(initLocalStorage.settings));
   localStorage.setItem('data', JSON.stringify(initLocalStorage.data));
   localStorage.setItem('appVersion', pkg.version);

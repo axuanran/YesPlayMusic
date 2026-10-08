@@ -716,6 +716,13 @@ export function initIpcMain(
     }
   });
 
+  // Read-only mirror of the persisted settings so a fresh renderer origin
+  // (e.g. a changed dev-server port) can rehydrate them at startup.
+  ipcMain.handle('settings:get', event => {
+    if (event.sender !== win.webContents) return null;
+    return store.get('settings') || null;
+  });
+
   ipcMain.on('desktop-lyrics:update', (event, payload) => {
     if (event.sender !== win.webContents || !isRecord(payload)) return;
     desktopLyrics?.update({

@@ -95,7 +95,11 @@ export default defineConfig(({ mode }) => ({
     },
     server: {
       host: process.env.DEV_SERVER_HOST || '127.0.0.1',
+      // A random fallback port would change the renderer origin, and
+      // localStorage (login, settings) is origin-scoped — fail loudly
+      // instead so the dev origin stays stable.
       port: Number(process.env.DEV_SERVER_PORT || 20201),
+      strictPort: true,
       proxy: {
         '/api': {
           target: 'http://localhost:10754',

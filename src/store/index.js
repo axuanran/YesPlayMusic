@@ -1,5 +1,5 @@
 import { createStore } from 'vuex';
-import state from './state';
+import state, { isFreshProfile } from './state';
 import mutations from './mutations';
 import actions from './actions';
 import { changeAppearance, changeThemeColor } from '@/utils/common';
@@ -23,6 +23,21 @@ const options = {
 };
 
 const store = createStore(options);
+
+// Fresh origin (e.g. the dev port changed and origin-scoped localStorage is
+// empty): the main process still holds the mirrored settings, so rehydrate
+// them instead of running on defaults until the next manual change.
+if (isFreshProfile && isElectron) {
+  window.electronAPI?.settings?.getSettings?.().then(
+    remote => {
+      if (!remote || typeof remote !== 'object') return;
+      for (const [key, value] of Object.entries(remote)) {
+        store.commit('updateSettings', { key, value });
+      }
+    },
+    () => {}
+  );
+}
 
 // Restore loginMode from cookie on page load.
 // loginMode is null by default, so after refresh the app appears logged out

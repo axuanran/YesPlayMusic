@@ -115,6 +115,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     removeProxy: () => ipcRenderer.send('removeProxy'),
     setProxy: config => sendObject('setProxy', config),
     updateSettings: patch => sendObject('settings:patch', patch),
+    getSettings: () => ipcRenderer.invoke('settings:get'),
     switchGlobalShortcutStatusTemporary: status =>
       sendString('switchGlobalShortcutStatusTemporary', status, {
         allowedValues: ['enable', 'disable'],
