@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getOuterAudioUrl: vi.fn(trackId => `outer:${trackId}`),
   getTrackSource: vi.fn(),
   isCapacitor: false,
+  isElectron: false,
   isAccountLoggedIn: vi.fn(() => false),
   mediaSession: {
     metadata: null,
@@ -136,7 +137,9 @@ vi.mock('@/utils/env', () => ({
   get isCapacitor() {
     return mocks.isCapacitor;
   },
-  isElectron: false,
+  get isElectron() {
+    return mocks.isElectron;
+  },
 }));
 
 vi.mock('lodash/shuffle', () => ({
@@ -220,6 +223,7 @@ describe('Player audio source flow', () => {
     mocks.getMP3.mockReset();
     mocks.getOuterAudioUrl.mockClear();
     mocks.isCapacitor = false;
+    mocks.isElectron = false;
     mocks.isAccountLoggedIn.mockReturnValue(false);
     mocks.mediaSession.metadata = null;
     mocks.mediaSession.playbackState = 'none';
@@ -784,6 +788,19 @@ describe('Player audio source flow', () => {
     expect(save).toHaveBeenCalledOnce();
     expect(sync).toHaveBeenCalledOnce();
     vi.useRealTimers();
+  });
+
+  it('tolerates a missing current track when syncing to the main process', async () => {
+    // 启动时“喜欢的歌曲”可能在任何曲目加载前就返回，触发
+    // updateLikedXXX -> sendSelfToIpcMain
+    mocks.isElectron = true;
+    try {
+      const player = await createPlayer();
+      player._currentTrack = undefined;
+      expect(() => player.sendSelfToIpcMain()).not.toThrow();
+    } finally {
+      mocks.isElectron = false;
+    }
   });
 
   it('keeps effective state and reports persistence failures', async () => {

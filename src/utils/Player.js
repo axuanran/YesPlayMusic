@@ -1738,7 +1738,11 @@ export default class {
     if (!isElectron) return false;
     const runtimeStore = getRuntimeStore();
     if (!runtimeStore) return false;
-    let liked = runtimeStore.state.liked.songs.includes(this.currentTrack.id);
+    // 启动时“喜欢的歌曲”可能先于任何曲目加载完成，此时没有 currentTrack
+    const currentTrackId = this.currentTrack?.id;
+    const liked =
+      currentTrackId !== undefined &&
+      runtimeStore.state.liked.songs.includes(currentTrackId);
     electronPlayer?.player({
       playing: this.playing,
       likedCurrentTrack: liked,
