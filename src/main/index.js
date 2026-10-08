@@ -51,7 +51,7 @@ import adminRoutes, { setRestartHandler } from '../../server/routes/admin.js';
 import StoreModule from 'electron-store';
 import { spawn } from 'child_process';
 import clc from 'cli-color';
-import { listenOnAvailablePort } from './localServer.js';
+import { listenOnStablePort } from './localServer.js';
 import {
   clearDevResolverPort,
   writeDevResolverPort,
@@ -391,7 +391,11 @@ class Background {
         });
     });
 
-    const server = await listenOnAvailablePort(expressApp, 27232);
+    // The renderer origin (http://127.0.0.1:<port>) decides which
+    // origin-scoped localStorage holds login state and settings, so the
+    // port must stay stable: retry while the previous instance shuts down,
+    // but never fall back to a random port.
+    const server = await listenOnStablePort(expressApp, 27232);
     this.expressApp = server;
     this.expressPort = server.address().port;
     if (isDevelopment) {

@@ -36,7 +36,7 @@
     "postuninstall": "electron-builder install-app-deps",
     "prettier": "npx prettier --write ./src",
     "netease_api:run": "npx @neteasecloudmusicapienhanced/api",
-    "desktop:dev": "electron-vite dev",
+    "desktop:dev": "node scripts/free-dev-port.mjs && electron-vite dev",
     "desktop:build": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder",
     "desktop:preview": "electron-vite preview",
     "electron:build-win-dir": "electron-vite build && yarn tui:build && yarn tui:exe && electron-builder -w --dir",
