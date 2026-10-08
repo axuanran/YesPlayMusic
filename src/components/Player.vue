@@ -22,7 +22,7 @@
         type="range"
         :value="progressValue"
         :min="0"
-        :max="player.currentTrackDuration"
+        :max="progressMax"
         :step="1"
         :style="progressRangeStyle"
         :aria-label="$t('player.progress')"
@@ -35,7 +35,7 @@
         @click.stop
       />
     </div>
-    <div class="controls">
+    <div class="controls" :class="{ casting: isCastMode }">
       <div class="playing">
         <div class="container" @click.stop>
           <button
@@ -145,6 +145,14 @@
             @click="playNextTrack"
             ><svg-icon icon-class="next"
           /></button-icon>
+          <span
+            v-if="isCastMode"
+            class="cast-badge"
+            :title="`正在投屏到：${castDeviceName}`"
+          >
+            <svg-icon icon-class="cast" />
+            <span class="cast-badge-name">{{ castDeviceName }}</span>
+          </span>
         </div>
         <div class="blank"></div>
       </div>
@@ -162,37 +170,22 @@
             @click="goToNextTracksPage"
             ><svg-icon icon-class="list"
           /></button-icon>
+          <!-- 播放模式：顺序 / 列表循环 / 单曲循环 / 随机，单按钮循环切换 -->
           <button-icon
-            :aria-pressed="player.repeatMode !== 'off'"
+            :aria-pressed="playMode !== 'order'"
             :disabled="player.isPersonalFM"
             :class="{
-              active: player.repeatMode !== 'off',
+              active: playMode !== 'order',
               disabled: player.isPersonalFM,
             }"
-            :title="
-              player.repeatMode === 'one'
-                ? $t('player.repeatTrack')
-                : $t('player.repeat')
-            "
-            @click="switchRepeatMode"
+            :title="playModeTitle"
+            @click="switchPlayMode"
           >
-            <svg-icon
-              v-show="player.repeatMode !== 'one'"
-              icon-class="repeat"
-            />
-            <svg-icon
-              v-show="player.repeatMode === 'one'"
-              icon-class="repeat-1"
-            />
+            <svg-icon v-show="playMode === 'order'" icon-class="order" />
+            <svg-icon v-show="playMode === 'loop'" icon-class="repeat" />
+            <svg-icon v-show="playMode === 'one'" icon-class="repeat-1" />
+            <svg-icon v-show="playMode === 'shuffle'" icon-class="shuffle" />
           </button-icon>
-          <button-icon
-            :aria-pressed="player.shuffle"
-            :disabled="player.isPersonalFM"
-            :class="{ active: player.shuffle, disabled: player.isPersonalFM }"
-            :title="$t('player.shuffle')"
-            @click="switchShuffle"
-            ><svg-icon icon-class="shuffle"
-          /></button-icon>
           <button-icon
             v-if="settings.enableReversedMode"
             :aria-pressed="player.reversed"
@@ -228,6 +221,29 @@
               </button>
             </div>
           </details>
+          <details ref="qualityControl" class="quality-control">
+            <summary :title="qualityTitle" :aria-label="qualityTitle">
+              {{ currentQuality.label }}
+            </summary>
+            <div
+              class="quality-options"
+              role="listbox"
+              :aria-label="qualityTitle"
+            >
+              <button
+                v-for="q in qualityOptions"
+                :key="q.value"
+                type="button"
+                role="option"
+                :aria-selected="musicQuality === q.value"
+                :class="{ active: musicQuality === q.value }"
+                @click="setMusicQuality(q.value)"
+              >
+                <span class="q-label">{{ q.label }}</span>
+                <span class="q-hint">{{ q.hint }}</span>
+              </button>
+            </div>
+          </details>
           <div class="volume-control" @wheel.prevent="handleVolumeWheel">
             <button-icon
               :title="$t(volume === 0 ? 'player.unmute' : 'player.mute')"
@@ -256,10 +272,10 @@
 
           <button-icon
             v-if="isElectron"
+            class="group-gap"
             :class="{ active: desktopLyricsVisible }"
             :aria-pressed="desktopLyricsVisible"
             :title="$t('player.desktopLyrics')"
-            style="margin-left: 12px"
             @click="toggleDesktopLyrics"
           >
             <svg-icon icon-class="desktop-lyrics" />
@@ -280,12 +296,20 @@
             <svg-icon :icon-class="desktopLyricsLocked ? 'lock' : 'unlock'" />
           </button-icon>
           <button-icon
-            class="lyrics-button"
+            class="lyrics-button group-gap"
             :aria-pressed="showLyrics"
             :title="$t('player.lyrics')"
-            style="margin-left: 12px"
             @click="toggleLyrics"
             ><svg-icon icon-class="arrow-up"
+          /></button-icon>
+          <button-icon
+            v-if="isElectron"
+            class="group-gap"
+            :class="{ active: castState.open }"
+            :aria-pressed="castState.open"
+            title="推送到设备"
+            @click="castState.open = !castState.open"
+            ><svg-icon icon-class="cast"
           /></button-icon>
         </div>
       </div>
@@ -303,9 +327,18 @@ import { goToListSource, hasListSource } from '@/utils/playList';
 import { isAccountLoggedIn } from '@/utils/auth';
 import locale from '@/locale';
 import { PLAYBACK_RATES } from '@/utils/playbackRate';
+import * as cast from '@/utils/cast';
+import {
+  QUALITY_OPTIONS,
+  castLevelFor,
+  isDowngradedForCast,
+  normalizeQuality,
+  qualityOption,
+} from '@/utils/audioQuality';
 import { getWheelAdjustedVolume } from '@/utils/volume';
 import { isElectron } from '@/utils/env';
 import { amllWsProtocol } from '@/utils/amllWsProtocol';
+import { castState } from '@/utils/cast';
 import {
   createSizedCoverUrl,
   resolveCoverImageUrl,
@@ -327,6 +360,10 @@ export default {
       removeDiscordStatusListener: null,
       amllProgressTimer: null,
       isElectron,
+      // Cast-mode progress interpolation: each fresh /api/status response
+      // stamps Date.now() here, and castProgress() advances locally between
+      // polls so the bar doesn't visibly step every 1.5s.
+      castLastPoll: 0,
     };
   },
   computed: {
@@ -339,6 +376,9 @@ export default {
       'data',
       'showLyrics',
     ]),
+    castState() {
+      return castState;
+    },
     currentTrack() {
       void this.playerTrackVersion;
       return this.player.displayTrack;
@@ -379,28 +419,86 @@ export default {
     },
     volume: {
       get() {
-        return this.player.volume;
+        // Cast mode: the slider reflects/edits the *device's* volume, not the
+        // muted local <audio> (which we pin to 0 so only the speaker sounds).
+        return this.isCastMode ? cast.castState.volume : this.player.volume;
       },
       set(value) {
+        if (this.isCastMode) {
+          cast.setDeviceVolume(value);
+          return;
+        }
         this.player.volume = value;
       },
     },
     playing() {
       void this.playerVersion;
+      // Cast mode: the "playing" the user perceives is the device's state,
+      // not the muted local audio element. Falls back to local if the device
+      // has not reported status yet.
+      if (this.isCastMode) return this.castPlaying;
       return this.player.playing;
     },
     progressValue() {
       void this.playerProgressVersion;
       if (this.isProgressDragging) return this.localProgress;
+      if (this.isCastMode) return this.castProgress;
       return Math.min(
         this.player.progress || 0,
         this.player.currentTrackDuration || 0
       );
     },
+    // Slider ceiling. While casting the renderer's duration is authoritative.
+    progressMax() {
+      return this.isCastMode
+        ? this.castDuration || this.player.currentTrackDuration || 0
+        : this.player.currentTrackDuration || 0;
+    },
     progressPercent() {
-      const duration = this.player.currentTrackDuration || 0;
+      const duration = this.isCastMode
+        ? this.castDuration
+        : this.player.currentTrackDuration || 0;
+      const value = this.progressValue;
       if (duration <= 0) return 0;
-      return Math.min(100, Math.max(0, (this.progressValue / duration) * 100));
+      return Math.min(100, Math.max(0, (value / duration) * 100));
+    },
+    // ---- Cast mode integration ----
+    // True whenever at least one device is selected in the "推送到设备" panel.
+    // Deliberately based on `selected`, not on `active`: pausing the device
+    // must NOT drop the player bar back to the local <audio> element.
+    isCastMode() {
+      return cast.castState.selected.length > 0;
+    },
+    castActiveId() {
+      return cast.activeId();
+    },
+    castDeviceName() {
+      const id = this.castActiveId;
+      if (!id) return '';
+      const d = cast.castState.devices.find(x => x.id === id);
+      // Never fall back to the raw `upnp:<uuid>` id — that long hex blob shows
+      // up as unreadable garbage in the player bar. Prefer name, then model.
+      return d?.name || d?.model || '设备';
+    },
+    castStatus() {
+      const id = this.castActiveId;
+      return id ? cast.castState.statuses[id] : null;
+    },
+    castPlaying() {
+      const id = this.castActiveId;
+      return !!(id && cast.castState.active[id]);
+    },
+    castProgress() {
+      const pos = this.castStatus?.position_ms || 0;
+      // Interpolate locally between polls (1.5s) so the bar doesn't jump
+      // in 1500ms steps. Only advance while the device is actually playing.
+      if (this.castPlaying && this.castLastPoll) {
+        return pos + (Date.now() - this.castLastPoll);
+      }
+      return pos;
+    },
+    castDuration() {
+      return this.castStatus?.duration_ms || 0;
     },
     progressRangeStyle() {
       return {
@@ -410,6 +508,55 @@ export default {
     playbackRate() {
       void this.playerVersion;
       return this.player.playbackRate;
+    },
+    // ---- Play mode (single cycling button) ----
+    // `player` is a bare class instance whose changes are announced by the
+    // `playerVersion` counter, so every derived value must read it or the
+    // computed would stay cached and the icon would never change.
+    playMode() {
+      void this.playerVersion;
+      if (this.player.shuffle) return 'shuffle';
+      if (this.player.repeatMode === 'one') return 'one';
+      if (this.player.repeatMode === 'on') return 'loop';
+      return 'order';
+    },
+    playModeTitle() {
+      const labels = {
+        order: this.$t('player.playModeOrder'),
+        loop: this.$t('player.playModeLoop'),
+        one: this.$t('player.playModeOne'),
+        shuffle: this.$t('player.playModeShuffle'),
+      };
+      const nextLabel = {
+        order: labels.loop,
+        loop: labels.one,
+        one: labels.shuffle,
+        shuffle: labels.order,
+      };
+      return this.$t('player.playModeHint', {
+        current: labels[this.playMode],
+        next: nextLabel[this.playMode],
+      });
+    },
+    // ---- Unified audio quality ----
+    // One control drives BOTH paths: `settings.musicQuality` (what the local
+    // player asks NetEase for) and the cast daemon's push tier, which is
+    // derived from it. See `utils/audioQuality.js`.
+    qualityOptions() {
+      return QUALITY_OPTIONS;
+    },
+    musicQuality() {
+      return normalizeQuality(this.settings.musicQuality);
+    },
+    currentQuality() {
+      return qualityOption(this.musicQuality);
+    },
+    qualityTitle() {
+      const castTier = cast.castState.quality;
+      const suffix = this.isCastMode
+        ? `，投屏推送 ${qualityOption(castTier).label}`
+        : '';
+      return `音质：${this.currentQuality.label}${suffix}`;
     },
     audioSource() {
       return this.player.currentAudioSource?.includes('kuwo.cn')
@@ -472,8 +619,21 @@ export default {
     amllPlaybackSignature() {
       this.publishAmllPlayback();
     },
+    // Every fresh status poll re-stamps the receipt time so the cast progress
+    // bar can interpolate locally between polls instead of stepping every 1s.
+    castStatus() {
+      this.castLastPoll = Date.now();
+    },
+    // Keep the cast push tier in lockstep with the local quality, wherever the
+    // value is changed from (this bar or the settings page).
+    'settings.musicQuality'(value) {
+      cast.castState.quality = castLevelFor(value);
+    },
   },
   mounted() {
+    // Seed the cast tier from the persisted local quality (watchers don't fire
+    // on the initial value).
+    cast.castState.quality = castLevelFor(this.settings.musicQuality);
     window.addEventListener('keydown', this.handleKeydown);
     document.addEventListener(
       'pointerdown',
@@ -631,7 +791,7 @@ export default {
       this.mouseDownTarget = event.target;
     },
     normalizeProgressInput(value) {
-      const duration = this.player.currentTrackDuration || 0;
+      const duration = this.progressMax || 0;
       return Math.min(duration, Math.max(0, Number(value) || 0));
     },
     handleProgressPointerDown(event) {
@@ -643,8 +803,35 @@ export default {
     },
     commitProgressInput(event) {
       if (!this.isProgressDragging && event.type !== 'change') return;
-      this.localProgress = this.normalizeProgressInput(event.target.value);
-      this.player.progress = this.localProgress;
+      // The slider runs on DIFFERENT units per mode:
+      //   cast mode  -> milliseconds (device timeline; /api/status uses *_ms)
+      //   local mode -> seconds      (player.progress / currentTrackDuration)
+      const value = this.normalizeProgressInput(event.target.value);
+      this.localProgress = value;
+      if (this.isCastMode && this.castActiveId) {
+        const id = this.castActiveId;
+        cast.seek(id, value).catch(() => {});
+        // Move the device timeline right away so the bar sticks where the user
+        // dropped it instead of snapping back to the pre-seek position until
+        // the next 1s poll arrives.
+        const st = cast.castState.statuses[id];
+        if (st) {
+          st.position_ms = value;
+          this.castLastPoll = Date.now();
+        }
+        // Keep the (muted) local <audio> roughly in lockstep — but it runs on a
+        // SECONDS timeline. Feeding it the millisecond value threw it far past
+        // the end of the track, AudioEngine.seek clamped it to `duration`,
+        // `ended` fired and the queue advanced: the "拖动进度条会切歌" bug.
+        const localDuration = this.player.currentTrackDuration || 0;
+        const seconds = value / 1000;
+        this.player.progress =
+          localDuration > 0
+            ? Math.min(seconds, Math.max(0, localDuration - 0.5))
+            : seconds;
+      } else {
+        this.player.progress = value;
+      }
       this.isProgressDragging = false;
     },
     resetProgressInput() {
@@ -655,7 +842,41 @@ export default {
       this.player.playPrevTrack();
     },
     playOrPause() {
+      // In cast mode the button drives the remote renderer (and keeps the
+      // muted local element in lockstep so the timeline advances together).
+      if (this.isCastMode) {
+        this.castPlayOrPause();
+        return;
+      }
       this.player.playOrPause();
+    },
+    async castPlayOrPause() {
+      const ids = cast.castState.selected.slice();
+      if (!ids.length) return;
+      try {
+        if (this.castPlaying) {
+          await Promise.all(ids.map(id => cast.pause(id).catch(() => {})));
+          this.player.pause?.();
+        } else {
+          await Promise.all(
+            ids.map(id => {
+              const s = cast.castState.statuses[id];
+              // Never started / stopped => (re)push the current track; a
+              // paused renderer just needs Resume.
+              if (!s || s.state === 'stopped' || s.state === 'idle') {
+                if (!this.currentTrack?.id) return null;
+                return cast
+                  .play([id], cast.toTrack(this.currentTrack))
+                  .catch(() => {});
+              }
+              return cast.resume(id).catch(() => {});
+            })
+          );
+          this.player.play?.();
+        }
+      } catch (e) {
+        cast.castState.error = `控制设备失败：${e.message}`;
+      }
     },
     playNextTrack() {
       if (this.player.isPersonalFM) {
@@ -714,11 +935,8 @@ export default {
     moveToFMTrash() {
       this.player.moveToFMTrash();
     },
-    switchRepeatMode() {
-      this.player.switchRepeatMode();
-    },
-    switchShuffle() {
-      this.player.switchShuffle();
+    switchPlayMode() {
+      this.player.switchPlayMode();
     },
     switchReversed() {
       this.player.switchReversed();
@@ -727,13 +945,79 @@ export default {
       this.player.playbackRate = rate;
       this.$refs.playbackRateControl?.removeAttribute('open');
     },
+    /**
+     * Pick an audio quality. Sets the local tier (which the audio resolver
+     * reads) and the derived cast tier, then — if a device is actually playing
+     * — re-pushes the current track so the speaker switches quality too.
+     */
+    setMusicQuality(value) {
+      this.$refs.qualityControl?.removeAttribute('open');
+      const tier = normalizeQuality(value);
+      if (tier === this.musicQuality) return;
+      this.$store.commit('changeMusicQuality', tier);
+      // Immediate: the watcher would also do this, but the re-push below must
+      // already see the new tier.
+      cast.castState.quality = castLevelFor(tier);
+      const label = qualityOption(tier).label;
+      const downgraded = isDowngradedForCast(tier);
+      // A quality switch restarts the remote stream, so only do it when the
+      // device is mid-playback; otherwise it takes effect on the next push.
+      if (this.isCastMode && this.castPlaying) {
+        this.showToast(`音质已切换为 ${label}，正在按新音质重新推送到设备`);
+        this.requeueForQuality();
+      } else {
+        this.showToast(
+          `音质已切换为 ${label}` + (downgraded ? '（投屏时将按无损推送）' : '')
+        );
+      }
+    },
+    /**
+     * Re-push the current track at the new quality and restore the listener's
+     * position, so changing quality doesn't restart the song from the top.
+     * Seeking is best-effort: HEOS / AirPlay don't implement remote Seek.
+     */
+    async requeueForQuality() {
+      const ids = cast.castState.selected.slice();
+      if (!ids.length || !this.currentTrack?.id) return;
+      const id = this.castActiveId;
+      const at = id ? cast.castState.statuses[id]?.position_ms || 0 : 0;
+      try {
+        // Renderers (notably Denon under DLNA) ignore SetAVTransportURI while
+        // already playing, so stop first — same reason as `pushAll`.
+        await Promise.all(
+          ids.map(d =>
+            cast.castState.active[d]
+              ? cast.stop(d).catch(() => {})
+              : Promise.resolve()
+          )
+        );
+        await cast.play(ids, cast.toTrack(this.currentTrack));
+        if (at > 0 && id) {
+          cast.seek(id, at).catch(() => {});
+          const st = cast.castState.statuses[id];
+          if (st) {
+            st.position_ms = at;
+            this.castLastPoll = Date.now();
+          }
+        }
+      } catch (e) {
+        cast.castState.error = `切换音质后重新推送失败：${e.message}`;
+      }
+    },
     closePlaybackRateOnOutsideClick(event) {
-      const control = this.$refs.playbackRateControl;
-      if (control?.open && !control.contains(event.target)) {
-        control.removeAttribute('open');
+      for (const ref of ['playbackRateControl', 'qualityControl']) {
+        const control = this.$refs[ref];
+        if (control?.open && !control.contains(event.target)) {
+          control.removeAttribute('open');
+        }
       }
     },
     mute() {
+      // Cast mode: the audible speaker is the remote one — toggle its volume.
+      if (this.isCastMode) {
+        cast.toggleDeviceMute();
+        return;
+      }
       this.player.mute();
     },
     handleVolumeWheel(event) {
@@ -743,6 +1027,7 @@ export default {
     handleKeydown(event) {
       if (event.key === 'Escape') {
         this.$refs.playbackRateControl?.removeAttribute('open');
+        this.$refs.qualityControl?.removeAttribute('open');
         return;
       }
       switch (event.code) {
@@ -860,13 +1145,26 @@ export default {
   outline: none;
 }
 
+// Layout note: this used to be three equal `1fr` grid columns. That works only
+// while every cluster fits its third — once the right-hand cluster (play list,
+// play mode, quality, volume, lyrics, cast …) grew wider than its column it
+// overflowed *leftwards*, because it is right-aligned, and ended up painted on
+// top of the transport buttons. Shrinking the window therefore made buttons
+// look like they had vanished.
+//
+// Now the two side clusters own the flow and the transport cluster is centred
+// out of flow, so it can never be covered; the track info is the only thing
+// that gives up space (it truncates). The gutters shrink with the viewport
+// instead of the fixed 10vw that used to eat 20% of a narrow window.
 .controls {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  position: relative;
+  display: flex;
+  align-items: center;
   height: 100%;
+  box-sizing: border-box;
   padding: {
-    right: 10vw;
-    left: 10vw;
+    right: clamp(14px, 3.2vw, 10vw);
+    left: clamp(14px, 3.2vw, 10vw);
   }
 }
 
@@ -876,7 +1174,16 @@ export default {
 
 .playing {
   display: flex;
+  flex: 0 1 auto;
   min-width: 0;
+  // Reserve room for the centred transport cluster so the two never collide.
+  max-width: calc(50% - 110px);
+}
+
+// While casting the transport cluster also carries the "casting to …" pill,
+// which makes it ~100px wider — reserve for that too.
+.controls.casting .playing {
+  max-width: calc(50% - 170px);
 }
 
 .playing .container {
@@ -954,6 +1261,13 @@ export default {
 
 .middle-control-buttons {
   display: flex;
+  // Taken out of the flex flow and centred on the window, so nothing the other
+  // clusters do can displace or cover the transport buttons.
+  position: absolute;
+  left: 50%;
+  top: 0;
+  height: 100%;
+  transform: translateX(-50%);
 }
 
 .middle-control-buttons .container {
@@ -975,14 +1289,57 @@ export default {
   }
 }
 
+// "Casting to <device>" pill next to the transport buttons. Uses the app's own
+// cast icon instead of an exotic glyph (the old `▷` relied on font fallback),
+// and an explicit CJK-capable stack so a Chinese device name (e.g. 主卧) can
+// never be rendered by a Latin-only webfont.
+.cast-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--color-primary-bg, #eaeffd);
+  color: var(--color-primary, #335eea);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+  max-width: 180px;
+  white-space: nowrap;
+  vertical-align: middle;
+
+  :deep(.svg-icon) {
+    flex: none;
+    width: 13px;
+    height: 13px;
+  }
+
+  .cast-badge-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
 .right-control-buttons {
   display: flex;
+  // Content-sized and pushed to the trailing edge: the cluster is never
+  // squeezed, so no control is ever clipped or hidden behind the transport.
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .right-control-buttons .container {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  min-width: 0;
+  // Group separator between unrelated controls (desktop lyrics / lyrics /
+  // cast). A class instead of an inline style so narrow windows can tighten it.
+  .group-gap {
+    margin-left: 12px;
+  }
   .expand {
     margin-left: 24px;
     .svg-icon {
@@ -998,7 +1355,9 @@ export default {
     display: flex;
     align-items: center;
     .volume-bar {
-      width: 84px;
+      // Shrinks with the window so the cluster keeps fitting instead of the
+      // track info being squeezed out entirely.
+      width: clamp(48px, 5vw, 84px);
     }
   }
   .playback-rate-control {
@@ -1058,6 +1417,80 @@ export default {
       }
     }
   }
+  // Audio quality. Mirrors the playback-rate control above, but the popover is
+  // wider because every option carries a short bitrate/"downgraded" hint.
+  .quality-control {
+    position: relative;
+    margin-left: 4px;
+    summary {
+      align-items: center;
+      border-radius: 25%;
+      color: var(--color-text);
+      cursor: pointer;
+      display: flex;
+      font-size: 12px;
+      font-weight: 700;
+      height: 32px;
+      justify-content: center;
+      list-style: none;
+      min-width: 40px;
+      padding: 0 6px;
+      transition: 0.2s;
+      white-space: nowrap;
+      &::-webkit-details-marker {
+        display: none;
+      }
+      &:hover {
+        background: var(--color-secondary-bg-for-transparent);
+      }
+    }
+    &[open] summary {
+      color: var(--color-primary);
+      background: var(--color-primary-bg);
+    }
+  }
+  .quality-options {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 10px);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(92px, 1fr));
+    gap: 4px;
+    padding: 6px;
+    border: 1px solid rgba(128, 128, 128, 0.14);
+    border-radius: 12px;
+    background: var(--color-navbar-bg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    backdrop-filter: blur(16px);
+    z-index: 1001;
+    button {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      color: var(--color-text);
+      text-align: left;
+      line-height: 1.3;
+      .q-label {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .q-hint {
+        font-size: 10px;
+        opacity: 0.55;
+      }
+      &:hover,
+      &.active {
+        color: var(--color-primary);
+        background: var(--color-primary-bg-for-transparent);
+        .q-hint {
+          opacity: 0.8;
+        }
+      }
+    }
+  }
 }
 
 .track-action-buttons {
@@ -1075,6 +1508,68 @@ export default {
   }
   &:active {
     transform: unset;
+  }
+}
+
+// Narrow desktop windows (mobile layout starts at 768px below). Nothing is
+// hidden — only the fixed paddings and gaps are tightened so the track info
+// keeps as much room as possible.
+@media (max-width: 1280px) {
+  .controls {
+    padding: {
+      right: clamp(10px, 1.6vw, 26px);
+      left: clamp(10px, 1.6vw, 26px);
+    }
+  }
+
+  .right-control-buttons .container {
+    .group-gap {
+      margin-left: 6px;
+    }
+    .volume-control .volume-bar {
+      width: clamp(44px, 4vw, 64px);
+    }
+  }
+}
+
+// Below this width the centred transport cluster (which grows by the width of
+// the "casting to …" pill while casting) would start to reach under the
+// right-hand cluster, so the pill is dropped. The cast button in the right
+// cluster stays highlighted, and the panel still names the device.
+@media (max-width: 1120px) {
+  .controls.casting .playing {
+    max-width: calc(50% - 110px);
+  }
+
+  .cast-badge {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .controls {
+    padding: {
+      right: 10px;
+      left: 10px;
+    }
+  }
+
+  .playing {
+    // Track info may now truncate hard — that is preferable to losing controls.
+    max-width: calc(50% - 104px);
+  }
+
+  .right-control-buttons .container {
+    .group-gap {
+      margin-left: 2px;
+    }
+    .volume-control .volume-bar {
+      width: 44px;
+    }
+    .quality-control summary {
+      min-width: 34px;
+      padding: 0 4px;
+    }
   }
 }
 
@@ -1125,6 +1620,14 @@ export default {
   .playing {
     flex: 1 1 auto;
     min-width: 0;
+    // Back into the flow: on phones the three clusters are laid out side by
+    // side, so the desktop `max-width` reservation must be lifted.
+    max-width: none;
+  }
+
+  // Same reason, for the more specific casting reservation.
+  .controls.casting .playing {
+    max-width: none;
   }
 
   .playing > .blank,
@@ -1156,6 +1659,13 @@ export default {
     flex: 0 0 auto;
   }
 
+  // Undo the desktop out-of-flow centring — on phones the transport cluster
+  // sits inline between the track info and the lyrics button.
+  .middle-control-buttons {
+    position: static;
+    transform: none;
+  }
+
   .middle-control-buttons .container {
     padding: 0;
 
@@ -1172,6 +1682,11 @@ export default {
     .play {
       width: 40px;
       height: 40px;
+    }
+
+    .cast-badge {
+      margin-left: 6px;
+      max-width: 96px;
     }
   }
 

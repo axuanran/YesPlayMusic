@@ -3,6 +3,10 @@ node_modules
 /dist
 /out
 
+# npm lockfile — this repo is yarn-managed (see packageManager in package.json
+# and the yarn.lock-keyed CI caches), so npm's lockfile is a stray local artifact
+package-lock.json
+
 # local env files
 .env
 .env.local
