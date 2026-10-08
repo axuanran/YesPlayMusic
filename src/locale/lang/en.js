@@ -376,6 +376,7 @@ export default {
     cacheLocation: 'Cache location',
     cacheLocationDefault: 'Default location',
     changeCacheLocation: 'Change location',
+    restoreCacheLocation: 'Restore default location',
     openCacheLocation: 'Open folder',
     cacheLocationRestarting: 'Restarting…',
     cacheLocationInvalid: 'The selected cache directory is invalid',
@@ -387,12 +388,13 @@ export default {
     cacheLocationModal: {
       title: 'Change cache location',
       message:
-        'Switch the cache location to "{dir}". What should happen to the current cache?',
+        'Switch the song cache to "{dir}". Login state and settings always stay in the default location and are never moved.',
       move: 'Move to the new location',
-      delete: 'Delete the old cache',
-      moveNote: 'Moving keeps your cached songs and local settings.',
+      delete: 'Clear cache only',
+      moveNote:
+        'Moving keeps your cached songs; login state and settings are unaffected.',
       deleteWarning:
-        'Deleting removes all cached songs and local settings at the old location. The app restarts immediately to apply the change.',
+        'Clearing deletes all cached songs at the old location; login state and settings are unaffected. The app restarts immediately.',
       cancel: 'Cancel',
     },
     showLyricsTranslation: 'Show lyrics translation',

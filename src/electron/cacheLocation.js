@@ -4,20 +4,29 @@ import path from 'node:path';
 
 export const CACHE_LOCATION_STATE_FILENAME = 'cache-location.json';
 
-// Web-storage entries Chromium creates under the default userData directory
-// for the main window session (IndexedDB track cache, HTTP cache, ...).
-// Only the entries that actually exist are relocated.
-export const DEFAULT_SESSION_STORAGE_ENTRIES = [
+// Cache entries that may live in a custom cache directory. The main window
+// always keeps using the DEFAULT session rooted at userData, so login state
+// and settings (Local Storage / Session Storage) stay in place; only these
+// cache directories are relocated, with a filesystem link (NTFS junction on
+// Windows, symlink elsewhere) left behind at the original path, which
+// Chromium follows transparently.
+export const CACHE_ENTRIES = [
   'Cache',
   'Code Cache',
   'GPUCache',
   'GrShaderCache',
   'ShaderCache',
+  'blob_storage',
   'IndexedDB',
+];
+
+// Pure web state that must never be relocated or deleted. Only used to
+// recognize and recover the legacy layout where the whole session (including
+// these entries) had been moved to the custom location.
+export const STATE_ENTRIES = [
   'Local Storage',
   'Session Storage',
   'Service Worker',
-  'blob_storage',
   'databases',
   'Shared Storage',
 ];
@@ -26,6 +35,8 @@ export const RELOCATION_MODES = ['move', 'delete'];
 
 const isCaseInsensitiveFileSystem =
   process.platform === 'win32' || process.platform === 'darwin';
+
+const LINK_TYPE = process.platform === 'win32' ? 'junction' : 'dir';
 
 export class CacheLocationError extends Error {
   constructor(code, message) {
@@ -64,11 +75,9 @@ export function normalizeCacheLocationState(raw) {
   }
   if (raw.pending && typeof raw.pending === 'object') {
     const { location, mode } = raw.pending;
-    if (
-      typeof location === 'string' &&
-      location &&
-      RELOCATION_MODES.includes(mode)
-    ) {
+    const validLocation =
+      location === null || (typeof location === 'string' && location);
+    if (validLocation && RELOCATION_MODES.includes(mode)) {
       state.pending = { location, mode };
     }
   }
@@ -111,7 +120,7 @@ export async function writeCacheLocationState(userDataDir, state) {
 export function getCacheLocationInfo(userDataDir) {
   const state = readCacheLocationStateSync(userDataDir);
   return {
-    // null means the default session storage under userData is in use.
+    // null means the cache entries live directly under userData.
     location: state.location,
     isCustom: Boolean(state.location),
     defaultLocation: userDataDir,
@@ -120,14 +129,18 @@ export function getCacheLocationInfo(userDataDir) {
 }
 
 // Returns null when the target is valid, otherwise an error code:
-// 'invalid' (not an absolute path), 'same' (identical to the current
-// location) or 'nested' (target contains, or is contained by, the current
-// storage).
+// 'invalid' (no absolute path and no default restore), 'same' (identical to
+// the current location), 'nested' (target contains, or is contained by, the
+// current storage). A null targetDir restores the default location and is
+// only valid while a custom location is active.
 export function validateRelocationTarget({
   targetDir,
   userDataDir,
   currentLocation,
 }) {
+  if (targetDir === null || targetDir === undefined) {
+    return currentLocation ? null : 'invalid';
+  }
   if (typeof targetDir !== 'string' || !path.isAbsolute(targetDir)) {
     return 'invalid';
   }
@@ -154,8 +167,11 @@ export function validateRelocationTarget({
 
 // Validates the request and persists it as a pending relocation. The actual
 // file operations run on the next startup (runPendingRelocation), because the
-// session storage files must not be in use while they are moved or deleted.
-export async function prepareRelocation(userDataDir, { targetDir, mode } = {}) {
+// cache directories must not be in use while they are moved or deleted.
+export async function prepareRelocation(
+  userDataDir,
+  { targetDir = null, mode } = {}
+) {
   if (!RELOCATION_MODES.includes(mode)) {
     throw new CacheLocationError(
       'invalidMode',
@@ -176,7 +192,10 @@ export async function prepareRelocation(userDataDir, { targetDir, mode } = {}) {
   }
   const next = {
     ...state,
-    pending: { location: path.resolve(targetDir), mode },
+    pending: {
+      location: targetDir ? path.resolve(targetDir) : null,
+      mode,
+    },
   };
   await writeCacheLocationState(userDataDir, next);
   return next;
@@ -221,68 +240,164 @@ async function removePath(target) {
   await fsp.rm(target, { recursive: true, force: true });
 }
 
-// The storage entries to relocate. With a custom location the whole
-// directory was created for the session; with the default location only the
-// known Chromium storage entries are touched, never the whole userData dir.
-async function listSourceEntries(userDataDir, currentLocation) {
-  if (currentLocation) {
-    try {
-      const entries = await fsp.readdir(currentLocation, {
-        withFileTypes: true,
-      });
-      return entries.map(entry => ({
-        name: entry.name,
-        path: path.join(currentLocation, entry.name),
-      }));
-    } catch (error) {
-      if (error?.code === 'ENOENT') return [];
-      throw error;
-    }
+async function isLink(target) {
+  try {
+    const stat = await fsp.lstat(target);
+    return stat.isSymbolicLink();
+  } catch {
+    return false;
   }
-  const existing = [];
-  for (const name of DEFAULT_SESSION_STORAGE_ENTRIES) {
-    const entryPath = path.join(userDataDir, name);
-    if (fs.existsSync(entryPath)) {
-      existing.push({ name, path: entryPath });
-    }
-  }
-  return existing;
 }
 
-// Executes a pending relocation at startup, before any window (and therefore
-// any session using the storage) is created. Failures abort the relocation
-// and keep the previous location so the app can still start.
-export async function runPendingRelocation(userDataDir, { log } = {}) {
+async function createCacheLink(userDataDir, name, cacheRoot) {
+  const linkPath = path.join(userDataDir, name);
+  const targetPath = path.join(cacheRoot, name);
+  await fsp.mkdir(targetPath, { recursive: true });
+  await fsp.symlink(targetPath, linkPath, LINK_TYPE);
+}
+
+async function removeCacheLinks(userDataDir) {
+  for (const name of CACHE_ENTRIES) {
+    const linkPath = path.join(userDataDir, name);
+    if (await isLink(linkPath)) {
+      await fsp.unlink(linkPath);
+    }
+  }
+}
+
+// Ensures every cache entry is reachable from the default session directory:
+// a leftover real directory is folded into the real cache root first, then a
+// link is created. Already-linked entries are left untouched.
+async function ensureCacheLinks(userDataDir, cacheRoot) {
+  for (const name of CACHE_ENTRIES) {
+    const linkPath = path.join(userDataDir, name);
+    if (await isLink(linkPath)) continue;
+    if (fs.existsSync(linkPath)) {
+      await moveDirectory(linkPath, path.join(cacheRoot, name));
+    }
+    await createCacheLink(userDataDir, name, cacheRoot);
+  }
+}
+
+// Brings the on-disk layout in line with the recorded state on every
+// startup, before any window exists:
+// - recovers the legacy whole-session relocation by moving state entries
+//   (Local Storage, ...) back into the default userData session — login and
+//   settings must live there, never in the cache directory;
+// - establishes (or removes) the cache links for the current location.
+// Never throws: a broken cache location must not prevent the app from
+// starting, Chromium simply recreates missing cache directories.
+export async function normalizeCacheLayout(userDataDir, { log } = {}) {
   const state = await readCacheLocationState(userDataDir);
+  if (!state.location) {
+    await removeCacheLinks(userDataDir);
+    return state;
+  }
+
+  const legacyStateEntry = path.join(state.location, 'Local Storage');
+  if (fs.existsSync(legacyStateEntry)) {
+    for (const name of STATE_ENTRIES) {
+      const src = path.join(state.location, name);
+      if (!fs.existsSync(src)) continue;
+      const dest = path.join(userDataDir, name);
+      // The relocated session was authoritative; drop stale default remnants.
+      await removePath(dest);
+      await moveDirectory(src, dest);
+    }
+    log?.('restored login/settings storage to the default location');
+  }
+
+  await ensureCacheLinks(userDataDir, state.location);
+  return state;
+}
+
+function isDefaultRestore(target, userDataDir) {
+  return (
+    target === null ||
+    normalizePathForCompare(path.resolve(target)) ===
+      normalizePathForCompare(userDataDir)
+  );
+}
+
+async function clearCacheEntries(root) {
+  for (const name of CACHE_ENTRIES) {
+    const entry = path.join(root, name);
+    await removePath(entry);
+    await fsp.mkdir(entry, { recursive: true });
+  }
+}
+
+// Executes a pending relocation at startup, after the layout has been
+// normalized and before any window (and therefore any session using the
+// storage) is created. Only cache entries are touched; web state stays in
+// the default userData session. Failures abort the relocation and keep the
+// previous location so the app can still start.
+export async function runPendingRelocation(userDataDir, { log } = {}) {
+  let state;
+  try {
+    state = await normalizeCacheLayout(userDataDir, { log });
+  } catch (error) {
+    log?.(`cache layout normalization failed: ${error?.message || error}`);
+    return { applied: false, error };
+  }
   if (!state.pending) return { applied: false };
 
-  const { location: target, mode } = state.pending;
+  const { location: rawTarget, mode } = state.pending;
+  const restoreDefault = isDefaultRestore(rawTarget, userDataDir);
+  const target = restoreDefault ? null : path.resolve(rawTarget);
+  const oldRoot = state.location;
   try {
-    await fsp.mkdir(target, { recursive: true });
-    // Defensive: never relocate a directory into itself.
-    if (
-      state.location &&
-      normalizePathForCompare(state.location) ===
-        normalizePathForCompare(target)
-    ) {
-      const next = { ...state, location: target, pending: null };
-      await writeCacheLocationState(userDataDir, next);
-      return { applied: true, mode, location: target };
-    }
-    const entries = await listSourceEntries(userDataDir, state.location);
-    for (const entry of entries) {
-      const dest = path.join(target, entry.name);
-      if (mode === 'move') {
-        await moveDirectory(entry.path, dest);
+    if (mode === 'move') {
+      if (restoreDefault) {
+        // Fold the custom cache back into userData as real directories.
+        await removeCacheLinks(userDataDir);
+        for (const name of CACHE_ENTRIES) {
+          const src = path.join(oldRoot, name);
+          const dest = path.join(userDataDir, name);
+          if (fs.existsSync(src)) {
+            await moveDirectory(src, dest);
+          }
+        }
+        await removePath(oldRoot);
       } else {
-        await removePath(entry.path);
+        await fsp.mkdir(target, { recursive: true });
+        await removeCacheLinks(userDataDir);
+        for (const name of CACHE_ENTRIES) {
+          const src = oldRoot
+            ? path.join(oldRoot, name)
+            : path.join(userDataDir, name);
+          const dest = path.join(target, name);
+          if (fs.existsSync(src) && src !== dest) {
+            await moveDirectory(src, dest);
+          } else {
+            await fsp.mkdir(dest, { recursive: true });
+          }
+        }
+        if (oldRoot) await removePath(oldRoot);
+        for (const name of CACHE_ENTRIES) {
+          await createCacheLink(userDataDir, name, target);
+        }
+      }
+    } else {
+      // delete: wipe the cache contents (never the web state) and continue
+      // at a fresh root — the custom target, or the default location.
+      const rootToClear = oldRoot ?? userDataDir;
+      await removeCacheLinks(userDataDir);
+      await clearCacheEntries(rootToClear);
+      if (oldRoot) await removePath(oldRoot);
+      if (!restoreDefault) {
+        await fsp.mkdir(target, { recursive: true });
+        for (const name of CACHE_ENTRIES) {
+          await createCacheLink(userDataDir, name, target);
+        }
       }
     }
-    if (state.location) await removePath(state.location);
 
     const next = { ...state, location: target, pending: null };
     await writeCacheLocationState(userDataDir, next);
-    log?.(`cache relocated to ${target} (mode: ${mode})`);
+    log?.(
+      `cache ${mode} applied${target ? ` -> ${target}` : ' (default location)'}`
+    );
     return { applied: true, mode, location: target };
   } catch (error) {
     try {

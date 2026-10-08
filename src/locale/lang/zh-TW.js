@@ -366,6 +366,7 @@ export default {
     cacheLocation: '快取位置',
     cacheLocationDefault: '預設位置',
     changeCacheLocation: '變更位置',
+    restoreCacheLocation: '恢復預設位置',
     openCacheLocation: '開啟資料夾',
     cacheLocationRestarting: '正在重新啟動…',
     cacheLocationInvalid: '選擇的快取目錄無效',
@@ -375,12 +376,13 @@ export default {
     cacheLocationFailed: '切換快取位置失敗',
     cacheLocationModal: {
       title: '變更快取位置',
-      message: '將快取位置切換到「{dir}」。要如何處理目前的快取？',
+      message:
+        '將歌曲快取切換到「{dir}」。登入狀態與設定始終保留在預設位置，不會移動。',
       move: '移動到新位置',
-      delete: '刪除原快取',
-      moveNote: '移動會保留已快取的歌曲和本地設定。',
+      delete: '僅清除快取',
+      moveNote: '移動會保留已快取的歌曲，登入狀態與設定不受影響。',
       deleteWarning:
-        '刪除將清除舊位置的全部快取歌曲和本地設定。確認後應用程式將立即重新啟動以套用變更。',
+        '清除會刪除舊位置的全部快取歌曲，登入狀態與設定不受影響。確認後應用程式將立即重新啟動。',
       cancel: '取消',
     },
     showLyricsTranslation: '顯示歌詞翻譯',

@@ -11,7 +11,6 @@ import {
   globalShortcut,
   nativeTheme,
   screen,
-  session,
 } from 'electron';
 import {
   isWindows,
@@ -30,10 +29,7 @@ import * as neteaseProvider from '../../server/providers/netease.js';
 import * as lxProvider from '../../server/providers/lx.js';
 import * as fallbackProvider from '../../server/providers/fallback.js';
 import { initIpcMain } from '../electron/ipcMain.js';
-import {
-  readCacheLocationStateSync,
-  runPendingRelocation,
-} from '../electron/cacheLocation.js';
+import { runPendingRelocation } from '../electron/cacheLocation.js';
 import { startControlServer } from '../electron/controlServer.js';
 import { createMcpServerManager } from '../electron/mcpServer.js';
 import { DesktopLyricsWindow } from '../electron/desktopLyricsWindow.js';
@@ -252,9 +248,10 @@ class Background {
     });
     this.willQuitApp = !isMac;
 
-    // Execute a pending cache-location relocation as early as possible; it is
-    // awaited before the first window is created, so no session is using the
-    // storage while it is being moved or deleted.
+    // Normalize the cache layout and execute a pending cache relocation as
+    // early as possible; it is awaited before the first window is created, so
+    // no session is using the storage while cache directories are moved or
+    // cleared. Login/settings storage always stays in the default session.
     this.pendingCacheRelocation = runPendingRelocation(
       app.getPath('userData'),
       {
@@ -478,25 +475,6 @@ class Background {
           ? '#222'
           : '#fff',
     };
-
-    // Relocate the main window session (HTTP cache + IndexedDB track cache +
-    // local storage) when a custom cache location is configured. The actual
-    // data transfer happens at the previous shutdown/startup boundary via
-    // runPendingRelocation; here we only point the session at the directory.
-    const cacheLocationState = readCacheLocationStateSync(
-      app.getPath('userData')
-    );
-    if (cacheLocationState.location) {
-      try {
-        fs.mkdirSync(cacheLocationState.location, { recursive: true });
-        options.webPreferences.session = session.fromPath(
-          cacheLocationState.location
-        );
-        log(`using custom cache location: ${cacheLocationState.location}`);
-      } catch (error) {
-        log(`failed to apply custom cache location: ${error?.message}`);
-      }
-    }
 
     if (this.store.get('window.x') && this.store.get('window.y')) {
       let x = this.store.get('window.x');

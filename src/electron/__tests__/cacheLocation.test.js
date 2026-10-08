@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import {
   access,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
@@ -11,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  CACHE_ENTRIES,
   CacheLocationError,
   getCacheLocationInfo,
   moveDirectory,
@@ -30,6 +32,14 @@ async function pathExists(target) {
   }
 }
 
+async function isLink(target) {
+  try {
+    return (await lstat(target)).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 describe('cacheLocation', () => {
   let root;
   let userDataDir;
@@ -41,6 +51,14 @@ describe('cacheLocation', () => {
   });
 
   afterEach(async () => {
+    // Links must be removed before the temp root, otherwise rm would delete
+    // the link targets' contents as well.
+    for (const name of CACHE_ENTRIES) {
+      const linkPath = path.join(userDataDir, name);
+      if (await isLink(linkPath)) {
+        await rm(linkPath);
+      }
+    }
     await rm(root, { recursive: true, force: true });
   });
 
@@ -61,6 +79,16 @@ describe('cacheLocation', () => {
         location: target,
         pending: { location: target, mode: 'move' },
       });
+    });
+
+    it('round-trips a restore-default pending relocation', async () => {
+      const written = await writeCacheLocationState(userDataDir, {
+        location: path.join(root, 'custom'),
+        pending: { location: null, mode: 'move' },
+      });
+      expect(written.pending).toEqual({ location: null, mode: 'move' });
+      const read = await readCacheLocationState(userDataDir);
+      expect(read.pending).toEqual({ location: null, mode: 'move' });
     });
 
     it('returns the default state for a missing or corrupt file', async () => {
@@ -187,6 +215,23 @@ describe('cacheLocation', () => {
         })
       ).toBeNull();
     });
+
+    it('allows a null target only to restore the default location', () => {
+      expect(
+        validateRelocationTarget({
+          targetDir: null,
+          userDataDir,
+          currentLocation: null,
+        })
+      ).toBe('invalid');
+      expect(
+        validateRelocationTarget({
+          targetDir: null,
+          userDataDir,
+          currentLocation: path.join(root, 'custom'),
+        })
+      ).toBeNull();
+    });
   });
 
   describe('prepareRelocation', () => {
@@ -210,6 +255,18 @@ describe('cacheLocation', () => {
         location: target,
         mode: 'move',
       });
+    });
+
+    it('persists a restore-default relocation', async () => {
+      await writeCacheLocationState(userDataDir, {
+        location: path.join(root, 'custom'),
+        pending: null,
+      });
+      const state = await prepareRelocation(userDataDir, {
+        targetDir: null,
+        mode: 'move',
+      });
+      expect(state.pending).toEqual({ location: null, mode: 'move' });
     });
 
     it('throws a coded error for invalid targets', async () => {
@@ -246,12 +303,17 @@ describe('cacheLocation', () => {
       expect(result.applied).toBe(false);
     });
 
-    it('moves default session storage entries to the target', async () => {
+    it('moves only cache entries and links them back', async () => {
       await mkdir(path.join(userDataDir, 'IndexedDB'), { recursive: true });
       await writeFile(path.join(userDataDir, 'IndexedDB', 'track.bin'), 'x');
       await mkdir(path.join(userDataDir, 'Cache'), { recursive: true });
       await writeFile(path.join(userDataDir, 'Cache', 'c.bin'), 'y');
-      // Must never be touched.
+      // Web state and app files must never be touched.
+      await mkdir(path.join(userDataDir, 'Local Storage'), { recursive: true });
+      await writeFile(
+        path.join(userDataDir, 'Local Storage', 'leveldb.bin'),
+        'login'
+      );
       await writeFile(path.join(userDataDir, 'config.json'), '{}');
 
       const target = path.join(root, 'moved-cache');
@@ -264,14 +326,27 @@ describe('cacheLocation', () => {
         location: target,
       });
 
+      // real data lives at the target...
       expect(
         await readFile(path.join(target, 'IndexedDB', 'track.bin'), 'utf8')
       ).toBe('x');
       expect(await readFile(path.join(target, 'Cache', 'c.bin'), 'utf8')).toBe(
         'y'
       );
-      expect(existsSync(path.join(userDataDir, 'IndexedDB'))).toBe(false);
-      expect(existsSync(path.join(userDataDir, 'Cache'))).toBe(false);
+      // ...and stays reachable through the links in the default session dir
+      expect(await isLink(path.join(userDataDir, 'IndexedDB'))).toBe(true);
+      expect(await isLink(path.join(userDataDir, 'Cache'))).toBe(true);
+      expect(
+        await readFile(path.join(userDataDir, 'IndexedDB', 'track.bin'), 'utf8')
+      ).toBe('x');
+      // web state never moved
+      expect(await isLink(path.join(userDataDir, 'Local Storage'))).toBe(false);
+      expect(
+        await readFile(
+          path.join(userDataDir, 'Local Storage', 'leveldb.bin'),
+          'utf8'
+        )
+      ).toBe('login');
       expect(
         await readFile(path.join(userDataDir, 'config.json'), 'utf8')
       ).toBe('{}');
@@ -281,12 +356,14 @@ describe('cacheLocation', () => {
       expect(state.pending).toBeNull();
     });
 
-    it('moves a custom location into the new target', async () => {
+    it('moves a custom cache root into the new target', async () => {
       const oldLocation = path.join(root, 'old-cache');
-      await mkdir(path.join(oldLocation, 'Local Storage'), { recursive: true });
+      await mkdir(path.join(oldLocation, 'IndexedDB'), { recursive: true });
+      await writeFile(path.join(oldLocation, 'IndexedDB', 't.bin'), 'x');
+      await mkdir(path.join(userDataDir, 'Local Storage'), { recursive: true });
       await writeFile(
-        path.join(oldLocation, 'Local Storage', 'leveldb.bin'),
-        'z'
+        path.join(userDataDir, 'Local Storage', 'leveldb.bin'),
+        'login'
       );
       await writeCacheLocationState(userDataDir, {
         location: oldLocation,
@@ -299,21 +376,72 @@ describe('cacheLocation', () => {
       const result = await runPendingRelocation(userDataDir);
       expect(result.applied).toBe(true);
       expect(
+        await readFile(path.join(target, 'IndexedDB', 't.bin'), 'utf8')
+      ).toBe('x');
+      expect(existsSync(oldLocation)).toBe(false);
+      expect(await isLink(path.join(userDataDir, 'IndexedDB'))).toBe(true);
+      expect(
         await readFile(
-          path.join(target, 'Local Storage', 'leveldb.bin'),
+          path.join(userDataDir, 'Local Storage', 'leveldb.bin'),
           'utf8'
         )
-      ).toBe('z');
-      expect(existsSync(oldLocation)).toBe(false);
+      ).toBe('login');
 
       const state = await readCacheLocationState(userDataDir);
       expect(state.location).toBe(target);
     });
 
-    it('deletes a custom location instead of moving it', async () => {
+    it('recovers a legacy whole-session relocation at startup', async () => {
+      // Old layout: the whole session (incl. Local Storage) was moved to the
+      // custom location and used via session.fromPath.
+      const oldLocation = path.join(root, 'legacy-cache');
+      await mkdir(path.join(oldLocation, 'Local Storage'), { recursive: true });
+      await writeFile(
+        path.join(oldLocation, 'Local Storage', 'leveldb.bin'),
+        'z'
+      );
+      await mkdir(path.join(oldLocation, 'IndexedDB'), { recursive: true });
+      await writeFile(path.join(oldLocation, 'IndexedDB', 't.bin'), 'x');
+      await writeCacheLocationState(userDataDir, {
+        location: oldLocation,
+        pending: null,
+      });
+
+      const logs = [];
+      const result = await runPendingRelocation(userDataDir, {
+        log: message => logs.push(message),
+      });
+
+      expect(result.applied).toBe(false);
+      expect(
+        logs.some(message => message.includes('restored login/settings'))
+      ).toBe(true);
+      // state entries back home, cache entries linked
+      expect(
+        await readFile(
+          path.join(userDataDir, 'Local Storage', 'leveldb.bin'),
+          'utf8'
+        )
+      ).toBe('z');
+      expect(await isLink(path.join(userDataDir, 'IndexedDB'))).toBe(true);
+      expect(
+        await readFile(path.join(userDataDir, 'IndexedDB', 't.bin'), 'utf8')
+      ).toBe('x');
+      expect(existsSync(path.join(oldLocation, 'Local Storage'))).toBe(false);
+      expect((await readCacheLocationState(userDataDir)).location).toBe(
+        oldLocation
+      );
+    });
+
+    it('delete clears only the cache and keeps web state', async () => {
       const oldLocation = path.join(root, 'old-cache');
       await mkdir(path.join(oldLocation, 'IndexedDB'), { recursive: true });
       await writeFile(path.join(oldLocation, 'IndexedDB', 't.bin'), 'x');
+      await mkdir(path.join(userDataDir, 'Local Storage'), { recursive: true });
+      await writeFile(
+        path.join(userDataDir, 'Local Storage', 'leveldb.bin'),
+        'login'
+      );
       await writeCacheLocationState(userDataDir, {
         location: oldLocation,
         pending: null,
@@ -328,11 +456,46 @@ describe('cacheLocation', () => {
       const result = await runPendingRelocation(userDataDir);
       expect(result).toMatchObject({ applied: true, mode: 'delete' });
       expect(existsSync(oldLocation)).toBe(false);
-      expect(existsSync(target)).toBe(true);
+      expect(await isLink(path.join(userDataDir, 'IndexedDB'))).toBe(true);
+      expect(
+        await readFile(path.join(target, 'IndexedDB', 't.bin'), 'utf8').then(
+          () => true,
+          () => false
+        )
+      ).toBe(false);
+      expect(
+        await readFile(
+          path.join(userDataDir, 'Local Storage', 'leveldb.bin'),
+          'utf8'
+        )
+      ).toBe('login');
 
       const state = await readCacheLocationState(userDataDir);
       expect(state.location).toBe(target);
       expect(state.pending).toBeNull();
+    });
+
+    it('restores the default location when the target is null', async () => {
+      const oldLocation = path.join(root, 'old-cache');
+      await mkdir(path.join(oldLocation, 'IndexedDB'), { recursive: true });
+      await writeFile(path.join(oldLocation, 'IndexedDB', 't.bin'), 'x');
+      await writeCacheLocationState(userDataDir, {
+        location: oldLocation,
+        pending: { location: null, mode: 'move' },
+      });
+
+      const result = await runPendingRelocation(userDataDir);
+      expect(result).toMatchObject({
+        applied: true,
+        mode: 'move',
+        location: null,
+      });
+      expect(await isLink(path.join(userDataDir, 'IndexedDB'))).toBe(false);
+      expect(
+        await readFile(path.join(userDataDir, 'IndexedDB', 't.bin'), 'utf8')
+      ).toBe('x');
+      expect(existsSync(oldLocation)).toBe(false);
+      expect((await readCacheLocationState(userDataDir)).location).toBeNull();
     });
 
     it('aborts on failure and keeps the previous location', async () => {
@@ -346,7 +509,6 @@ describe('cacheLocation', () => {
 
       // Block the target by placing a file at that path so mkdir fails.
       const target = path.join(root, 'blocked');
-      await mkdir(root, { recursive: true });
       await writeFile(target, 'i am a file');
 
       const logs = [];
@@ -360,10 +522,12 @@ describe('cacheLocation', () => {
       expect(logs.some(message => message.includes('failed'))).toBe(true);
 
       // Old storage and location survive; the pending request is cleared so
-      // the app does not retry forever.
+      // the app does not retry forever. The session links are rebuilt so the
+      // cache stays reachable.
       expect(
         await readFile(path.join(oldLocation, 'IndexedDB', 't.bin'), 'utf8')
       ).toBe('x');
+      expect(await isLink(path.join(userDataDir, 'IndexedDB'))).toBe(true);
       const state = await readCacheLocationState(userDataDir);
       expect(state.location).toBe(oldLocation);
       expect(state.pending).toBeNull();

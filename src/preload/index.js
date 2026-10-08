@@ -173,9 +173,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openLocation: () => ipcRenderer.invoke('cache:open-location'),
     setLocation: payload => {
       const sanitizedPayload = sanitizeSerializableValue(payload);
+      const dir = sanitizedPayload?.dir;
+      const dirIsValid = dir === null || isBoundedString(dir, 1, 4096);
       if (
         !isPlainObject(sanitizedPayload) ||
-        !isBoundedString(sanitizedPayload.dir, 1, 4096) ||
+        !dirIsValid ||
         !['move', 'delete'].includes(sanitizedPayload.mode)
       ) {
         return Promise.reject(new Error('Invalid cache relocation request'));

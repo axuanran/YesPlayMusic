@@ -370,6 +370,7 @@ export default {
     cacheLocation: '缓存位置',
     cacheLocationDefault: '默认位置',
     changeCacheLocation: '更改位置',
+    restoreCacheLocation: '恢复默认位置',
     openCacheLocation: '打开文件夹',
     cacheLocationRestarting: '正在重启…',
     cacheLocationInvalid: '选择的缓存目录无效',
@@ -379,12 +380,13 @@ export default {
     cacheLocationFailed: '切换缓存位置失败',
     cacheLocationModal: {
       title: '更改缓存位置',
-      message: '将缓存位置切换到「{dir}」。如何处理当前缓存？',
+      message:
+        '将歌曲缓存切换到「{dir}」。登录状态与设置始终保留在默认位置，不会移动。',
       move: '移动到新位置',
-      delete: '删除原缓存',
-      moveNote: '移动会保留已缓存的歌曲和本地设置。',
+      delete: '仅清除缓存',
+      moveNote: '移动会保留已缓存的歌曲，登录状态与设置不受影响。',
       deleteWarning:
-        '删除将清除旧位置的全部缓存歌曲和本地设置。确认后应用将立即重启以应用更改。',
+        '清除会删除旧位置的全部缓存歌曲，登录状态与设置不受影响。确认后应用将立即重启。',
       cancel: '取消',
     },
     showLyricsTranslation: '显示歌词翻译',

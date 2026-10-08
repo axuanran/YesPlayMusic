@@ -220,6 +220,13 @@
           <button @click="openCacheLocation">
             {{ $t('settings.openCacheLocation') }}
           </button>
+          <button
+            v-if="cacheLocation && cacheLocation.isCustom"
+            :disabled="relocatingCache"
+            @click="restoreCacheLocation"
+          >
+            {{ $t('settings.restoreCacheLocation') }}
+          </button>
           <button :disabled="relocatingCache" @click="changeCacheLocation">
             {{
               relocatingCache
@@ -2440,6 +2447,25 @@ export default {
       if (this.relocatingCache) return;
       this.showCacheLocationModal = false;
       this.pendingCacheDir = '';
+    },
+    async restoreCacheLocation() {
+      if (this.relocatingCache) return;
+      this.relocatingCache = true;
+      try {
+        const result = await window.electronAPI?.cache?.setLocation?.({
+          dir: null,
+          mode: 'move',
+        });
+        if (result && result.ok === false) {
+          this.relocatingCache = false;
+          this.showToast(this.cacheLocationErrorText(result.code));
+        }
+        // ok → the app relaunches immediately
+      } catch (error) {
+        console.error('[cache-location] restore failed', error);
+        this.relocatingCache = false;
+        this.showToast(this.$t('settings.cacheLocationFailed'));
+      }
     },
     updateDesktopLyricsSettings(patch) {
       const value = mergeDesktopLyricsSettings(

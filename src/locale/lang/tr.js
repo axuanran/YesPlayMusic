@@ -377,6 +377,7 @@ export default {
     cacheLocation: 'Önbellek konumu',
     cacheLocationDefault: 'Varsayılan konum',
     changeCacheLocation: 'Konumu değiştir',
+    restoreCacheLocation: 'Varsayılan konuma döndür',
     openCacheLocation: 'Klasörü aç',
     cacheLocationRestarting: 'Yeniden başlatılıyor…',
     cacheLocationInvalid: 'Seçilen önbellek dizini geçersiz',
@@ -387,12 +388,13 @@ export default {
     cacheLocationModal: {
       title: 'Önbellek konumunu değiştir',
       message:
-        'Önbellek konumu "{dir}" olarak değiştirilsin mi? Mevcut önbelleğe ne yapılsın?',
+        'Şarkı önbelleği "{dir}" konumuna alınsın mı? Oturum durumu ve ayarlar her zaman varsayılan konumda kalır, taşınmaz.',
       move: 'Yeni konuma taşı',
-      delete: 'Eski önbelleği sil',
-      moveNote: 'Taşımak, önbelleğe alınan şarkıları ve yerel ayarları korur.',
+      delete: 'Yalnızca önbelleği temizle',
+      moveNote:
+        'Taşımak, önbelleğe alınan şarkıları korur; oturum durumu ve ayarlar etkilenmez.',
       deleteWarning:
-        'Silmek, eski konumdaki tüm önbellek şarkıları ve yerel ayarları kaldırır. Onayladıktan sonra uygulama değişikliği uygulamak için hemen yeniden başlatılır.',
+        'Temizlemek, eski konumdaki tüm önbellek şarkılarını siler; oturum durumu ve ayarlar etkilenmez. Onayladıktan sonra uygulama hemen yeniden başlatılır.',
       cancel: 'İptal',
     },
     showLyricsTranslation: 'Müzik sözlerinin çevirilerini göster',
