@@ -1,5 +1,5 @@
 import { handleMprisCommand } from './ipcRenderer';
-import { extractJsonObject } from './assistant/radioEngine';
+import { interpretFeedbackText } from './assistant/feedbackInterpreter';
 
 // Renderer side of the local control channel (docs/control-api.md). Everything
 // here runs inside the Vue app, so it can use the player/store and the app's
@@ -507,61 +507,11 @@ export function createControlHandlers({ store, player, radio = null }) {
     if (!entry) fail('internal_error', 'preference store unavailable');
     // 文本反馈异步分层为偏好规则（LLM 理解、程序落库），不阻塞确认回包
     if (type === 'text' && text) {
-      interpretFeedbackText(text).catch(() => {});
+      interpretFeedbackText(text, {
+        assistant: globalThis.window?.electronAPI?.assistant,
+      }).catch(() => {});
     }
     return { accepted: true, entry };
-  };
-
-  // 把用户的自然语言反馈分成三层偏好（本次/暂时/长期）并落库。只输出
-  // 受控 JSON；解析失败或不合法时安静地返回 null，规则不进库。
-  const interpretFeedbackText = async text => {
-    try {
-      const assistant = globalThis.window?.electronAPI?.assistant;
-      if (typeof assistant?.llmChat !== 'function') return null;
-      const prefs = (await assistant.getPreferences?.()) ?? null;
-      const existing = [
-        ...(prefs?.preferences?.longTerm ?? []).map(
-          rule => `长期:${rule.rule}`
-        ),
-        ...(prefs?.preferences?.temporary ?? []).map(
-          rule => `暂时:${rule.rule}`
-        ),
-        ...(prefs?.preferences?.session ?? []).map(rule => `本次:${rule.rule}`),
-      ].join('\n');
-      const output = await assistant.llmChat({
-        system:
-          '你是 XuMP 音乐偏好的理解器。把用户的自然语言反馈归类为一条可执行的偏好规则。',
-        prompt: [
-          '三层定义：session=只影响当前这次听歌；temporary=暂时偏好，带恢复预期；longTerm=用户明确表达的长期口味。',
-          '只输出 JSON：{"layer":"session|temporary|longTerm","rule":"不超过30字的可执行规则","confidence":0到1,"expiresInHours":数字或null}（temporary 才给 expiresInHours）。',
-          existing ? `已有规则：\n${existing}` : '',
-          `用户反馈："${text}"`,
-        ]
-          .filter(Boolean)
-          .join('\n\n'),
-        maxTokens: 300,
-      });
-      const parsed = extractJsonObject(output);
-      if (!parsed || typeof parsed.rule !== 'string' || !parsed.rule.trim()) {
-        return null;
-      }
-      const layer = ['session', 'temporary', 'longTerm'].includes(parsed.layer)
-        ? parsed.layer
-        : 'session';
-      const rule = {
-        rule: parsed.rule.trim().slice(0, 280),
-        source: 'explicit',
-      };
-      if (Number.isFinite(parsed.confidence)) {
-        rule.confidence = Math.min(1, Math.max(0, parsed.confidence));
-      }
-      if (layer === 'temporary' && Number.isFinite(parsed.expiresInHours)) {
-        rule.expiresAt = Date.now() + parsed.expiresInHours * 3600_000;
-      }
-      return await assistant.addRule({ layer, rule });
-    } catch {
-      return null;
-    }
   };
 
   const feedbackList = async params => {

@@ -6,6 +6,7 @@ import {
   createControlHandlers,
 } from './controlHandlers';
 import { createRadioEngine } from './assistant/radioEngine';
+import { registerRadioEngine } from './assistant/radioRegistry';
 
 const player = store.state.player;
 
@@ -321,6 +322,7 @@ export function ipcRenderer(vueInstance) {
       globalThis.window?.electronAPI?.assistant?.getPreferences?.(),
     onError: (phase, error) => console.warn(`[radio] ${phase}:`, error),
   });
+  registerRadioEngine(radio);
 
   // local control channel: scripts/agents (scripts/xumpctl.mjs) ask for state
   // or playback changes through the main process

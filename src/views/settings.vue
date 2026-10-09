@@ -265,6 +265,140 @@
         </div>
       </div>
 
+      <h3 v-if="isElectron" id="settings-assistant">
+        {{ $t('settings.assistantSection') }}
+      </h3>
+      <template v-if="isElectron">
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.assistantLlm') }}
+            </div>
+            <div class="description">
+              {{ $t('settings.assistantLlmDescription') }}
+            </div>
+          </div>
+          <div class="right">
+            <div class="toggle">
+              <input
+                id="assistant-llm-enabled"
+                v-model="assistantLlmEnabled"
+                type="checkbox"
+              />
+              <label for="assistant-llm-enabled"></label>
+            </div>
+          </div>
+        </div>
+        <template v-if="assistantLlmEnabled">
+          <div class="item">
+            <div class="left">
+              <div class="title">
+                {{ $t('settings.assistantLlmBaseUrl') }}
+              </div>
+            </div>
+            <div class="right">
+              <input
+                v-model.trim="assistantLlmBaseUrl"
+                class="text-input"
+                type="text"
+                placeholder="https://api.openai.com/v1"
+              />
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">
+                {{ $t('settings.assistantLlmApiKey') }}
+              </div>
+            </div>
+            <div class="right">
+              <input
+                v-model="assistantLlmApiKey"
+                class="text-input"
+                type="password"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+          <div class="item">
+            <div class="left">
+              <div class="title">
+                {{ $t('settings.assistantLlmModel') }}
+              </div>
+            </div>
+            <div class="right">
+              <input
+                v-model.trim="assistantLlmModel"
+                class="text-input"
+                type="text"
+                placeholder="gpt-4o-mini"
+              />
+            </div>
+          </div>
+        </template>
+        <div class="item">
+          <div class="left">
+            <div class="title">
+              {{ $t('settings.assistantPrefs') }}
+            </div>
+            <div class="description">
+              {{ $t('settings.assistantPrefsDescription') }}
+            </div>
+          </div>
+          <div class="right">
+            <button @click="loadAssistantPreferences">
+              {{ $t('settings.assistantPrefsRefresh') }}
+            </button>
+          </div>
+        </div>
+        <div v-if="assistantPreferences" class="assistant-prefs">
+          <p v-if="assistantPrefsEmpty" class="assistant-prefs-empty">
+            {{ $t('settings.assistantPrefsEmpty') }}
+          </p>
+          <template v-else>
+            <div
+              v-for="layer in assistantPrefsLayers"
+              :key="layer.key"
+              class="assistant-prefs-group"
+            >
+              <div class="assistant-prefs-layer">
+                {{ $t(layer.labelKey) }}
+              </div>
+              <div
+                v-for="rule in layer.rules"
+                :key="rule.id"
+                class="assistant-prefs-rule"
+              >
+                <span class="assistant-prefs-text">{{ rule.rule }}</span>
+                <span class="assistant-prefs-meta">
+                  {{
+                    $t(
+                      rule.source === 'inferred'
+                        ? 'settings.assistantPrefsSourceInferred'
+                        : 'settings.assistantPrefsSourceExplicit'
+                    )
+                  }}
+                  <template v-if="rule.scope && rule.scope !== 'global'">
+                    · {{ rule.scope }}</template
+                  >
+                </span>
+                <span class="assistant-prefs-actions">
+                  <button
+                    v-if="layer.key !== 'longTerm'"
+                    @click="upgradeAssistantRule(layer.key, rule)"
+                  >
+                    {{ $t('settings.assistantPrefsUpgrade') }}
+                  </button>
+                  <button @click="removeAssistantRule(layer.key, rule.id)">
+                    {{ $t('settings.assistantPrefsRemove') }}
+                  </button>
+                </span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
       <h3 v-if="isElectron" id="settings-streaming">
         {{ $t('streaming.serverSettings') }}
       </h3>
@@ -1725,6 +1859,7 @@ export default {
       builtinPlugins: getBuiltinPlugins(),
       /** 界面布局编辑草稿；编辑动作修改草稿后统一提交 */
       layoutDraft: null,
+      assistantPreferences: null,
     };
   },
   computed: {
@@ -2069,6 +2204,81 @@ export default {
     ),
     desktopLyricsDragMode: desktopLyricsSetting('dragMode', 'lyrics'),
     desktopLyricsAllDesktops: desktopLyricsSetting('allDesktops', false),
+    assistantLlm: {
+      get() {
+        return (
+          this.settings.assistantLlm ?? {
+            enabled: false,
+            baseUrl: '',
+            apiKey: '',
+            model: '',
+            timeoutMs: 30000,
+          }
+        );
+      },
+      set(value) {
+        this.$store.commit('updateSettings', {
+          key: 'assistantLlm',
+          value,
+        });
+      },
+    },
+    assistantLlmEnabled: {
+      get() {
+        return this.assistantLlm.enabled === true;
+      },
+      set(value) {
+        this.assistantLlm = { ...this.assistantLlm, enabled: value === true };
+      },
+    },
+    assistantLlmBaseUrl: {
+      get() {
+        return this.assistantLlm.baseUrl ?? '';
+      },
+      set(value) {
+        this.assistantLlm = { ...this.assistantLlm, baseUrl: value };
+      },
+    },
+    assistantLlmApiKey: {
+      get() {
+        return this.assistantLlm.apiKey ?? '';
+      },
+      set(value) {
+        this.assistantLlm = { ...this.assistantLlm, apiKey: value };
+      },
+    },
+    assistantLlmModel: {
+      get() {
+        return this.assistantLlm.model ?? '';
+      },
+      set(value) {
+        this.assistantLlm = { ...this.assistantLlm, model: value };
+      },
+    },
+    assistantPrefsLayers() {
+      const prefs = this.assistantPreferences?.preferences;
+      if (!prefs) return [];
+      return [
+        {
+          key: 'longTerm',
+          labelKey: 'settings.assistantPrefsLongTerm',
+          rules: prefs.longTerm ?? [],
+        },
+        {
+          key: 'temporary',
+          labelKey: 'settings.assistantPrefsTemporary',
+          rules: prefs.temporary ?? [],
+        },
+        {
+          key: 'session',
+          labelKey: 'settings.assistantPrefsSession',
+          rules: prefs.session ?? [],
+        },
+      ].filter(layer => layer.rules.length > 0);
+    },
+    assistantPrefsEmpty() {
+      return this.assistantPrefsLayers.length === 0;
+    },
     desktopLyricsTextColor: desktopLyricsSetting('textColor', '#ffffff'),
     desktopLyricsSecondaryColor: desktopLyricsSetting(
       'secondaryColor',
@@ -2251,6 +2461,7 @@ export default {
       this.getAllOutputDevices();
       this.listenMcpServerStatus();
       this.loadCacheLocation();
+      this.loadAssistantPreferences();
     }
   },
   beforeUnmount() {
@@ -2466,6 +2677,34 @@ export default {
         this.relocatingCache = false;
         this.showToast(this.$t('settings.cacheLocationFailed'));
       }
+    },
+    async loadAssistantPreferences() {
+      if (!this.isElectron) return;
+      try {
+        this.assistantPreferences =
+          await window.electronAPI?.assistant?.getPreferences?.();
+      } catch (error) {
+        console.warn('[assistant] failed to load preferences', error);
+      }
+    },
+    async removeAssistantRule(layer, id) {
+      await window.electronAPI?.assistant?.removeRule?.({ layer, id });
+      await this.loadAssistantPreferences();
+    },
+    async upgradeAssistantRule(layer, rule) {
+      const api = window.electronAPI?.assistant;
+      if (!api?.addRule || !api?.removeRule) return;
+      await api.addRule({
+        layer: 'longTerm',
+        rule: {
+          rule: rule.rule,
+          source: rule.source,
+          scope: rule.scope,
+          confidence: rule.confidence,
+        },
+      });
+      await api.removeRule({ layer, id: rule.id });
+      await this.loadAssistantPreferences();
     },
     updateDesktopLyricsSettings(patch) {
       const value = mergeDesktopLyricsSettings(
@@ -3171,6 +3410,70 @@ h3[id] {
     font-size: 13px;
     font-weight: 500;
     opacity: 0.58;
+  }
+}
+
+.assistant-prefs {
+  margin: -6px 0 12px 0;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--color-secondary-bg-for-transparent);
+
+  .assistant-prefs-empty {
+    margin: 0;
+    font-size: 13px;
+    opacity: 0.6;
+  }
+
+  .assistant-prefs-group {
+    & + .assistant-prefs-group {
+      margin-top: 10px;
+    }
+  }
+
+  .assistant-prefs-layer {
+    margin-bottom: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    opacity: 0.55;
+  }
+
+  .assistant-prefs-rule {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    border-radius: 8px;
+
+    & + .assistant-prefs-rule {
+      margin-top: 4px;
+    }
+
+    &:hover {
+      background: rgba(128, 128, 128, 0.12);
+    }
+  }
+
+  .assistant-prefs-text {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .assistant-prefs-meta {
+    font-size: 12px;
+    opacity: 0.55;
+  }
+
+  .assistant-prefs-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+
+    button {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
   }
 }
 
