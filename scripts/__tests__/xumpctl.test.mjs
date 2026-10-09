@@ -424,6 +424,67 @@ describe('xumpctl MCP adapter', () => {
       validateToolArguments(search.inputSchema, { query: 'x', limit: 99 })
     ).toContain('"limit" must be <= 50');
   });
+
+  it('exposes queue manipulation and assistant tools with correct dispatch', () => {
+    const calls = [];
+    const call = (method, params) => {
+      calls.push({ method, params });
+      return Promise.resolve({ result: {} });
+    };
+
+    const queue = MCP_TOOLS.find(tool => tool.name === 'music_queue');
+    queue.handler({ action: 'move', queue: 'priority', from: 0, to: 2 }, call);
+    expect(calls.at(-1)).toEqual({
+      method: 'control',
+      params: { type: 'queueMove', queue: 'priority', from: 0, to: 2 },
+    });
+    queue.handler({ action: 'clear', queue: 'upcoming' }, call);
+    expect(calls.at(-1)).toEqual({
+      method: 'control',
+      params: { type: 'queueClear', queue: 'upcoming' },
+    });
+    expect(
+      validateToolArguments(queue.inputSchema, { action: 'teleport' })
+    ).not.toEqual([]);
+
+    const preferences = MCP_TOOLS.find(
+      tool => tool.name === 'music_preferences'
+    );
+    preferences.handler(
+      { action: 'add', layer: 'longTerm', rule: { rule: '不要现场版' } },
+      call
+    );
+    expect(calls.at(-1)).toEqual({
+      method: 'preferences.patch',
+      params: { layer: 'longTerm', rule: { rule: '不要现场版' } },
+    });
+    preferences.handler({ action: 'get' }, call);
+    expect(calls.at(-1)).toEqual({
+      method: 'preferences.get',
+      params: undefined,
+    });
+    expect(
+      validateToolArguments(preferences.inputSchema, {
+        action: 'add',
+        layer: 'forever',
+      })
+    ).not.toEqual([]);
+
+    const feedback = MCP_TOOLS.find(tool => tool.name === 'music_feedback');
+    feedback.handler({ action: 'report', text: '少点慢歌' }, call);
+    expect(calls.at(-1)).toEqual({
+      method: 'feedback',
+      params: { type: 'text', text: '少点慢歌', trackId: undefined },
+    });
+    feedback.handler({ action: 'list', since: 5, limit: 10 }, call);
+    expect(calls.at(-1)).toEqual({
+      method: 'feedback.list',
+      params: { since: 5, limit: 10 },
+    });
+    expect(
+      validateToolArguments(feedback.inputSchema, { type: 'explode' })
+    ).not.toEqual([]);
+  });
 });
 
 describe('xumpctl retry policy', () => {

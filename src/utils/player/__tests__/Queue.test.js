@@ -114,4 +114,38 @@ describe('PlayerQueue', () => {
     expect(queue.syncCurrentToTrack(9)).toBe(false);
     expect(queue.current).toBe(2);
   });
+
+  it('moves play-next tracks within bounds', () => {
+    const queue = new PlayerQueue({ playNextList: [8, 9, 10] });
+
+    expect(queue.movePlayNext(0, 2)).toBe(true);
+    expect(queue.playNextList).toEqual([9, 10, 8]);
+
+    expect(queue.movePlayNext(2, 0)).toBe(true);
+    expect(queue.playNextList).toEqual([8, 9, 10]);
+
+    expect(queue.movePlayNext(-1, 0)).toBe(false);
+    expect(queue.movePlayNext(0, 3)).toBe(false);
+    expect(queue.playNextList).toEqual([8, 9, 10]);
+  });
+
+  it('clears upcoming tracks but keeps the current one', () => {
+    const queue = new PlayerQueue({ list: [1, 2, 3, 4], current: 1 });
+    queue.clearUpcoming();
+    expect(queue.list).toEqual([1, 2]);
+    expect(queue.current).toBe(1);
+  });
+
+  it('clears upcoming tracks in the shuffled list too', () => {
+    const queue = new PlayerQueue({
+      list: [1, 2, 3, 4],
+      current: 0,
+      shuffledList: [3, 1, 4, 2],
+      shuffledCurrent: 1,
+      shuffleEnabled: true,
+    });
+    queue.clearUpcoming();
+    expect(queue.shuffledList).toEqual([3, 1]);
+    expect(queue.list).toEqual([1, 2, 3, 4]);
+  });
 });

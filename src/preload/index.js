@@ -186,6 +186,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return ipcRenderer.invoke('cache:set-location', sanitizedPayload);
     },
   },
+  assistant: {
+    getPreferences: () => ipcRenderer.invoke('assistant:preferences'),
+    addRule: payload => {
+      const sanitized = sanitizeSerializableValue(payload);
+      return isPlainObject(sanitized)
+        ? ipcRenderer.invoke('assistant:add-rule', sanitized)
+        : Promise.resolve(null);
+    },
+    removeRule: payload => {
+      const sanitized = sanitizeSerializableValue(payload);
+      return isPlainObject(sanitized)
+        ? ipcRenderer.invoke('assistant:remove-rule', sanitized)
+        : Promise.resolve(false);
+    },
+    recordFeedback: payload => {
+      const sanitized = sanitizeSerializableValue(payload);
+      return isPlainObject(sanitized)
+        ? ipcRenderer.invoke('assistant:feedback', sanitized)
+        : Promise.resolve(null);
+    },
+    listFeedback: payload => {
+      const sanitized = sanitizeSerializableValue(payload);
+      return isPlainObject(sanitized)
+        ? ipcRenderer.invoke('assistant:feedback-list', sanitized)
+        : Promise.resolve([]);
+    },
+  },
   download: {
     saveArtwork: payload => {
       const sanitizedPayload = sanitizeSerializableValue(payload);

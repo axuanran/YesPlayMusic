@@ -17,6 +17,8 @@ const CONTROL_TYPES = new Set([
   'setShuffle',
   'setVolume',
   'setRate',
+  'queueMove',
+  'queueClear',
 ]);
 
 const SEARCH_TYPES = { song: 1, album: 10, artist: 100, playlist: 1000 };
@@ -162,7 +164,18 @@ export function createControlHandlers({ store, player }) {
   const control = params => {
     const { type, ...rest } = assertParams(
       params,
-      ['type', 'offset', 'position', 'mode', 'enabled', 'volume', 'rate'],
+      [
+        'type',
+        'offset',
+        'position',
+        'mode',
+        'enabled',
+        'volume',
+        'rate',
+        'queue',
+        'from',
+        'to',
+      ],
       'control'
     );
     if (!CONTROL_TYPES.has(type)) {
@@ -182,6 +195,29 @@ export function createControlHandlers({ store, player }) {
     }
     if (type === 'setShuffle' && typeof rest.enabled !== 'boolean') {
       fail('invalid_params', 'enabled must be a boolean');
+    }
+    if (type === 'queueMove') {
+      if (
+        rest.queue !== 'priority' ||
+        !Number.isInteger(rest.from) ||
+        rest.from < 0 ||
+        !Number.isInteger(rest.to) ||
+        rest.to < 0
+      ) {
+        fail(
+          'invalid_params',
+          'queueMove expects queue="priority" with non-negative integer from/to'
+        );
+      }
+    }
+    if (
+      type === 'queueClear' &&
+      !['priority', 'upcoming'].includes(rest.queue)
+    ) {
+      fail(
+        'invalid_params',
+        'queueClear expects queue="priority" or "upcoming"'
+      );
     }
     if (type === 'setRate' && !(rest.rate > 0)) {
       fail('invalid_params', 'rate must be > 0');
@@ -376,6 +412,115 @@ export function createControlHandlers({ store, player }) {
     return pageOf(items, { limit, offset });
   };
 
+  // --- AI assistant surface -------------------------------------------------
+  // The preference store lives in the main process (see
+  // electron/assistant/preferenceStore.js); these handlers just bridge the
+  // validated MCP/control requests through the preload API.
+
+  const PREFERENCE_LAYERS_SET = new Set(['longTerm', 'temporary', 'session']);
+
+  const preferences = async () => {
+    const value =
+      await globalThis.window?.electronAPI?.assistant?.getPreferences?.();
+    return (
+      value ?? {
+        preferences: { longTerm: [], temporary: [], session: [] },
+        feedback: [],
+      }
+    );
+  };
+
+  const preferencesPatch = async params => {
+    const body = assertParams(params, ['layer', 'rule'], 'preferences.patch');
+    if (!PREFERENCE_LAYERS_SET.has(body.layer)) {
+      fail('invalid_params', 'layer must be longTerm, temporary or session');
+    }
+    if (typeof body.rule?.rule !== 'string' || !body.rule.rule.trim()) {
+      fail('invalid_params', 'rule.rule must be a non-empty description');
+    }
+    const rule = await globalThis.window?.electronAPI?.assistant?.addRule?.({
+      layer: body.layer,
+      rule: {
+        rule: body.rule.rule,
+        source: body.rule.source,
+        scope: body.rule.scope,
+        confidence: body.rule.confidence,
+        expiresAt: body.rule.expiresAt,
+      },
+    });
+    if (!rule) fail('internal_error', 'preference store unavailable');
+    return { accepted: true, layer: body.layer, rule };
+  };
+
+  const preferencesRemove = async params => {
+    const body = assertParams(params, ['layer', 'id'], 'preferences.remove');
+    if (!PREFERENCE_LAYERS_SET.has(body.layer)) {
+      fail('invalid_params', 'layer must be longTerm, temporary or session');
+    }
+    if (typeof body.id !== 'string' || !body.id) {
+      fail('invalid_params', 'id must be a rule id string');
+    }
+    const removed =
+      await globalThis.window?.electronAPI?.assistant?.removeRule?.({
+        layer: body.layer,
+        id: body.id,
+      });
+    return { accepted: true, removed: removed === true };
+  };
+
+  const FEEDBACK_TYPES_SET = new Set([
+    'text',
+    'skip',
+    'skip_quick',
+    'complete',
+    'like',
+    'unlike',
+  ]);
+
+  const feedback = async params => {
+    const body = assertParams(params, ['type', 'text', 'trackId'], 'feedback');
+    const type =
+      body.type ?? (typeof body.text === 'string' ? 'text' : undefined);
+    if (!FEEDBACK_TYPES_SET.has(type)) {
+      fail(
+        'invalid_params',
+        `type must be one of ${[...FEEDBACK_TYPES_SET].join(', ')}`
+      );
+    }
+    if (
+      type === 'text' &&
+      !(typeof body.text === 'string' && body.text.trim())
+    ) {
+      fail('invalid_params', 'text feedback requires a non-empty text');
+    }
+    const entry =
+      await globalThis.window?.electronAPI?.assistant?.recordFeedback?.({
+        type,
+        text:
+          typeof body.text === 'string'
+            ? body.text.trim().slice(0, 512)
+            : undefined,
+        trackId: Number.isInteger(body.trackId) ? body.trackId : undefined,
+      });
+    if (!entry) fail('internal_error', 'preference store unavailable');
+    return { accepted: true, entry };
+  };
+
+  const feedbackList = async params => {
+    const body = assertParams(params, ['since', 'limit'], 'feedback.list');
+    const since =
+      Number.isFinite(body.since) && body.since >= 0 ? body.since : 0;
+    const limit = Number.isInteger(body.limit)
+      ? Math.min(Math.max(body.limit, 1), 200)
+      : 50;
+    const entries =
+      await globalThis.window?.electronAPI?.assistant?.listFeedback?.({
+        since,
+        limit,
+      });
+    return { entries: entries ?? [], since };
+  };
+
   // Account writes go through an explicit, awaitable store action so failures
   // are reported instead of being swallowed behind a toast, and are serialized
   // like the other mutations.
@@ -408,6 +553,11 @@ export function createControlHandlers({ store, player }) {
     lyrics,
     recommend,
     like,
+    'preferences.get': preferences,
+    'preferences.patch': preferencesPatch,
+    'preferences.remove': preferencesRemove,
+    feedback,
+    'feedback.list': feedbackList,
   };
 
   return handlers;

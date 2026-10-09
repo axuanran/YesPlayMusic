@@ -1809,4 +1809,17 @@ export default class {
     this._exportQueueState();
     if (isCapacitor) this._cacheNextTrack();
   }
+  movePlayNextTrack(from, to) {
+    if (this._queue.movePlayNext(from, to)) {
+      this._exportQueueState();
+      if (isCapacitor) this._cacheNextTrack();
+      return true;
+    }
+    return false;
+  }
+  clearUpcomingTracks() {
+    this._queue.clearUpcoming();
+    this._exportQueueState();
+    if (isCapacitor) this._cacheNextTrack();
+  }
 }

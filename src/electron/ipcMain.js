@@ -38,6 +38,7 @@ import {
   saveTrackDownload,
   saveTrackDownloadToBatch,
 } from './trackDownload.js';
+import { createPreferenceStore } from './assistant/preferenceStore.js';
 
 const clc = require('cli-color');
 const log = text => {
@@ -721,6 +722,31 @@ export function initIpcMain(
   ipcMain.handle('settings:get', event => {
     if (event.sender !== win.webContents) return null;
     return store.get('settings') || null;
+  });
+
+  // AI assistant preference/feedback store. Lives in the main process so the
+  // data survives renderer restarts and is shared between the UI and MCP.
+  const preferenceStore = createPreferenceStore({ store });
+  ipcMain.handle('assistant:preferences', event => {
+    if (event.sender !== win.webContents) return null;
+    return preferenceStore.get();
+  });
+  ipcMain.handle('assistant:add-rule', (event, payload) => {
+    if (event.sender !== win.webContents || !isRecord(payload)) return null;
+    return preferenceStore.addRule(payload.layer, payload.rule);
+  });
+  ipcMain.handle('assistant:remove-rule', (event, payload) => {
+    if (event.sender !== win.webContents || !isRecord(payload)) return false;
+    return preferenceStore.removeRule(payload.layer, payload.id);
+  });
+  ipcMain.handle('assistant:feedback', (event, payload) => {
+    if (event.sender !== win.webContents || !isRecord(payload)) return null;
+    return preferenceStore.recordFeedback(payload);
+  });
+  ipcMain.handle('assistant:feedback-list', (event, payload) => {
+    if (event.sender !== win.webContents) return [];
+    const params = isRecord(payload) ? payload : {};
+    return preferenceStore.listFeedback(params);
   });
 
   ipcMain.on('desktop-lyrics:update', (event, payload) => {

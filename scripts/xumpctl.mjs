@@ -475,8 +475,10 @@ export const MCP_TOOLS = [
       required: ['query'],
       additionalProperties: false,
     },
-    handler: ({ query, type = 'song', offset = 0, limit = 10 }, call = request) =>
-      call('search', { keywords: query, type, offset, limit }),
+    handler: (
+      { query, type = 'song', offset = 0, limit = 10 },
+      call = request
+    ) => call('search', { keywords: query, type, offset, limit }),
   },
   {
     name: 'music_play',
@@ -515,8 +517,7 @@ export const MCP_TOOLS = [
       if (params.playlist_id)
         return call('play', { playlistId: params.playlist_id });
       if (params.album_id) return call('play', { albumId: params.album_id });
-      if (params.artist_id)
-        return call('play', { artistId: params.artist_id });
+      if (params.artist_id) return call('play', { artistId: params.artist_id });
       if (params.id) return call('play', { id: params.id });
       const found = await call('search', {
         keywords: params.query,
@@ -535,16 +536,32 @@ export const MCP_TOOLS = [
   {
     name: 'music_queue',
     description:
-      'Read the queue, or add tracks to the priority list that plays right after the current track. Prefer this over music_play when the current song should keep playing.',
+      'Read or manipulate the queue. Actions: list (read), add (append to the priority list that plays right after the current track), move (reorder the priority list), clear (drop the priority list or everything upcoming). Prefer add/move over music_play when the current song should keep playing.',
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['list', 'add'] },
+        action: { type: 'string', enum: ['list', 'add', 'move', 'clear'] },
         id: { type: 'integer', description: 'song id for action=add' },
         ids: {
           type: 'array',
           items: { type: 'integer' },
           description: 'song ids for action=add',
+        },
+        queue: {
+          type: 'string',
+          enum: ['priority', 'upcoming'],
+          description:
+            'which queue to act on for move/clear (default: priority)',
+        },
+        from: {
+          type: 'integer',
+          minimum: 0,
+          description: 'source index for action=move (priority queue)',
+        },
+        to: {
+          type: 'integer',
+          minimum: 0,
+          description: 'destination index for action=move (priority queue)',
         },
         offset: {
           type: 'integer',
@@ -558,11 +575,134 @@ export const MCP_TOOLS = [
           description: 'page size for action=list',
         },
       },
+      required: ['action'],
       additionalProperties: false,
     },
-    handler: ({ action = 'list', id, ids, offset = 0, limit = 100 }, call = request) => {
+    handler: (
+      {
+        action = 'list',
+        id,
+        ids,
+        queue = 'priority',
+        from,
+        to,
+        offset = 0,
+        limit = 100,
+      },
+      call = request
+    ) => {
       if (action === 'list') return call('queue', { offset, limit });
       if (action === 'add') return call('enqueue', ids ? { ids } : { id });
+      if (action === 'move') {
+        return call('control', { type: 'queueMove', queue, from, to });
+      }
+      if (action === 'clear') {
+        return call('control', { type: 'queueClear', queue });
+      }
+      throw Object.assign(new Error(`unsupported action "${action}"`), {
+        code: 'invalid_params',
+      });
+    },
+  },
+  {
+    name: 'music_preferences',
+    description:
+      'The user\'s teachable listening preferences (AI radio). Actions: get returns the three layers (longTerm / temporary / session) with sources and scopes; add stores a rule in a layer ("longTerm" = durable, "temporary" = decays, "session" = this listening session only); remove deletes a rule by id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['get', 'add', 'remove'] },
+        layer: {
+          type: 'string',
+          enum: ['longTerm', 'temporary', 'session'],
+          description: 'target layer for action=add/remove',
+        },
+        rule: {
+          type: 'object',
+          properties: {
+            rule: {
+              type: 'string',
+              description:
+                'human readable rule, e.g. "不要现场版" or "专注模式下倾向纯音乐"',
+            },
+            source: { type: 'string', enum: ['explicit', 'inferred'] },
+            scope: {
+              type: 'string',
+              description: '"global" or a context id like "context:focus"',
+            },
+            confidence: { type: 'number', minimum: 0, maximum: 1 },
+            expiresAt: {
+              type: 'integer',
+              description: 'epoch ms; for the temporary layer',
+            },
+          },
+          required: ['rule'],
+          additionalProperties: false,
+        },
+        id: { type: 'string', description: 'rule id for action=remove' },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    handler: ({ action = 'get', layer, rule, id }, call = request) => {
+      if (action === 'get') return call('preferences.get');
+      if (action === 'add') return call('preferences.patch', { layer, rule });
+      if (action === 'remove') return call('preferences.remove', { layer, id });
+      throw Object.assign(new Error(`unsupported action "${action}"`), {
+        code: 'invalid_params',
+      });
+    },
+  },
+  {
+    name: 'music_feedback',
+    description:
+      'Report listening feedback for the teachable radio, or read recent feedback. Free-form user statements go in text (type=text). Structured signals: skip, skip_quick (switched away within 30s), complete, like, unlike with a trackId.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['report', 'list'] },
+        type: {
+          type: 'string',
+          enum: ['text', 'skip', 'skip_quick', 'complete', 'like', 'unlike'],
+          description: 'signal type for action=report (default: text)',
+        },
+        text: {
+          type: 'string',
+          description: "the user's words, for type=text",
+        },
+        trackId: {
+          type: 'integer',
+          description: 'track the signal refers to (defaults to current)',
+        },
+        since: {
+          type: 'integer',
+          minimum: 0,
+          description: 'epoch ms cursor for action=list',
+        },
+        limit: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 200,
+          description: 'page size for action=list',
+        },
+      },
+      additionalProperties: false,
+    },
+    handler: (
+      {
+        action = 'report',
+        type = 'text',
+        text,
+        trackId,
+        since = 0,
+        limit = 50,
+      },
+      call = request
+    ) => {
+      if (action === 'list') return call('feedback.list', { since, limit });
+      if (action === 'report') {
+        return call('feedback', { type, text, trackId });
+      }
       throw Object.assign(new Error(`unsupported action "${action}"`), {
         code: 'invalid_params',
       });

@@ -75,6 +75,22 @@ export function handleMprisCommand(playerInstance, command) {
         playerInstance.playbackRate = command.rate;
       }
       break;
+    case 'queueMove':
+      if (
+        command.queue === 'priority' &&
+        Number.isInteger(command.from) &&
+        Number.isInteger(command.to)
+      ) {
+        playerInstance.movePlayNextTrack(command.from, command.to);
+      }
+      break;
+    case 'queueClear':
+      if (command.queue === 'priority') {
+        playerInstance.clearPlayNextList();
+      } else if (command.queue === 'upcoming') {
+        playerInstance.clearUpcomingTracks();
+      }
+      break;
   }
 }
 

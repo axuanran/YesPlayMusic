@@ -143,4 +143,32 @@ export default class PlayerQueue {
   removePlayNext(index) {
     this.playNextList.splice(index, 1);
   }
+
+  // Reorders the priority queue. The assistant radio refills through
+  // playNextList, so this is its "replan the rest" primitive.
+  movePlayNext(from, to) {
+    if (
+      !Number.isInteger(from) ||
+      !Number.isInteger(to) ||
+      from < 0 ||
+      to < 0 ||
+      from >= this.playNextList.length ||
+      to >= this.playNextList.length
+    ) {
+      return false;
+    }
+    const [item] = this.playNextList.splice(from, 1);
+    this.playNextList.splice(to, 0, item);
+    return true;
+  }
+
+  // Drops everything after the current track in the active list so a
+  // freshly planned queue (priority or radio) takes over completely.
+  clearUpcoming() {
+    if (this.shuffleEnabled) {
+      this.shuffledList = this.shuffledList.slice(0, this.shuffledCurrent + 1);
+    } else {
+      this.list = this.list.slice(0, this.current + 1);
+    }
+  }
 }

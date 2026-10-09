@@ -290,4 +290,122 @@ describe('control handlers', () => {
       /does not accept/
     );
   });
+
+  it('validates and dispatches queue move/clear controls', () => {
+    handlers.control({ type: 'queueMove', queue: 'priority', from: 0, to: 2 });
+    expect(handleMprisCommand).toHaveBeenCalledWith(player, {
+      type: 'queueMove',
+      queue: 'priority',
+      from: 0,
+      to: 2,
+    });
+
+    handlers.control({ type: 'queueClear', queue: 'upcoming' });
+    expect(handleMprisCommand).toHaveBeenCalledWith(player, {
+      type: 'queueClear',
+      queue: 'upcoming',
+    });
+
+    expect(() =>
+      handlers.control({ type: 'queueMove', queue: 'playlist', from: 0, to: 1 })
+    ).toThrow(/priority/);
+    expect(() =>
+      handlers.control({
+        type: 'queueMove',
+        queue: 'priority',
+        from: -1,
+        to: 0,
+      })
+    ).toThrow(/priority/);
+    expect(() =>
+      handlers.control({ type: 'queueClear', queue: 'all' })
+    ).toThrow(/priority.*upcoming/);
+  });
+
+  describe('assistant surface', () => {
+    let assistant;
+    let windowStub;
+
+    beforeEach(() => {
+      assistant = {
+        getPreferences: vi.fn(),
+        addRule: vi.fn(),
+        removeRule: vi.fn(),
+        recordFeedback: vi.fn(),
+        listFeedback: vi.fn(),
+      };
+      windowStub = { electronAPI: { assistant } };
+      vi.stubGlobal('window', windowStub);
+    });
+
+    it('returns an empty profile when the store bridge is missing', async () => {
+      vi.stubGlobal('window', {});
+      const profile = await handlers['preferences.get']();
+      expect(profile.preferences).toEqual({
+        longTerm: [],
+        temporary: [],
+        session: [],
+      });
+    });
+
+    it('adds and removes preference rules through the bridge', async () => {
+      assistant.addRule.mockResolvedValue({
+        id: 'r1',
+        rule: '不要现场版',
+        source: 'explicit',
+      });
+      const added = await handlers['preferences.patch']({
+        layer: 'longTerm',
+        rule: { rule: '不要现场版' },
+      });
+      expect(added).toMatchObject({ accepted: true, layer: 'longTerm' });
+      expect(assistant.addRule).toHaveBeenCalledWith({
+        layer: 'longTerm',
+        rule: { rule: '不要现场版' },
+      });
+
+      assistant.removeRule.mockResolvedValue(true);
+      const removed = await handlers['preferences.remove']({
+        layer: 'longTerm',
+        id: 'r1',
+      });
+      expect(removed).toEqual({ accepted: true, removed: true });
+
+      await expect(
+        handlers['preferences.patch']({ layer: 'forever', rule: { rule: 'x' } })
+      ).rejects.toThrow(/longTerm, temporary or session/);
+      await expect(
+        handlers['preferences.patch']({ layer: 'longTerm', rule: {} })
+      ).rejects.toThrow(/non-empty/);
+    });
+
+    it('records feedback and lists it with a cursor', async () => {
+      assistant.recordFeedback.mockResolvedValue({ type: 'text', at: 1 });
+      const accepted = await handlers.feedback({ text: '少点慢歌' });
+      expect(accepted.accepted).toBe(true);
+      expect(assistant.recordFeedback).toHaveBeenCalledWith({
+        type: 'text',
+        text: '少点慢歌',
+        trackId: undefined,
+      });
+
+      await expect(handlers.feedback({ type: 'explode' })).rejects.toThrow(
+        /type must be one of/
+      );
+      await expect(handlers.feedback({})).rejects.toThrow(
+        /type must be one of/
+      );
+      await expect(
+        handlers.feedback({ type: 'text', text: '   ' })
+      ).rejects.toThrow(/non-empty/);
+
+      assistant.listFeedback.mockResolvedValue([{ type: 'skip' }]);
+      const list = await handlers['feedback.list']({ since: 100, limit: 5 });
+      expect(list).toEqual({ entries: [{ type: 'skip' }], since: 100 });
+      expect(assistant.listFeedback).toHaveBeenCalledWith({
+        since: 100,
+        limit: 5,
+      });
+    });
+  });
 });
