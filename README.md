@@ -41,6 +41,10 @@ dev分支会自动编译到Release。被合并后可以安装查看自己编写�
 
 ---
 
+别忘了star ~
+
+---
+
 此 README 以及本项目的修改部分基本由 AI 编写。由于 dev 分支不稳定，请尽量使用手动标注为 Latest 的版本。Docker 的 latest 跟随 dev，建议部署固定版本标签。目前docker仅为测试版本，不保证可用性
 
  https://github.com/axuanran/YesPlayMusic/releases/tag/%232474 ，此版本仅对上游升级了api-enhance版本，可能相对更稳定
