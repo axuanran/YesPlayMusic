@@ -407,5 +407,85 @@ describe('control handlers', () => {
         limit: 5,
       });
     });
+
+    it('layers text feedback into preference rules via the LLM', async () => {
+      const addRule = vi.fn(async payload => ({ ...payload, id: 'r1' }));
+      const llmChat = vi.fn(
+        async () =>
+          '{"layer":"temporary","rule":"这首歌最近听腻了","confidence":0.8,"expiresInHours":72}'
+      );
+      vi.stubGlobal('window', {
+        electronAPI: {
+          assistant: {
+            recordFeedback: async entry => entry,
+            addRule,
+            llmChat,
+            getPreferences: async () => ({
+              preferences: { longTerm: [], temporary: [], session: [] },
+            }),
+          },
+        },
+      });
+
+      await handlers.feedback({ text: '这首歌最近听腻了' });
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(llmChat).toHaveBeenCalledOnce();
+      expect(addRule).toHaveBeenCalledWith({
+        layer: 'temporary',
+        rule: expect.objectContaining({
+          rule: '这首歌最近听腻了',
+          confidence: 0.8,
+          expiresAt: expect.any(Number),
+          source: 'explicit',
+        }),
+      });
+    });
+
+    it('quietly skips unparseable LLM layering output', async () => {
+      const addRule = vi.fn();
+      vi.stubGlobal('window', {
+        electronAPI: {
+          assistant: {
+            recordFeedback: async entry => entry,
+            addRule,
+            llmChat: async () => '抱歉，我无法理解',
+          },
+        },
+      });
+
+      await handlers.feedback({ text: '任意话' });
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(addRule).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('radio', () => {
+    it('routes start/stop/status to the engine', async () => {
+      const radio = {
+        start: vi.fn(async () => ({ active: true })),
+        stop: vi.fn(async () => ({ active: false })),
+        status: vi.fn(async () => ({ active: true, enqueuedTotal: 3 })),
+      };
+      const radioHandlers = createControlHandlers({ player, store, radio });
+
+      await radioHandlers['radio.start']();
+      expect(radio.start).toHaveBeenCalledOnce();
+      await radioHandlers['radio.stop']();
+      expect(radio.stop).toHaveBeenCalledOnce();
+      await expect(radioHandlers['radio.status']()).resolves.toEqual({
+        active: true,
+        enqueuedTotal: 3,
+      });
+    });
+
+    it('degrades gracefully without an engine', async () => {
+      await expect(handlers['radio.start']()).rejects.toThrow(/unavailable/);
+      await expect(handlers['radio.stop']()).rejects.toThrow(/unavailable/);
+      await expect(handlers['radio.status']()).resolves.toMatchObject({
+        active: false,
+      });
+    });
   });
 });

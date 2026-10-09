@@ -709,6 +709,27 @@ export const MCP_TOOLS = [
     },
   },
   {
+    name: 'music_radio',
+    description:
+      "The teachable personal radio. start begins a session that keeps the priority queue filled with candidates picked under the user's preference rules; stop ends it; status shows what was enqueued and why. The current track is never interrupted.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['start', 'stop', 'status'] },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    handler: ({ action = 'status' }, call = request) => {
+      if (action === 'start') return call('radio.start');
+      if (action === 'stop') return call('radio.stop');
+      if (action === 'status') return call('radio.status');
+      throw Object.assign(new Error(`unsupported action "${action}"`), {
+        code: 'invalid_params',
+      });
+    },
+  },
+  {
     name: 'music_lyrics',
     description:
       'Timed lyrics for a song id (milliseconds), with the translation when the API has one. Paginated.',

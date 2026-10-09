@@ -484,6 +484,20 @@ describe('xumpctl MCP adapter', () => {
     expect(
       validateToolArguments(feedback.inputSchema, { type: 'explode' })
     ).not.toEqual([]);
+
+    const radio = MCP_TOOLS.find(tool => tool.name === 'music_radio');
+    radio.handler({ action: 'start' }, call);
+    expect(calls.at(-1)).toEqual({ method: 'radio.start', params: undefined });
+    radio.handler({ action: 'stop' }, call);
+    expect(calls.at(-1)).toEqual({ method: 'radio.stop', params: undefined });
+    radio.handler({ action: 'status' }, call);
+    expect(calls.at(-1)).toEqual({
+      method: 'radio.status',
+      params: undefined,
+    });
+    expect(
+      validateToolArguments(radio.inputSchema, { action: 'teleport' })
+    ).not.toEqual([]);
   });
 });
 
