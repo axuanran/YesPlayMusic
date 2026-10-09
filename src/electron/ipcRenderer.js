@@ -6,6 +6,7 @@ import {
 } from './controlHandlers';
 import { createRadioEngine } from './assistant/radioEngine';
 import { registerRadioEngine } from './assistant/radioRegistry';
+import { filterCandidatesByRules } from './assistant/trackIntel';
 
 const player = store.state.player;
 
@@ -194,19 +195,32 @@ export function ipcRenderer(vueInstance) {
   appEvents?.onMprisCommand(command => handleMprisCommand(player, command));
 
   // Teachable AI radio (docs/ai-music-assistant-plan.md, Phase 1). Candidates
-  // come from the daily recommendation list for now; the LLM only picks from
-  // those real candidates and the program validates, enqueues and refills.
+  // come from the daily recommendation list merged with the track
+  // intelligence pool (heard / manually added / AI-expanded tracks); the LLM
+  // only picks from those real candidates and the program validates, filters
+  // and refills.
   const radio = createRadioEngine({
-    getCandidates: async ({ limit }) => {
+    getCandidates: async ({ limit, rulesText }) => {
       const { dailyRecommendTracks } = await import('@/api/playlist');
       const result = await dailyRecommendTracks();
-      return (result.data?.dailySongs ?? []).slice(0, limit).map(track => ({
+      const recommend = (result.data?.dailySongs ?? []).map(track => ({
         id: track.id,
+        playId: track.id,
         name: track.name,
         artists: (track.ar ?? []).map(artist => artist.name).join('/'),
         album: track.al?.name ?? '',
         durationMs: track.dt ?? null,
       }));
+      const pool =
+        (await globalThis.window?.electronAPI?.assistant?.trackPool?.({
+          limit,
+        })) ?? [];
+      // 结构化预过滤：规则命中"不要现场版"时程序直接排除，不依赖 LLM
+      const merged = filterCandidatesByRules(
+        [...recommend, ...pool],
+        rulesText ?? ''
+      );
+      return merged.slice(0, limit);
     },
     enqueue: ids => {
       for (const id of ids) player.addTrackToPlayNext(id);

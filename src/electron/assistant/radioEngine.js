@@ -130,26 +130,36 @@ export function createRadioEngine({
 
   const refill = async () => {
     const exclude = new Set([...sessionHistory, ...getPriorityIds()]);
-    let candidates;
-    try {
-      candidates = (await getCandidates({ limit: CANDIDATE_POOL_SIZE })) ?? [];
-    } catch (error) {
-      onError('candidates', error);
-      return false;
-    }
-    candidates = candidates.filter(
-      candidate => Number.isInteger(candidate?.id) && !exclude.has(candidate.id)
-    );
-    if (candidates.length === 0) {
-      onError('empty', new Error('no candidates available'));
-      return false;
-    }
-
+    // 先取偏好：规则文本既喂给 LLM，也交给候选源做结构化预过滤
     let rules = [];
     try {
       rules = formatRules(await getPreferences?.());
     } catch (error) {
       onError('preferences', error);
+    }
+    const rulesText = rules.join('\n');
+
+    let candidates;
+    try {
+      candidates =
+        (await getCandidates({ limit: CANDIDATE_POOL_SIZE, rulesText })) ?? [];
+    } catch (error) {
+      onError('candidates', error);
+      return false;
+    }
+    candidates = candidates.filter(candidate => {
+      const key = candidate?.id;
+      if (
+        (typeof key !== 'string' && !Number.isInteger(key)) ||
+        exclude.has(key)
+      ) {
+        return false;
+      }
+      return Number.isInteger(candidate?.playId ?? candidate?.id);
+    });
+    if (candidates.length === 0) {
+      onError('empty', new Error('no candidates available'));
+      return false;
     }
 
     let picks = null;
@@ -175,14 +185,18 @@ export function createRadioEngine({
       }
     }
 
-    const ids = picks.map(pick => pick.id);
+    const keys = picks.map(pick => pick.id);
+    const ids = picks.map(pick => {
+      const candidate = candidates.find(item => item.id === pick.id);
+      return candidate ? (candidate.playId ?? candidate.id) : pick.id;
+    });
     try {
       enqueue?.(ids);
     } catch (error) {
       onError('enqueue', error);
       return false;
     }
-    sessionHistory = [...sessionHistory, ...ids].slice(-200);
+    sessionHistory = [...sessionHistory, ...keys].slice(-200);
     lastPicks = picks.map(pick => ({
       ...pick,
       at: now(),

@@ -511,6 +511,24 @@ export function createControlHandlers({ store, player, radio = null }) {
         assistant: globalThis.window?.electronAPI?.assistant,
       }).catch(() => {});
     }
+    // 结构化 heard 信号同步进音轨情报库（UI 路径由 Player 直接上报；
+    // MCP 路径没有来源标记，按网易云 id 入库）
+    if (
+      ['skip', 'skip_quick', 'complete', 'like', 'unlike'].includes(type) &&
+      Number.isInteger(body.trackId)
+    ) {
+      try {
+        globalThis.window?.electronAPI?.assistant?.trackHeard?.({
+          id: `ne:${body.trackId}`,
+          signal: {
+            completed: type === 'complete',
+            skipQuick: type === 'skip_quick',
+          },
+        });
+      } catch {
+        // 情报库不可用不影响反馈确认
+      }
+    }
     return { accepted: true, entry };
   };
 

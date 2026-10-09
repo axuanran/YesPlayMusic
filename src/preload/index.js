@@ -224,6 +224,38 @@ contextBridge.exposeInMainWorld('electronAPI', {
       }
       return ipcRenderer.invoke('assistant:llm-chat', sanitized);
     },
+    trackUpsert: payload => {
+      const sanitized = sanitizeSerializableValue(payload);
+      return isPlainObject(sanitized)
+        ? ipcRenderer.invoke('assistant:track-upsert', sanitized)
+        : Promise.resolve(null);
+    },
+    trackHeard: payload => {
+      const sanitized = sanitizeSerializableValue(payload);
+      return isPlainObject(sanitized)
+        ? ipcRenderer.invoke('assistant:track-heard', sanitized)
+        : Promise.resolve(null);
+    },
+    trackList: payload => {
+      const sanitized = sanitizeSerializableValue(payload);
+      return ipcRenderer.invoke('assistant:track-list', sanitized ?? {});
+    },
+    trackSetDerived: payload => {
+      const sanitized = sanitizeSerializableValue(payload);
+      return isPlainObject(sanitized)
+        ? ipcRenderer.invoke('assistant:track-derived', sanitized)
+        : Promise.resolve(null);
+    },
+    trackNeedsEnrichment: payload => {
+      const sanitized = sanitizeSerializableValue(payload);
+      return isPlainObject(sanitized)
+        ? ipcRenderer.invoke('assistant:track-needs-enrichment', sanitized)
+        : Promise.resolve(false);
+    },
+    trackPool: payload => {
+      const sanitized = sanitizeSerializableValue(payload);
+      return ipcRenderer.invoke('assistant:track-pool', sanitized ?? {});
+    },
   },
   download: {
     saveArtwork: payload => {

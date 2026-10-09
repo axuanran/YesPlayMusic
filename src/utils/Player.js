@@ -1281,13 +1281,56 @@ export default class {
     try {
       const id = track?.id;
       if (!Number.isInteger(id) || id <= 0) return;
-      globalThis.window?.electronAPI?.assistant?.recordFeedback?.({
-        type,
-        trackId: id,
+      const assistant = globalThis.window?.electronAPI?.assistant;
+      assistant?.recordFeedback?.({ type, trackId: id });
+      // heard 管线：计数沉淀进音轨情报库，供候选池与预过滤使用
+      assistant?.trackHeard?.({
+        id: track.local
+          ? `local:${id}`
+          : track.streaming
+            ? `emby:${id}`
+            : `ne:${id}`,
+        signal: {
+          completed: type === 'complete',
+          skipQuick: type === 'skip_quick',
+        },
       });
+      if (type === 'complete') {
+        this._maybeEnrichTrackIntel(track);
+      }
     } catch {
       // ignore: feedback is a weak signal, not a control path
     }
+  }
+
+  // 富化听过的曲目：歌词片段 + 元数据 → LLM 结构化标签 → 情报库
+  _maybeEnrichTrackIntel(track) {
+    const assistant = globalThis.window?.electronAPI?.assistant;
+    if (!assistant?.llmChat) return;
+    Promise.all([
+      import('@/electron/assistant/enrichment'),
+      track.local || track.streaming
+        ? Promise.resolve([])
+        : import('@/api/track')
+            .then(({ getLyric }) => getLyric(track.id))
+            .then(result => (result?.lrc?.lyric || '').split('\n').slice(0, 8))
+            .catch(() => []),
+    ])
+      .then(([{ maybeEnrichTrack }, lyricLines]) =>
+        maybeEnrichTrack({
+          assistant,
+          track: {
+            id: track.id,
+            name: track.name,
+            artists: (track.ar ?? []).map(artist => artist.name).join('/'),
+            album: track.al?.name ?? '',
+            local: !!track.local,
+            streaming: !!track.streaming,
+          },
+          lyricLines,
+        })
+      )
+      .catch(() => {});
   }
   async _adoptNativeTrackTransition({ mediaId, reason, source, track } = {}) {
     if (!isCapacitor || !mediaId || sameTrackId(mediaId, this.currentTrackID)) {

@@ -47,6 +47,27 @@
 - 偏好数据**仅存本地**（electron-store），不上传；
 - 每个 AI 决策可解释：记录"这条规则来自哪次反馈"，用户可见、可改、可删。
 
+## 1.5 Phase 1.5 — 音轨情报与候选池（P1.5，地基扩展）
+
+**目标**：让"听过的歌"沉淀为结构化情报，让候选池可被人为/AI 扩充，使偏好规则
+有结构化抓手（而不是只能靠 LLM 从歌名里猜）。
+
+1. **音轨情报库**（主进程 `assistant/trackIntel.js`，electron-store `assistantTracks`，
+   上限 2000 条）：`{id(带命名空间 ne:/local:/emby:), name, artists, album, durationMs,
+   source, heard:{count,lastAt,completedCount,skipQuickCount}, liked, added:{at,by},
+   derived:{tags[], mood, isLive, enrichedAt, audio?}}`。
+2. **heard 管线**：Player 的 complete/skip/like 信号 → `recordHeard` 累加计数；
+   LLM 富化（元数据 + 歌词片段 → 受控 JSON：tags/mood/isLive）→ `setDerived`；
+   音频特征（tempo/energy，offlineAudioContext 提取，opt-in）为 P4"片段找歌"预留字段。
+3. **候选池**：每日推荐 ∪ 情报库（听过/人工/AI 加入）→ `buildCandidatePool()`；
+   `pool.expand` 支持 `{ids}` 人工加入与 `{keywords}` AI 扩源（LLM 按规则/上下文生成
+   搜索词 → 搜索 API → 入库 by:'ai'）。
+4. **结构化预过滤**：派生字段 + 歌名启发式（现场/Live/演唱会）→ 命中"不要现场版"
+   类规则时程序硬过滤，LLM 只处理剩余语义。
+5. MCP 工具 `music_pool`（list / add / seek）；电台候选源切换到候选池。
+
+**消费顺序**：电台选歌（现在）→ AI 找歌相似度（P4）→ 歌词伴读上下文（P2）。
+
 ## 2. Phase 0 — 控制面补齐（1 周，后续一切的地基）
 
 **目标**：让外部/内部 Agent 能完整操纵队列并收到反馈。
