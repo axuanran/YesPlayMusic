@@ -24,10 +24,6 @@ import {
   NETEASE_API_PORT,
   startNeteaseMusicApi,
 } from '../electron/services';
-import {
-  startCastService,
-  stopCastService,
-} from '../electron/castService';
 import { registerProvider } from '../../server/resolver/providerManager.js';
 import * as neteaseProvider from '../../server/providers/netease.js';
 import * as lxProvider from '../../server/providers/lx.js';
@@ -232,7 +228,6 @@ class Background {
       },
     });
     this.neteaseMusicAPI = null;
-    this.castService = null;
     this.expressApp = null;
     this.expressPort = null;
     this.mpris = null;
@@ -282,11 +277,6 @@ class Background {
         console.error(err);
         return false;
       });
-
-    // Start the ncm-cast push daemon in parallel. Like the NetEase API, a
-    // failure here must never stop the player from starting — the UI simply
-    // shows "推送服务未启动" and the cast panel stays disabled.
-    this.castService = startCastService();
 
     // Register audio resolver providers
     registerProvider(neteaseProvider);
@@ -760,7 +750,6 @@ class Background {
       if (isDevelopment) {
         clearDevResolverPort();
       }
-      stopCastService();
       this.mpris?.dispose();
       this.controlServer?.stop();
       this.mcpServer?.dispose();

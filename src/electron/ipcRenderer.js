@@ -1,6 +1,5 @@
 import store from '@/store';
 import { toggleRepeatLyricLine } from '@/utils/repeatLyricLine';
-import * as cast from '@/utils/cast';
 import {
   CONTROL_MAX_RESULT_BYTES,
   createControlHandlers,
@@ -10,87 +9,8 @@ import { registerRadioEngine } from './assistant/radioRegistry';
 
 const player = store.state.player;
 
-// The local <audio> runs on a SECONDS timeline while the device reports
-// milliseconds; stop just short of the end so a seek can never trigger
-// `ended` (which would advance the queue).
-const SEEK_END_GUARD_SECONDS = 0.5;
-
-/**
- * Seek whatever is actually audible. While a device is selected that is the
- * remote renderer — the local element is mute-only and merely conducts the
- * queue — but its position is moved too so the two timelines stay in step.
- */
-const seekAudible = (playerInstance, seconds) => {
-  const value = Math.max(0, Number(seconds) || 0);
-  cast.seekActive(value * 1000).catch(() => {});
-  const duration = playerInstance.currentTrackDuration || 0;
-  playerInstance.progress =
-    duration > 0
-      ? Math.min(value, Math.max(0, duration - SEEK_END_GUARD_SECONDS))
-      : value;
-};
-
-/**
- * Play/pause whatever is actually audible, keeping the muted local conductor
- * running in lockstep (it is what advances the queue on end-of-track).
- */
-const playOrPauseAudible = playerInstance => {
-  cast.deviceTransport('toggle', playerInstance.currentTrack).then(playing => {
-    if (playing === true) playerInstance.play?.();
-    else if (playing === false) playerInstance.pause?.();
-  });
-};
-
 export function handleMprisCommand(playerInstance, command) {
   if (!command || typeof command !== 'object') return;
-
-  // While a device is selected the audible renderer is the remote one, so
-  // every transport command that arrives here — the desktop-lyrics overlay's
-  // wheel seek, MPRIS, media keys — has to be relayed to it. Otherwise it
-  // would only move the muted local <audio> and the speaker would keep
-  // playing, which reads as "the controls do nothing".
-  if (cast.controlsDevice()) {
-    switch (command.type) {
-      case 'play':
-        cast.deviceTransport('play', playerInstance.currentTrack);
-        return;
-      case 'pause':
-        cast.deviceTransport('pause');
-        return;
-      case 'playPause':
-        playOrPauseAudible(playerInstance);
-        return;
-      case 'stop':
-        cast.deviceTransport('stop');
-        playerInstance.pause?.();
-        playerInstance.updateMprisState({
-          playing: false,
-          position: 0,
-          stopped: true,
-        });
-        return;
-      case 'seek':
-        if (Number.isFinite(command.offset)) {
-          seekAudible(
-            playerInstance,
-            cast.activePositionMs() / 1000 + command.offset
-          );
-        }
-        return;
-      case 'setPosition':
-        if (Number.isFinite(command.position) && command.position >= 0) {
-          seekAudible(playerInstance, command.position);
-        }
-        return;
-      case 'setVolume':
-        if (Number.isFinite(command.volume)) {
-          cast.setDeviceVolume(command.volume);
-        }
-        return;
-      default:
-        break;
-    }
-  }
 
   switch (command.type) {
     case 'play':
@@ -200,11 +120,6 @@ export function ipcRenderer(vueInstance) {
   });
 
   appEvents?.onPlay(() => {
-    // The desktop-lyrics overlay's play/pause button lands here.
-    if (cast.controlsDevice()) {
-      playOrPauseAudible(player);
-      return;
-    }
     player.playOrPause();
   });
 
@@ -221,10 +136,6 @@ export function ipcRenderer(vueInstance) {
   });
 
   appEvents?.onIncreaseVolume(() => {
-    if (cast.controlsDevice()) {
-      cast.nudgeDeviceVolume(0.1);
-      return;
-    }
     if (player.volume + 0.1 >= 1) {
       return (player.volume = 1);
     }
@@ -232,10 +143,6 @@ export function ipcRenderer(vueInstance) {
   });
 
   appEvents?.onDecreaseVolume(() => {
-    if (cast.controlsDevice()) {
-      cast.nudgeDeviceVolume(-0.1);
-      return;
-    }
     if (player.volume - 0.1 <= 0) {
       return (player.volume = 0);
     }
@@ -244,14 +151,7 @@ export function ipcRenderer(vueInstance) {
 
   appEvents?.onSetVolume(volume => {
     if (Number.isFinite(volume)) {
-      const value = Math.min(1, Math.max(0, volume));
-      // The desktop-lyrics slider arrives here: while casting it must move the
-      // speaker's volume, not the (pinned to 0) local element.
-      if (cast.controlsDevice()) {
-        cast.setDeviceVolume(value);
-        return;
-      }
-      player.volume = value;
+      player.volume = Math.min(1, Math.max(0, volume));
     }
   });
 
@@ -288,11 +188,6 @@ export function ipcRenderer(vueInstance) {
   });
 
   appEvents?.onSetPosition(position => {
-    // Clicking a lyric line in the desktop overlay seeks to that line's time.
-    if (cast.controlsDevice() && Number.isFinite(position)) {
-      seekAudible(player, position);
-      return;
-    }
     player.seek(position);
   });
 
