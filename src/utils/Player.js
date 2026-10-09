@@ -1823,6 +1823,37 @@ export default class {
     this.reversed = !this.reversed;
   }
 
+  /**
+   * One-button play-mode cycle, in the order Chinese players use:
+   * 顺序播放 → 列表循环 → 单曲循环 → 随机播放 → 顺序播放.
+   *
+   * Repeat and shuffle used to be two separate buttons; they are now a single
+   * control so the player bar fits its right-hand cluster without clipping.
+   */
+  switchPlayMode() {
+    const order = ['order', 'loop', 'one', 'shuffle'];
+    const current = this.shuffle
+      ? 'shuffle'
+      : this.repeatMode === 'one'
+        ? 'one'
+        : this.repeatMode === 'on'
+          ? 'loop'
+          : 'order';
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    if (next === 'shuffle') {
+      // Keep the shuffled list looping instead of dead-stopping at the end.
+      if (this.repeatMode === 'off') this.repeatMode = 'on';
+      this.shuffle = true;
+    } else {
+      if (this.shuffle) this.shuffle = false;
+      this.repeatMode = { order: 'off', loop: 'on', one: 'one' }[next];
+    }
+    this.updateMprisState({
+      loopStatus: this.repeatMode,
+      shuffle: this.shuffle,
+    });
+  }
+
   clearPlayNextList() {
     this._queue.clearPlayNext();
     this._exportQueueState();

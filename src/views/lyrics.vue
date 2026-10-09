@@ -78,6 +78,14 @@
                     </router-link>
                   </span>
                 </div>
+                <div
+                  v-if="isCastMode"
+                  class="cast-badge"
+                  :title="`正在投屏到：${castDeviceName}`"
+                >
+                  <svg-icon icon-class="cast" />
+                  <span class="cast-badge-name">{{ castDeviceName }}</span>
+                </div>
               </div>
               <div class="top-right">
                 <div class="volume-control" @wheel.prevent="handleVolumeWheel">
@@ -126,23 +134,23 @@
               </div>
             </div>
             <div class="progress-bar">
-              <span>{{ formatTrackTime(progress) || '0:00' }}</span>
+              <span>{{ formatTrackTime(progressSeconds) || '0:00' }}</span>
               <div class="slider">
                 <vue-slider
-                  v-model="progress"
+                  v-model="progressValue"
                   :min="0"
-                  :max="player.currentTrackDuration"
+                  :max="progressMax"
                   :interval="1"
                   :drag-on-click="true"
                   :duration="0"
                   :dot-size="12"
                   :height="2"
-                  :tooltip-formatter="formatTrackTime"
+                  :tooltip-formatter="formatSliderTooltip"
                   :lazy="true"
                   :silent="true"
                 ></vue-slider>
               </div>
-              <span>{{ formatTrackTime(player.currentTrackDuration) }}</span>
+              <span>{{ formatTrackTime(durationSeconds) }}</span>
             </div>
             <div class="media-controls">
               <button-icon
@@ -419,6 +427,7 @@ import { loadCoverGradient } from '@/utils/coverGradient';
 import { createRequestGeneration } from '@/utils/requestGeneration';
 import { isAccountLoggedIn } from '@/utils/auth';
 import { hasListSource, getListSourcePath } from '@/utils/playList';
+import * as cast from '@/utils/cast';
 import locale from '@/locale';
 import { getWheelAdjustedVolume } from '@/utils/volume';
 import { amllWsProtocol } from '@/utils/amllWsProtocol';
@@ -472,6 +481,11 @@ export default {
       repeatLyricLineDriver: null,
       handleLyricsFullscreenShortcut: null,
       handleLyricsFullscreenChange: null,
+      // Cast mode mirrors the player bar: a fresh /api/status response stamps
+      // Date.now() here, and the lyrics clock ticks `castTick` so the slider
+      // interpolates between the 1s device polls instead of stepping.
+      castLastPoll: 0,
+      castTick: 0,
     };
   },
   computed: {
@@ -489,9 +503,16 @@ export default {
     },
     volume: {
       get() {
-        return this.player.volume;
+        // Cast mode: the slider reflects/edits the *speaker's* volume. The
+        // local <audio> is pinned to 0 by the cast panel while casting, so
+        // showing/editing `player.volume` here would freeze the slider at 0.
+        return this.isCastMode ? cast.castState.volume : this.player.volume;
       },
       set(value) {
+        if (this.isCastMode) {
+          cast.setDeviceVolume(value);
+          return;
+        }
         this.player.volume = value;
       },
     },
@@ -500,16 +521,103 @@ export default {
     },
     playing() {
       void this.playerVersion;
+      if (this.isCastMode) return this.castPlaying;
       return this.player.playing;
     },
-    progress: {
+    // ---- Cast mode (shared with the player bar) ----
+    // Driven by `selected`, not `active`: pausing the speaker must not drop
+    // the lyrics page back onto the (muted) local element.
+    isCastMode() {
+      return cast.castState.selected.length > 0;
+    },
+    castActiveId() {
+      return cast.activeId();
+    },
+    castStatus() {
+      const id = this.castActiveId;
+      return id ? cast.castState.statuses[id] : null;
+    },
+    castPlaying() {
+      const id = this.castActiveId;
+      return !!(id && cast.castState.active[id]);
+    },
+    castProgress() {
+      // Re-evaluated by the lyrics clock (50ms while visible) so the bar moves
+      // smoothly between the 1s device polls.
+      void this.castTick;
+      const pos = this.castStatus?.position_ms || 0;
+      if (this.castPlaying && this.castLastPoll) {
+        return pos + (Date.now() - this.castLastPoll);
+      }
+      return pos;
+    },
+    castDuration() {
+      return this.castStatus?.duration_ms || 0;
+    },
+    castDeviceName() {
+      const id = this.castActiveId;
+      if (!id) return '';
+      const device = cast.castState.devices.find(d => d.id === id);
+      // Never fall back to the raw `upnp:<uuid>` id — it renders as garbage.
+      return device?.name || device?.model || '设备';
+    },
+    /**
+     * Slider value. Units differ per mode: the device timeline is MILLISECONDS
+     * (`/api/status` reports `*_ms`) while the local player works in SECONDS.
+     */
+    progressValue: {
       get() {
         void this.playerProgressVersion;
-        return this.player.progress;
+        if (this.isCastMode) return this.castProgress;
+        return Math.min(
+          this.player.progress || 0,
+          this.player.currentTrackDuration || 0
+        );
       },
       set(value) {
-        this.player.progress = value;
+        const target = Number(value) || 0;
+        if (this.isCastMode) {
+          const id = this.castActiveId;
+          if (id) {
+            cast.seek(id, target).catch(() => {});
+            // Move the device timeline immediately so the knob sticks where it
+            // was dropped instead of snapping back until the next poll.
+            const st = cast.castState.statuses[id];
+            if (st) {
+              st.position_ms = target;
+              this.castLastPoll = Date.now();
+            }
+            // Keep the (muted) local <audio> roughly in lockstep — but it runs
+            // on a SECONDS timeline. Feeding it the millisecond value threw it
+            // past the end of the track, AudioEngine.seek clamped it to
+            // `duration`, `ended` fired and the queue advanced (the dragging
+            // progress bar switching tracks bug).
+            const localDuration = this.player.currentTrackDuration || 0;
+            const seconds = target / 1000;
+            this.player.progress =
+              localDuration > 0
+                ? Math.min(seconds, Math.max(0, localDuration - 0.5))
+                : seconds;
+          }
+          return;
+        }
+        this.player.progress = target;
       },
+    },
+    progressMax() {
+      return this.isCastMode
+        ? this.castDuration || this.player.currentTrackDuration || 0
+        : this.player.currentTrackDuration || 0;
+    },
+    /** Position in SECONDS — `formatTrackTime` only speaks seconds. */
+    progressSeconds() {
+      const value = this.progressValue;
+      return this.isCastMode ? value / 1000 : value;
+    },
+    durationSeconds() {
+      return this.isCastMode
+        ? this.castDuration / 1000
+        : this.player.currentTrackDuration || 0;
     },
     bgImageUrl() {
       return createSizedCoverUrl(this.currentTrack, 512);
@@ -559,7 +667,11 @@ export default {
     },
     desktopLyricsPlayerState() {
       void this.playerVersion;
-      return `${this.player.playing}:${this.player.volume}`;
+      // Must track the EFFECTIVE transport state: while casting, `player.volume`
+      // is pinned to 0 and `player.playing` is just the muted conductor, so
+      // keying on those would freeze the overlay's volume slider at zero and
+      // hide the device's own volume changes from it.
+      return `${this.playing}:${this.volume}`;
     },
     desktopLyricsTranslationEnabled() {
       return this.showSecondaryLyric;
@@ -718,6 +830,11 @@ export default {
     },
   },
   watch: {
+    // Every fresh device poll re-stamps the receipt time so the cast progress
+    // bar can interpolate locally instead of stepping once per second.
+    castStatus() {
+      this.castLastPoll = Date.now();
+    },
     currentTrack() {
       this.shouldAutoScrollLyrics = this.lyricsAutoFollowEnabled;
       this.highlightLyricIndex = -1;
@@ -964,7 +1081,41 @@ export default {
       this.player.playPrevTrack();
     },
     playOrPause() {
+      // In cast mode the button drives the remote renderer (and keeps the
+      // muted local element in lockstep so the timeline advances together).
+      if (this.isCastMode) {
+        this.castPlayOrPause();
+        return;
+      }
       this.player.playOrPause();
+    },
+    async castPlayOrPause() {
+      const ids = cast.castState.selected.slice();
+      if (!ids.length) return;
+      try {
+        if (this.castPlaying) {
+          await Promise.all(ids.map(id => cast.pause(id).catch(() => {})));
+          this.player.pause?.();
+        } else {
+          await Promise.all(
+            ids.map(id => {
+              const s = cast.castState.statuses[id];
+              // Never started / stopped => (re)push the current track; a
+              // paused renderer just needs Resume.
+              if (!s || s.state === 'stopped' || s.state === 'idle') {
+                if (!this.currentTrack?.id) return null;
+                return cast
+                  .play([id], cast.toTrack(this.currentTrack))
+                  .catch(() => {});
+              }
+              return cast.resume(id).catch(() => {});
+            })
+          );
+          this.player.play?.();
+        }
+      } catch (e) {
+        cast.castState.error = `控制设备失败：${e.message}`;
+      }
     },
     playNextTrack() {
       if (this.player.isPersonalFM) {
@@ -1090,6 +1241,23 @@ export default {
     formatTrackTime(value) {
       return formatTrackTime(value);
     },
+    // The slider runs on milliseconds while casting, so the hover tooltip needs
+    // the same unit conversion the two time labels use.
+    formatSliderTooltip(value) {
+      return formatTrackTime(this.isCastMode ? value / 1000 : value);
+    },
+    /**
+     * Seek to a position expressed in SECONDS (lyric timestamps are seconds),
+     * routing to the device timeline while casting.
+     */
+    seekToSeconds(seconds) {
+      const value = Number(seconds) || 0;
+      if (this.isCastMode) {
+        this.progressValue = Math.round(value * 1000);
+        return;
+      }
+      this.player.seek(value);
+    },
     clickLyricLine(value, startPlay = false) {
       if (!this.lyricsClickToSeekEnabled) return;
       // TODO: 双击选择还会选中文字，考虑搞个右键菜单复制歌词
@@ -1101,7 +1269,7 @@ export default {
       });
       if (window.getSelection().toString().length === 0 && !jumpFlag) {
         this.shouldAutoScrollLyrics = this.lyricsAutoFollowEnabled;
-        this.player.seek(value);
+        this.seekToSeconds(value);
         if (this.repeatLyricIndex >= 0) {
           // 锁定单句时点击其他歌词，把锁定目标切换到被点击的行
           const clickedIndex = this.lyric.findIndex(
@@ -1140,6 +1308,11 @@ export default {
       if (interval === null) return;
 
       this.lyricsInterval = setInterval(() => {
+        if (this.isCastMode) {
+          // Drives the interpolated cast position between the 1s device polls
+          // so the progress bar and the highlighted line move smoothly.
+          this.castTick = Date.now();
+        }
         if (
           this.syncCurrentLyricPosition() &&
           this.showLyrics &&
@@ -1150,7 +1323,11 @@ export default {
       }, interval);
     },
     syncCurrentLyricPosition(force = false) {
-      const progress = this.player.seek(null, false) ?? 0;
+      // While casting the authoritative clock is the speaker's timeline, not
+      // the (muted) local <audio> element. Both are seconds here.
+      const progress = this.isCastMode
+        ? this.castProgress / 1000
+        : (this.player.seek(null, false) ?? 0);
       const oldHighlightLyricIndex = this.highlightLyricIndex;
       this.highlightLyricIndex = findActiveLyricIndex(this.lyric, progress);
       this.enforceRepeatLyricLine();
@@ -1184,7 +1361,7 @@ export default {
         return;
       }
       if (this.highlightLyricIndex === this.repeatLyricIndex) return;
-      this.player.seek(lockedLyric.time);
+      this.seekToSeconds(lockedLyric.time);
       this.highlightLyricIndex = this.repeatLyricIndex;
     },
     publishDesktopLyrics() {
@@ -1221,8 +1398,10 @@ export default {
           !isDesktopLyricPlaceholder(romanLyric)
             ? romanLyric
             : '',
-        playing: this.player.playing,
-        volume: this.player.volume,
+        playing: this.playing,
+        // Cast mode: the overlay's slider must show the speaker's level, not
+        // the local element's (which is held at 0 while casting).
+        volume: this.volume,
         active,
         repeatLyric: this.repeatLyricIndex >= 0,
       });
@@ -1492,6 +1671,12 @@ export default {
       return getListSourcePath();
     },
     mute() {
+      // Cast mode: the local element is already silent, so "mute" must silence
+      // the speaker instead — otherwise the button looks broken.
+      if (this.isCastMode) {
+        cast.toggleDeviceMute();
+        return;
+      }
       this.player.mute();
     },
     handleVolumeWheel(event) {
@@ -1624,6 +1809,40 @@ export default {
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 1;
       overflow: hidden;
+    }
+
+    .track-info {
+      min-width: 0;
+    }
+
+    .cast-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 8px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: var(--color-primary-bg, #eaeffd);
+      color: var(--color-primary, #335eea);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.6;
+      max-width: 100%;
+      white-space: nowrap;
+
+      .svg-icon {
+        flex: none;
+        width: 13px;
+        height: 13px;
+        opacity: 1;
+      }
+
+      .cast-badge-name {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
     }
 
     .top-part {

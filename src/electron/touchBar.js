@@ -1,8 +1,13 @@
 const { TouchBar, nativeImage, ipcMain } = require('electron');
-const { TouchBarButton, TouchBarSpacer } = TouchBar;
+// `TouchBar` is only defined on macOS. Guard the destructuring so importing
+// this module on Windows/Linux does not throw at load time (the app would
+// otherwise crash before the main window is created).
+const { TouchBarButton, TouchBarSpacer } = TouchBar || {};
 const path = require('path');
 
 export function createTouchBar(window) {
+  // Touch Bar is macOS-only; return null so callers can safely skip it.
+  if (!TouchBar) return null;
   const renderer = window.webContents;
 
   // Icon follow touchbar design guideline.

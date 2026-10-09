@@ -27,6 +27,7 @@
       <Player v-if="enablePlayer" v-show="showPlayer" ref="player" />
     </transition>
     <Toast />
+    <CastDevices />
     <ModalAddTrackToPlaylist
       v-if="isAccountLoggedIn && modals.addTrackToPlaylistModal.show"
     />
@@ -52,6 +53,7 @@ import Navbar from './components/Navbar.vue';
 import MobileNavigation from './components/MobileNavigation.vue';
 import Player from './components/Player.vue';
 import Toast from './components/Toast.vue';
+import CastDevices from './components/CastDevices.vue';
 import { ipcRenderer } from './electron/ipcRenderer';
 import { isAccountLoggedIn, isLooseLoggedIn } from '@/utils/auth';
 import { mapState } from 'vuex';
@@ -81,6 +83,7 @@ export default {
     MobileNavigation,
     Player,
     Toast,
+    CastDevices,
     ModalAddTrackToPlaylist,
     ModalNewPlaylist,
     ModalDownloadTrack,
