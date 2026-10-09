@@ -39,6 +39,7 @@ import {
   saveTrackDownloadToBatch,
 } from './trackDownload.js';
 import { createPreferenceStore } from './assistant/preferenceStore.js';
+import { createLlmClient } from './assistant/llmClient.js';
 
 const clc = require('cli-color');
 const log = text => {
@@ -747,6 +748,27 @@ export function initIpcMain(
     if (event.sender !== win.webContents) return [];
     const params = isRecord(payload) ? payload : {};
     return preferenceStore.listFeedback(params);
+  });
+  // LLM calls run in the main process (Node fetch, no CORS) against the
+  // user-configured OpenAI-compatible endpoint; disabled or misconfigured
+  // simply resolves to null so callers fall back to rule-based behavior.
+  ipcMain.handle('assistant:llm-chat', async (event, payload) => {
+    if (event.sender !== win.webContents || !isRecord(payload)) return null;
+    const client = createLlmClient({
+      config: store.get('settings.assistantLlm'),
+      fetchImpl: globalThis.fetch,
+    });
+    return client.chat({
+      system:
+        typeof payload.system === 'string'
+          ? payload.system.slice(0, 2048)
+          : undefined,
+      prompt:
+        typeof payload.prompt === 'string'
+          ? payload.prompt.slice(0, 8192)
+          : undefined,
+      maxTokens: payload.maxTokens,
+    });
   });
 
   ipcMain.on('desktop-lyrics:update', (event, payload) => {

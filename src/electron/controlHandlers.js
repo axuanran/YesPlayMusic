@@ -535,6 +535,15 @@ export function createControlHandlers({ store, player }) {
         id,
         liked: body.liked,
       });
+      // strong signal for the teachable radio; fire-and-forget
+      try {
+        globalThis.window?.electronAPI?.assistant?.recordFeedback?.({
+          type: body.liked ? 'like' : 'unlike',
+          trackId: id,
+        });
+      } catch {
+        // feedback must never fail an account write
+      }
       return {
         accepted: true,
         id,

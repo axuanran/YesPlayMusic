@@ -212,6 +212,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ? ipcRenderer.invoke('assistant:feedback-list', sanitized)
         : Promise.resolve([]);
     },
+    llmChat: payload => {
+      const sanitized = sanitizeSerializableValue(payload);
+      const prompt = sanitized?.prompt;
+      if (
+        !isPlainObject(sanitized) ||
+        !isBoundedString(prompt, 1, 8192) ||
+        !isBoundedString(sanitized.system ?? '', 0, 2048)
+      ) {
+        return Promise.resolve(null);
+      }
+      return ipcRenderer.invoke('assistant:llm-chat', sanitized);
+    },
   },
   download: {
     saveArtwork: payload => {

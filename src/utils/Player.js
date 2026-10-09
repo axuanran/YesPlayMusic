@@ -1264,10 +1264,29 @@ export default class {
   _nextTrackCallback() {
     const player = this._getReactiveSelf();
     player._scrobble(player._currentTrack, 0, true);
+    player._recordAssistantFeedback('complete', player._currentTrack);
     if (!player.isPersonalFM && player.repeatMode === 'one') {
       player._replaceCurrentTrack(player.currentTrackID);
     } else {
-      player._playNextTrack(player.isPersonalFM);
+      // the natural completion was already recorded; the follow-up advance is
+      // not a user skip
+      player._playNextTrack(player.isPersonalFM, { feedback: false });
+    }
+  }
+
+  // Feedback signals for the teachable AI radio. Best-effort by design: a
+  // failing assistant bridge must never interrupt playback.
+  _recordAssistantFeedback(type, track = this._currentTrack) {
+    if (!isElectron) return;
+    try {
+      const id = track?.id;
+      if (!Number.isInteger(id) || id <= 0) return;
+      globalThis.window?.electronAPI?.assistant?.recordFeedback?.({
+        type,
+        trackId: id,
+      });
+    } catch {
+      // ignore: feedback is a weak signal, not a control path
     }
   }
   async _adoptNativeTrackTransition({ mediaId, reason, source, track } = {}) {
@@ -1373,11 +1392,11 @@ export default class {
     if (!this._canDiscordPresence()) return null;
     electronPlayer?.pauseDiscordPresence(createDiscordPresenceTrack(track));
   }
-  _playNextTrack(isPersonal) {
+  _playNextTrack(isPersonal, { feedback = true } = {}) {
     if (isPersonal) {
       this.playNextFMTrack();
     } else {
-      this.playNextTrack();
+      this.playNextTrack({ feedback });
     }
   }
 
@@ -1386,8 +1405,12 @@ export default class {
     this._exportQueueState();
     if (isCapacitor) this._cacheNextTrack();
   }
-  playNextTrack() {
+  playNextTrack({ feedback = true } = {}) {
     // TODO: 切换歌曲时增加加载中的状态
+    if (feedback) {
+      const type = (this.progress || 0) < 30 ? 'skip_quick' : 'skip';
+      this._recordAssistantFeedback(type, this._currentTrack);
+    }
     if (this._queue.playNextList.length > 0) {
       const trackID = this._queue.takePlayNext();
       this._exportQueueState();
@@ -1459,6 +1482,7 @@ export default class {
     return true;
   }
   playPrevTrack() {
+    this._recordAssistantFeedback('skip', this._currentTrack);
     const [trackID, index] = this._getSiblingTrack(false);
     if (trackID === undefined) return false;
     console.debug(

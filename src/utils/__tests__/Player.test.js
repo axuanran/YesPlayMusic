@@ -824,6 +824,90 @@ describe('Player audio source flow', () => {
     vi.useRealTimers();
   });
 
+  it('records assistant feedback for manual skips and natural completion', async () => {
+    installBrowserGlobals();
+    mocks.isElectron = true;
+    try {
+      const player = await createPlayer();
+      const recordFeedback = vi.fn();
+      globalThis.window.electronAPI = { assistant: { recordFeedback } };
+      const track = {
+        id: 111,
+        name: 'First',
+        ar: [{ name: 'Artist' }],
+        al: { name: 'Album', picUrl: '' },
+        dt: 180000,
+      };
+      player._setCurrentTrack(track);
+      player._replaceCurrentTrack = vi.fn();
+      player._queueReplaceCurrentTrack = vi.fn();
+      player.list = [111, 222];
+      player.current = 0;
+
+      // early manual next -> skip_quick
+      player._progress = 12;
+      player.playNextTrack();
+      expect(recordFeedback).toHaveBeenLastCalledWith({
+        type: 'skip_quick',
+        trackId: 111,
+      });
+
+      // late manual next -> skip
+      player._progress = 120;
+      player.playNextTrack();
+      expect(recordFeedback).toHaveBeenLastCalledWith({
+        type: 'skip',
+        trackId: 111,
+      });
+
+      // manual previous -> skip
+      recordFeedback.mockClear();
+      player.playPrevTrack();
+      expect(recordFeedback).toHaveBeenCalledWith({
+        type: 'skip',
+        trackId: 111,
+      });
+
+      // natural completion -> complete, and the follow-up advance is not a skip
+      recordFeedback.mockClear();
+      player._nextTrackCallback();
+      expect(recordFeedback).toHaveBeenCalledTimes(1);
+      expect(recordFeedback).toHaveBeenCalledWith({
+        type: 'complete',
+        trackId: 111,
+      });
+    } finally {
+      mocks.isElectron = false;
+      delete globalThis.window.electronAPI;
+    }
+  });
+
+  it('ignores assistant feedback when the bridge or track is missing', async () => {
+    installBrowserGlobals();
+    mocks.isElectron = true;
+    try {
+      const player = await createPlayer();
+      player._setCurrentTrack(null);
+      player._replaceCurrentTrack = vi.fn();
+      player._queueReplaceCurrentTrack = vi.fn();
+      player._progress = 5;
+      expect(() => player.playNextTrack()).not.toThrow();
+
+      globalThis.window.electronAPI = { assistant: { recordFeedback: null } };
+      player._setCurrentTrack({
+        id: 7,
+        name: 'x',
+        ar: [{ name: 'a' }],
+        al: { name: 'b' },
+        dt: 1000,
+      });
+      expect(() => player.playNextTrack()).not.toThrow();
+    } finally {
+      mocks.isElectron = false;
+      delete globalThis.window.electronAPI;
+    }
+  });
+
   it('adopts an Android native queue transition without reloading audio', async () => {
     mocks.isCapacitor = true;
     const player = await createPlayer();
