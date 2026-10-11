@@ -322,7 +322,9 @@ export default {
   font-size: 14px;
   padding: 10px 14px;
   border-radius: 8px;
-  cursor: default;
+  // 菜单项全部是「点击后执行动作」的条目，必须显示可点击光标。
+  // 用 default 时鼠标是文本输入的 I 形，用户会误以为这里不可点。
+  cursor: pointer;
   color: var(--color-text);
   display: flex;
   align-items: center;

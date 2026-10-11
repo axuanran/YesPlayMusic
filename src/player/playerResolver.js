@@ -66,7 +66,15 @@ export default class PlayerResolver {
         return track;
       });
     }
-    return getTrackDetail(trackId, options).then(data => data.songs[0]);
+    return getTrackDetail(trackId, options).then(data => {
+      const song = data?.songs?.[0];
+      if (!song) {
+        // 歌曲下架/无版权时 song/detail 会返回空 songs 数组，
+        // 此前直接返回 undefined 会污染 Player 状态（后续读取 track.dt 抛错）。
+        throw new Error(`Track ${trackId} is unavailable (empty song detail)`);
+      }
+      return song;
+    });
   }
 
   resolveSource(track, options = {}) {

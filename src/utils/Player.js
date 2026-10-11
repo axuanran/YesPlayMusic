@@ -375,6 +375,9 @@ export default class {
 
   _exportQueueState() {
     if (!this._queue) return;
+    // 队列内容变化（插队/移除/切换播放列表）后必须让渲染层重新计算，
+    // 否则「播放列表」浮窗等依赖 player.list / playNextList 的 UI 不会刷新。
+    getRuntimeStore()?.commit('bumpPlayerVersion');
     const state = this._queue.exportState();
     this._list = state.list;
     this._current = state.current;
@@ -522,7 +525,7 @@ export default class {
     return this._personalFMTrack;
   }
   get currentTrackDuration() {
-    const trackDuration = this._currentTrack.dt || 1000;
+    const trackDuration = this._currentTrack?.dt || 1000;
     let duration = ~~(trackDuration / 1000);
     return duration > 1 ? duration - 1 : duration;
   }
@@ -637,7 +640,9 @@ export default class {
     this._playbackRate = normalizePlaybackRate(this._playbackRate);
     this._audio?.playbackRate(this._playbackRate);
 
-    if (this._enabled) {
+    // 只有上次确实存过一首真实曲目才恢复；否则会拿着构造函数的占位 ID
+    //（一个已下架的示例曲目）去加载，导致刚启动就卡在「加载中」并报错。
+    if (this._enabled && this._currentTrack?.id && this._currentTrack?.name) {
       // 恢复当前播放歌曲
       this._replaceCurrentTrack(this.currentTrackID, false).then(() => {
         this.seek(localStorage.getItem('playerCurrentTrackTime') ?? 0, false);
@@ -686,6 +691,12 @@ export default class {
     }
   }
   _setCurrentTrack(track) {
+    if (!track) {
+      // 曲目详情为空（下架/无版权/接口异常）时不要把状态清成 undefined，
+      // 否则后续读取 currentTrack.dt 会抛 TypeError 并让渲染层崩溃。
+      console.debug('[debug][Player.js] ignore empty currentTrack');
+      return;
+    }
     console.debug(
       `[debug][Player.js] currentTrack => ${formatTrackDebugLabel(track)}`
     );
@@ -1031,6 +1042,13 @@ export default class {
         if (isCanceledRequest(error)) return false;
         if (!this._isTrackRequestCurrent(requestToken)) return false;
         console.debug('[debug][Player.js] replaceCurrentTrack failed', error);
+        // 加载失败必须复位 pending 态：否则界面会永远停留在占位曲目「加载中」，
+        // 且 currentAlbumId() 因 isTrackPending 恒返回 null，点击后报「专辑加载失败」。
+        this._isTrackPending = false;
+        this._displayTrack = this._currentTrack || createPendingTrack(0);
+        this._displayTrackID = this.currentTrackID;
+        getRuntimeStore()?.commit('bumpPlayerVersion');
+        getRuntimeStore()?.commit('bumpPlayerTrackVersion');
         store.dispatch('showToast', `歌曲加载超时，请重试`);
         this._resolveTrackLoad(false);
         return false;
@@ -1748,6 +1766,27 @@ export default class {
         coverImgUrl: data.playlist.coverImgUrl,
       });
     });
+  }
+  /**
+   * 播放指定歌单并同时设定播放模式（顺序播放 / 随机播放）。
+   *
+   * 音乐库「我喜欢的音乐」卡片和歌单页的播放模式菜单都走这里。
+   * 必须先退出私人 FM 再写 shuffle / repeatMode：这两个 setter 开头都有
+   * `_guardNotPersonalFM()`，在私人 FM 模式下会被直接拦掉，导致「点了没反应」。
+   */
+  playPlaylistByIDWithMode(
+    id,
+    {
+      shuffle = false,
+      repeatMode = 'on',
+      trackID = 'first',
+      noCache = true,
+    } = {}
+  ) {
+    this._isPersonalFM = false;
+    this.shuffle = shuffle;
+    this.repeatMode = repeatMode;
+    this.playPlaylistByID(id, trackID, noCache);
   }
   playArtistByID(id, trackID = 'first') {
     getArtist(id).then(data => {

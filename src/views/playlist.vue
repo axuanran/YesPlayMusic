@@ -151,6 +151,16 @@
         />
         {{ data.user.nickname }}{{ $t('library.sLikedSongs') }}
       </h1>
+      <div class="liked-songs-actions">
+        <ButtonTwoTone
+          icon-class="play"
+          color="grey"
+          @click="playPlaylistByID()"
+        >
+          {{ $t('common.play') }}
+        </ButtonTwoTone>
+        <PlayModeMenu :playlist-id="playlist.id" variant="tone" />
+      </div>
       <div class="search-box-likepage" @click="searchInPlaylist()">
         <div class="container" :class="{ active: inputFocus }">
           <svg-icon icon-class="search" />
@@ -261,6 +271,7 @@ import { createRequestGeneration } from '@/utils/requestGeneration';
 
 import ButtonTwoTone from '@/components/ButtonTwoTone.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
+import PlayModeMenu from '@/components/PlayModeMenu.vue';
 import TrackList from '@/components/TrackList.vue';
 import Cover from '@/components/Cover.vue';
 import Modal from '@/components/Modal.vue';
@@ -295,7 +306,14 @@ const specialPlaylist = {
 
 export default {
   name: 'Playlist',
-  components: { Cover, ButtonTwoTone, TrackList, Modal, ContextMenu },
+  components: {
+    Cover,
+    ButtonTwoTone,
+    TrackList,
+    Modal,
+    ContextMenu,
+    PlayModeMenu,
+  },
   directives: {
     focus: {
       mounted(el) {
@@ -943,6 +961,14 @@ export default {
 }
 
 .user-info {
+  .liked-songs-actions {
+    display: flex;
+    align-items: center;
+    margin-top: 18px;
+    margin-bottom: 4px;
+    -webkit-app-region: no-drag;
+  }
+
   h1 {
     font-size: 42px;
     position: relative;
