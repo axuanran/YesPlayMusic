@@ -60,9 +60,17 @@
                 {{ liked.songs.length }} {{ $t('common.songs') }}
               </div>
             </div>
-            <button @click.stop="openPlayModeTabMenu">
-              <svg-icon icon-class="play" />
-            </button>
+            <div class="play-controls">
+              <button
+                class="play-liked-button"
+                :title="$t('common.play')"
+                :aria-label="$t('common.play')"
+                @click.stop="playLikedSongs"
+              >
+                <svg-icon icon-class="play" />
+              </button>
+              <PlayModeMenu :playlist-id="likedPlaylistId" />
+            </div>
           </div>
         </div>
         <div class="songs">
@@ -264,16 +272,6 @@
           $t('contextMenu.likedPlaylists')
         }}</div>
       </ContextMenu>
-
-      <ContextMenu ref="playModeTabMenu">
-        <div class="item" @click="playLikedSongs">{{
-          $t('library.likedSongs')
-        }}</div>
-        <hr />
-        <div class="item" @click="playIntelligenceList">{{
-          $t('contextMenu.cardiacMode')
-        }}</div>
-      </ContextMenu>
     </div>
   </div>
 </template>
@@ -296,6 +294,7 @@ import MvRow from '@/components/MvRow.vue';
 import LocalPlaybackHistory from '@/components/LocalPlaybackHistory.vue';
 import DailyTracksCard from '@/components/DailyTracksCard.vue';
 import FMCard from '@/components/FMCard.vue';
+import PlayModeMenu from '@/components/PlayModeMenu.vue';
 import localMusicCover from '@/assets/local-music-cover.svg';
 import { normalizeUiLayout } from '@/utils/uiLayout';
 
@@ -320,6 +319,7 @@ export default {
     LocalPlaybackHistory,
     DailyTracksCard,
     FMCard,
+    PlayModeMenu,
   },
   data() {
     return {
@@ -338,6 +338,9 @@ export default {
   },
   computed: {
     ...mapState(['data', 'liked', 'settings']),
+    likedPlaylistId() {
+      return this.liked?.playlists?.[0]?.id ?? null;
+    },
     libraryCards() {
       return normalizeUiLayout(this.settings?.layout).library;
     },
@@ -491,13 +494,6 @@ export default {
         true
       );
     },
-    playIntelligenceList() {
-      this.$store.state.player.playIntelligenceListById(
-        this.liked.playlists[0].id,
-        'first',
-        true
-      );
-    },
     updateCurrentTab(tab) {
       if (!isAccountLoggedIn() && tab !== 'playlists') {
         this.showToast(locale.global.t('toast.needToLogin'));
@@ -591,9 +587,6 @@ export default {
     openPlaylistTabMenu(e) {
       this.$refs.playlistTabMenu.openMenu(e);
     },
-    openPlayModeTabMenu(e) {
-      this.$refs.playModeTabMenu.openMenu(e);
-    },
     changePlaylistFilter(type) {
       this.updateData({ key: 'libraryPlaylistFilter', value: type });
       window.scrollTo({ top: 375, behavior: 'smooth' });
@@ -679,8 +672,14 @@ h1 {
       margin-top: 2px;
     }
 
-    button {
+    .play-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin-bottom: 2px;
+    }
+
+    button.play-liked-button {
       display: flex;
       justify-content: center;
       align-items: center;
@@ -690,7 +689,7 @@ h1 {
       border-radius: 50%;
       transition: 0.2s;
       box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.2);
-      cursor: default;
+      cursor: pointer;
 
       .svg-icon {
         color: var(--color-primary-bg);

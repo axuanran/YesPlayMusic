@@ -55,6 +55,24 @@ describe('PlayerResolver', () => {
     await expect(resolver.loadTrack(1)).resolves.toBe(track);
   });
 
+  it('rejects instead of resolving undefined when song detail is empty', async () => {
+    // 下架/无版权曲目：/song/detail 返回 songs:[]，此前会 resolve 出 undefined，
+    // 把 Player._currentTrack 清成 undefined，后续读取 track.dt 抛错并让渲染层崩溃。
+    mocks.getTrackDetail.mockResolvedValue({ songs: [], privileges: [] });
+    const resolver = new PlayerResolver();
+
+    await expect(resolver.loadTrack(86827685)).rejects.toThrow(
+      /empty song detail/
+    );
+  });
+
+  it('rejects when song detail payload has no songs array', async () => {
+    mocks.getTrackDetail.mockResolvedValue({});
+    const resolver = new PlayerResolver();
+
+    await expect(resolver.loadTrack(1)).rejects.toThrow(/empty song detail/);
+  });
+
   it('uses provider source before legacy fallback', async () => {
     mocks.resolveTrackSource.mockResolvedValue('provider-url');
     const resolver = new PlayerResolver();

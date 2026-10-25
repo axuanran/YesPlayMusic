@@ -158,17 +158,8 @@
       <div class="right-control-buttons">
         <div class="blank"></div>
         <div class="container" @click.stop>
-          <button-icon
-            :title="$t('player.nextUp')"
-            :aria-pressed="$route.name === 'next'"
-            :disabled="player.isPersonalFM"
-            :class="{
-              active: $route.name === 'next',
-              disabled: player.isPersonalFM,
-            }"
-            @click="goToNextTracksPage"
-            ><svg-icon icon-class="list"
-          /></button-icon>
+          <!-- 悬停显示当前播放队列浮窗，点击仍跳转到完整的「播放列表」页 -->
+          <QueuePopover />
           <button-icon
             :aria-pressed="player.repeatMode !== 'off'"
             :disabled="player.isPersonalFM"
@@ -360,6 +351,7 @@ import '@/assets/css/slider.css';
 
 import ButtonIcon from '@/components/ButtonIcon.vue';
 import VueSlider from 'vue-slider-component';
+import QueuePopover from '@/components/QueuePopover.vue';
 import { goToListSource, hasListSource } from '@/utils/playList';
 import { isAccountLoggedIn } from '@/utils/auth';
 import locale from '@/locale';
@@ -379,6 +371,7 @@ export default {
   components: {
     ButtonIcon,
     VueSlider,
+    QueuePopover,
   },
   data() {
     return {
@@ -795,12 +788,6 @@ export default {
         key: 'show',
         value: true,
       });
-    },
-    goToNextTracksPage() {
-      if (this.player.isPersonalFM) return;
-      this.$route.name === 'next'
-        ? this.$router.go(-1)
-        : this.$router.push({ name: 'next' });
     },
     hasList() {
       return hasListSource();
