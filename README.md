@@ -1,3 +1,6 @@
+# 请使用标注为Latest的版本
+
+
 <p align="center">
   <img src="images/logo.png" alt="XuMP" width="144" height="144">
 </p>
