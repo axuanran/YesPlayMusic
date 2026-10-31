@@ -498,6 +498,20 @@ export default {
     imageUrl() {
       return createSizedCoverUrl(this.currentTrack, 1024);
     },
+    // rawTime -> content lookups for the translation / romanization tracks.
+    // Rebuilt only when the arrays change (new track / mode switch), so the
+    // desktop-lyrics publishers do O(1) lookups instead of O(n) `.find()`
+    // scans on every highlighted-line change during playback.
+    tlyricByRawTime() {
+      const map = new Map();
+      for (const item of this.tlyric) map.set(item.rawTime, item.content);
+      return map;
+    },
+    romalyricByRawTime() {
+      const map = new Map();
+      for (const item of this.romalyric) map.set(item.rawTime, item.content);
+      return map;
+    },
     playing() {
       void this.playerVersion;
       return this.player.playing;
@@ -1192,19 +1206,14 @@ export default {
       const lyric = this.lyric[this.highlightLyricIndex];
       const line = lyric?.content || '';
       const showBoth = this.lyricType === LYRIC_DISPLAY_MODE.BOTH;
-      const secondaryLyrics =
+      const secondaryMap =
         this.lyricType === LYRIC_DISPLAY_MODE.PRONUNCIATION
-          ? this.romalyric
-          : this.tlyric;
-      const romanLyrics = showBoth ? this.romalyric : [];
-      const secondaryLyric = lyric
-        ? secondaryLyrics.find(item => item.rawTime === lyric.rawTime)
-            ?.content || ''
-        : '';
-      const romanLyric = lyric
-        ? romanLyrics.find(item => item.rawTime === lyric.rawTime)?.content ||
-          ''
-        : '';
+          ? this.romalyricByRawTime
+          : this.tlyricByRawTime;
+      const romanMap = showBoth ? this.romalyricByRawTime : null;
+      const secondaryLyric = lyric ? secondaryMap.get(lyric.rawTime) || '' : '';
+      const romanLyric =
+        lyric && romanMap ? romanMap.get(lyric.rawTime) || '' : '';
       const hideLine = isDesktopLyricPlaceholder(line);
       const { lines, active } = this.buildDesktopLyricLines();
       window.electronAPI?.desktopLyrics?.update({
@@ -1233,35 +1242,29 @@ export default {
     // with the light `update` payload via `active`.
     buildDesktopLyricLines() {
       const showBoth = this.lyricType === LYRIC_DISPLAY_MODE.BOTH;
-      const secondarySource =
+      const secondaryMap =
         this.lyricType === LYRIC_DISPLAY_MODE.PRONUNCIATION
-          ? this.romalyric
-          : this.tlyric;
-      const romanSource = showBoth ? this.romalyric : [];
+          ? this.romalyricByRawTime
+          : this.tlyricByRawTime;
+      const romanMap = showBoth ? this.romalyricByRawTime : null;
       const lines = [];
       let active = -1;
       this.lyric.forEach((lyricLine, index) => {
         const content = lyricLine?.content || '';
         if (!content || isDesktopLyricPlaceholder(content)) return;
         if (index === this.highlightLyricIndex) active = lines.length;
-        const secondary = secondarySource.find(
-          item => item.rawTime === lyricLine.rawTime
-        )?.content;
+        const secondary = secondaryMap.get(lyricLine.rawTime);
         const translation =
           this.desktopLyricsTranslationEnabled &&
           secondary &&
           !isDesktopLyricPlaceholder(secondary)
             ? secondary
             : '';
-        const roman =
-          this.desktopLyricsTranslationEnabled && romanSource.length
-            ? (() => {
-                const value = romanSource.find(
-                  item => item.rawTime === lyricLine.rawTime
-                )?.content;
-                return value && !isDesktopLyricPlaceholder(value) ? value : '';
-              })()
-            : '';
+        let roman = '';
+        if (this.desktopLyricsTranslationEnabled && romanMap) {
+          const value = romanMap.get(lyricLine.rawTime);
+          roman = value && !isDesktopLyricPlaceholder(value) ? value : '';
+        }
         lines.push({ time: lyricLine.time, content, translation, roman });
       });
       return { lines, active };
