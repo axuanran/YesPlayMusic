@@ -653,20 +653,26 @@ export default {
         this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
-      const confirmation = confirm(`确定要删除歌单 ${this.playlist.name}？`);
+      const confirmation = confirm(
+        locale.global.t('contextMenu.deletePlaylistConfirm', {
+          name: this.playlist.name,
+        })
+      );
       if (confirmation === true) {
         deletePlaylist(this.playlist.id).then(data => {
           if (data.code === 200) {
-            nativeAlert(`已删除歌单 ${this.playlist.name}`);
+            nativeAlert(
+              locale.global.t('playlist.deleted', { name: this.playlist.name })
+            );
             this.$router.go(-1);
           } else {
-            nativeAlert('发生错误');
+            nativeAlert(locale.global.t('playlist.deleteFailed'));
           }
         });
       }
     },
     editPlaylist() {
-      nativeAlert('此功能开发中');
+      nativeAlert(locale.global.t('playlist.editComingSoon'));
     },
     async searchInPlaylist() {
       this.displaySearchInPlaylist =

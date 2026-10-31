@@ -272,7 +272,7 @@ export default {
       this.$refs.userProfileMenu.openMenu(e);
     },
     logout() {
-      if (!confirm('确定要退出登录吗？')) return;
+      if (!confirm(this.$t('nav.userProfileMenu.logoutConfirm'))) return;
       doLogout();
       this.$router.push({ name: 'home' });
     },
