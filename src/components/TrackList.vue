@@ -88,7 +88,7 @@
 
     <div class="track-list-items" :style="listStyles">
       <TrackListItem
-        v-for="(track, index) in tracks"
+        v-for="(track, index) in visibleTracks"
         :key="itemKey === 'id' ? track.id : `${track.id}${index}`"
         :track-prop="track"
         :track-no="index + 1"
@@ -121,6 +121,14 @@ import TrackListItem from '@/components/TrackListItem.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
 import locale from '@/locale';
 import { isArtworkDownloadEnabled, isTrackDownloadEnabled } from '@/utils/env';
+import { scheduleWhenIdle } from '@/utils/scheduleWhenIdle';
+import {
+  INITIAL_RENDER_BATCH,
+  initialRenderLimit,
+  nextRenderLimit,
+  isFullyRendered,
+  ensureIndexRendered,
+} from '@/utils/incrementalRender';
 
 const DEFAULT_TRACK_COVER =
   'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg';
@@ -196,12 +204,23 @@ export default {
       listStyles: {},
       isArtworkDownloadEnabled,
       isTrackDownloadEnabled,
+      // Incremental rendering: mount a first batch immediately for a fast first
+      // paint, then grow the rendered slice on idle until the whole list is in
+      // the DOM. A large playlist no longer mounts thousands of component
+      // instances synchronously on navigation.
+      renderLimit: INITIAL_RENDER_BATCH,
+      cancelGrowRender: null,
     };
   },
   computed: {
     ...mapState(['liked', 'player']),
     likedSongIds() {
       return new Set(this.liked.songs);
+    },
+    visibleTracks() {
+      return isFullyRendered(this.renderLimit, this.tracks.length)
+        ? this.tracks
+        : this.tracks.slice(0, this.renderLimit);
     },
     isRightClickedTrackLiked() {
       return this.likedSongIds.has(this.rightClickedTrack?.id);
@@ -239,6 +258,14 @@ export default {
       );
     },
   },
+  watch: {
+    tracks() {
+      // A new list (navigation, filter, load-more) resets the slice so the
+      // next list also starts small and grows, instead of rendering all at once.
+      this.renderLimit = initialRenderLimit(this.tracks.length);
+      this.scheduleGrowRender();
+    },
+  },
   created() {
     if (this.type === 'tracklist') {
       this.listStyles = {
@@ -248,7 +275,43 @@ export default {
       };
     }
   },
+  mounted() {
+    this.scheduleGrowRender();
+  },
+  beforeUnmount() {
+    this.stopGrowRender();
+  },
   methods: {
+    stopGrowRender() {
+      if (this.cancelGrowRender) {
+        this.cancelGrowRender();
+        this.cancelGrowRender = null;
+      }
+    },
+    scheduleGrowRender() {
+      this.stopGrowRender();
+      if (isFullyRendered(this.renderLimit, this.tracks.length)) return;
+      this.cancelGrowRender = scheduleWhenIdle(
+        () => {
+          this.cancelGrowRender = null;
+          this.renderLimit = nextRenderLimit(
+            this.renderLimit,
+            this.tracks.length
+          );
+          this.scheduleGrowRender();
+        },
+        { fallbackDelay: 16, timeout: 200 }
+      );
+    },
+    // Ensure a target index is rendered before any DOM lookup/scroll relies on
+    // it; otherwise a not-yet-grown slice would miss a late track element.
+    ensureRendered(index) {
+      this.renderLimit = ensureIndexRendered(
+        this.renderLimit,
+        index,
+        this.tracks.length
+      );
+    },
     ...mapMutations(['updateModal']),
     ...mapActions(['nextTrack', 'showToast', 'likeATrack']),
     playOnTouch(event, track) {
@@ -276,10 +339,20 @@ export default {
         track => String(track.id || track.songId) === normalizedTrackID
       );
       if (trackIndex < 0) return null;
+      // Grow the rendered slice to include the target if a late batch has not
+      // reached it yet. The element appears after the next render tick.
+      this.ensureRendered(trackIndex);
       return this.$el.querySelectorAll('.track')[trackIndex] || null;
     },
-    scrollToTrack(trackID) {
-      const trackElement = this.getTrackElement(trackID);
+    async scrollToTrack(trackID) {
+      const normalizedTrackID = String(trackID ?? '');
+      const trackIndex = this.tracks.findIndex(
+        track => String(track.id || track.songId) === normalizedTrackID
+      );
+      if (trackIndex < 0) return false;
+      this.ensureRendered(trackIndex);
+      await this.$nextTick();
+      const trackElement = this.$el.querySelectorAll('.track')[trackIndex];
       if (!trackElement) return false;
       trackElement.scrollIntoView({
         behavior: 'smooth',
