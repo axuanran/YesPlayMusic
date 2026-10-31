@@ -641,11 +641,10 @@ class Background {
       }
 
       // The local API starts in parallel. Its proxy gates API requests without
-      // blocking BrowserWindow creation and first paint.
-      await this.expressReady;
-
-      // Finish a pending cache relocation before any window/session exists.
-      await this.pendingCacheRelocation;
+      // blocking BrowserWindow creation and first paint. Express readiness and
+      // the pending cache relocation are independent, so await them together
+      // instead of serially: the window waits for max(a, b), not a + b.
+      await Promise.all([this.expressReady, this.pendingCacheRelocation]);
 
       // create window
       this.createWindow();

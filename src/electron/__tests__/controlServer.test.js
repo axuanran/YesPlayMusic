@@ -113,7 +113,23 @@ afterEach(() => {
   fs.rmSync(runtimeDir, { recursive: true, force: true });
 });
 
-describe('control server', () => {
+// The control server deliberately disables its unix-socket listener on Windows
+// (see controlServer.js: process.platform === 'win32'), so these socket-based
+// assertions only apply on platforms that support unix domain sockets.
+const describeSocket = process.platform === 'win32' ? describe.skip : describe;
+
+// Pure path resolution has no socket dependency, so it runs on every platform.
+describe('control server (cross-platform)', () => {
+  it('honours XUMP_CONTROL_SOCKET as an explicit path', () => {
+    expect(controlSocketPath()).toBe(
+      path.join(runtimeDir, 'xump-control.sock')
+    );
+    process.env.XUMP_CONTROL_SOCKET = path.join(runtimeDir, 'custom.sock');
+    expect(controlSocketPath()).toBe(path.join(runtimeDir, 'custom.sock'));
+  });
+});
+
+describeSocket('control server', () => {
   it('listens on a socket in XDG_RUNTIME_DIR with owner-only permissions', async () => {
     const socketPath = path.join(runtimeDir, 'default.sock');
     const server = await startOn(socketPath);
@@ -121,14 +137,6 @@ describe('control server', () => {
     const stats = fs.lstatSync(socketPath);
     expect(stats.isSocket()).toBe(true);
     expect(stats.mode & 0o777).toBe(0o600);
-  });
-
-  it('honours XUMP_CONTROL_SOCKET as an explicit path', () => {
-    expect(controlSocketPath()).toBe(
-      path.join(runtimeDir, 'xump-control.sock')
-    );
-    process.env.XUMP_CONTROL_SOCKET = path.join(runtimeDir, 'custom.sock');
-    expect(controlSocketPath()).toBe(path.join(runtimeDir, 'custom.sock'));
   });
 
   it('answers ping itself and forwards renderer methods', async () => {

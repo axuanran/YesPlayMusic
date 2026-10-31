@@ -26,9 +26,11 @@ function audioProxyMiddleware(req, res, next) {
   if (!match) return next();
 
   const trackId = match[1];
-  const outerUrl = "https://music.163.com/song/media/outer/url?id=".concat(trackId);
+  const outerUrl = 'https://music.163.com/song/media/outer/url?id='.concat(
+    trackId
+  );
 
-  console.log("[vite-audio-proxy] proxying track ".concat(trackId));
+  console.log('[vite-audio-proxy] proxying track '.concat(trackId));
 
   axios
     .get(outerUrl, {
@@ -43,9 +45,15 @@ function audioProxyMiddleware(req, res, next) {
     })
     .then(proxyResponse => {
       res.statusCode = 200;
-      res.setHeader('Content-Type', proxyResponse.headers['content-type'] || 'audio/mpeg');
+      res.setHeader(
+        'Content-Type',
+        proxyResponse.headers['content-type'] || 'audio/mpeg'
+      );
       if (proxyResponse.headers['content-length']) {
-        res.setHeader('Content-Length', proxyResponse.headers['content-length']);
+        res.setHeader(
+          'Content-Length',
+          proxyResponse.headers['content-length']
+        );
       }
       res.setHeader('Accept-Ranges', 'bytes');
       res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -53,13 +61,31 @@ function audioProxyMiddleware(req, res, next) {
       proxyResponse.data.pipe(res);
     })
     .catch(err => {
-      console.error("[vite-audio-proxy] failed to proxy track ".concat(trackId, ":", err.message));
+      console.error(
+        '[vite-audio-proxy] failed to proxy track '.concat(
+          trackId,
+          ':',
+          err.message
+        )
+      );
       if (!res.headersSent) {
         res.statusCode = 502;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ ok: false, error: 'PROXY_FAILED' }));
       }
     });
+}
+
+// Vite only honours `configureServer` on a plugin, not at the config root.
+// Registering the audio proxy as a plugin hook ensures the middleware actually
+// runs in web dev mode (a root-level `configureServer` key is silently ignored).
+function audioProxyPlugin() {
+  return {
+    name: 'xump-audio-proxy',
+    configureServer(server) {
+      server.middlewares.use(audioProxyMiddleware);
+    },
+  };
 }
 
 export default defineConfig(({ mode }) => ({
@@ -78,6 +104,7 @@ export default defineConfig(({ mode }) => ({
       iconDirs: [path.resolve(rootDir, 'src/assets/icons')],
       symbolId: 'icon-[name]',
     }),
+    audioProxyPlugin(),
   ],
   resolve: {
     alias: {
@@ -105,7 +132,8 @@ export default defineConfig(({ mode }) => ({
         target: 'http://localhost:3000',
         changeOrigin: true,
         rewrite: value => value.replace(/^\/api/, ''),
-        bypass: req => req.url?.startsWith('/resolver-api') ? false : undefined,
+        bypass: req =>
+          req.url?.startsWith('/resolver-api') ? false : undefined,
       },
       '/resolver-api': {
         target: 'http://127.0.0.1:27232',
@@ -119,15 +147,29 @@ export default defineConfig(({ mode }) => ({
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vue: ['vue', 'vue-router', 'vuex', 'vue-i18n'],
-          player: ['plyr'],
-          vendor: ['axios', 'lodash', 'dayjs', 'dexie'],
+        manualChunks(id) {
+          // Framework core, rarely changes: best long-term cache hit.
+          if (/node_modules\/(vue|vue-router|vuex|vue-i18n|@vue)\//.test(id)) {
+            return 'vue';
+          }
+          // Player stack: plyr + the xstate machine that drives playback.
+          // xstate was previously falling into the entry chunk (~40 KB
+          // minified); grouping it with the player keeps the entry smaller.
+          if (/node_modules\/(plyr|xstate)\//.test(id)) {
+            return 'player';
+          }
+          if (/node_modules\/(axios|lodash|dayjs|dexie)\//.test(id)) {
+            return 'vendor';
+          }
+          // The four UI locales (~96 KB of source) are bundled eagerly by
+          // vue-i18n legacy mode; split them out of the entry chunk so they
+          // cache independently of app code.
+          if (/src\/locale\/lang\//.test(id)) {
+            return 'locale';
+          }
+          return undefined;
         },
       },
     },
-  },
-  configureServer(server) {
-    server.middlewares.use(audioProxyMiddleware);
   },
 }));
