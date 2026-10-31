@@ -144,8 +144,7 @@ export default class PlayerQueue {
     this.playNextList.splice(index, 1);
   }
 
-  // Reorders the priority queue. The assistant radio refills through
-  // playNextList, so this is its "replan the rest" primitive.
+  // Reorders the priority queue (the "play next" FIFO).
   movePlayNext(from, to) {
     if (
       !Number.isInteger(from) ||

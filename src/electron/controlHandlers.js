@@ -1,5 +1,4 @@
 import { handleMprisCommand } from './ipcRenderer';
-import { interpretFeedbackText } from './assistant/feedbackInterpreter';
 
 // Renderer side of the local control channel (docs/control-api.md). Everything
 // here runs inside the Vue app, so it can use the player/store and the app's
@@ -120,7 +119,7 @@ const trackFromApi = track => {
   };
 };
 
-export function createControlHandlers({ store, player, radio = null }) {
+export function createControlHandlers({ store, player }) {
   // Playback mutations are serialized and last-wins: a playlist fetch that was
   // started first must not overwrite a later "play this track" request.
   let mutationToken = 0;
@@ -413,158 +412,6 @@ export function createControlHandlers({ store, player, radio = null }) {
     return pageOf(items, { limit, offset });
   };
 
-  // --- AI assistant surface -------------------------------------------------
-  // The preference store lives in the main process (see
-  // electron/assistant/preferenceStore.js); these handlers just bridge the
-  // validated MCP/control requests through the preload API.
-
-  const PREFERENCE_LAYERS_SET = new Set(['longTerm', 'temporary', 'session']);
-
-  const preferences = async () => {
-    const value =
-      await globalThis.window?.electronAPI?.assistant?.getPreferences?.();
-    return (
-      value ?? {
-        preferences: { longTerm: [], temporary: [], session: [] },
-        feedback: [],
-      }
-    );
-  };
-
-  const preferencesPatch = async params => {
-    const body = assertParams(params, ['layer', 'rule'], 'preferences.patch');
-    if (!PREFERENCE_LAYERS_SET.has(body.layer)) {
-      fail('invalid_params', 'layer must be longTerm, temporary or session');
-    }
-    if (typeof body.rule?.rule !== 'string' || !body.rule.rule.trim()) {
-      fail('invalid_params', 'rule.rule must be a non-empty description');
-    }
-    const rule = await globalThis.window?.electronAPI?.assistant?.addRule?.({
-      layer: body.layer,
-      rule: {
-        rule: body.rule.rule,
-        source: body.rule.source,
-        scope: body.rule.scope,
-        confidence: body.rule.confidence,
-        expiresAt: body.rule.expiresAt,
-      },
-    });
-    if (!rule) fail('internal_error', 'preference store unavailable');
-    return { accepted: true, layer: body.layer, rule };
-  };
-
-  const preferencesRemove = async params => {
-    const body = assertParams(params, ['layer', 'id'], 'preferences.remove');
-    if (!PREFERENCE_LAYERS_SET.has(body.layer)) {
-      fail('invalid_params', 'layer must be longTerm, temporary or session');
-    }
-    if (typeof body.id !== 'string' || !body.id) {
-      fail('invalid_params', 'id must be a rule id string');
-    }
-    const removed =
-      await globalThis.window?.electronAPI?.assistant?.removeRule?.({
-        layer: body.layer,
-        id: body.id,
-      });
-    return { accepted: true, removed: removed === true };
-  };
-
-  const FEEDBACK_TYPES_SET = new Set([
-    'text',
-    'skip',
-    'skip_quick',
-    'complete',
-    'like',
-    'unlike',
-  ]);
-
-  const feedback = async params => {
-    const body = assertParams(params, ['type', 'text', 'trackId'], 'feedback');
-    const type =
-      body.type ?? (typeof body.text === 'string' ? 'text' : undefined);
-    if (!FEEDBACK_TYPES_SET.has(type)) {
-      fail(
-        'invalid_params',
-        `type must be one of ${[...FEEDBACK_TYPES_SET].join(', ')}`
-      );
-    }
-    if (
-      type === 'text' &&
-      !(typeof body.text === 'string' && body.text.trim())
-    ) {
-      fail('invalid_params', 'text feedback requires a non-empty text');
-    }
-    const text =
-      typeof body.text === 'string'
-        ? body.text.trim().slice(0, 512)
-        : undefined;
-    const entry =
-      await globalThis.window?.electronAPI?.assistant?.recordFeedback?.({
-        type,
-        text,
-        trackId: Number.isInteger(body.trackId) ? body.trackId : undefined,
-      });
-    if (!entry) fail('internal_error', 'preference store unavailable');
-    // 文本反馈异步分层为偏好规则（LLM 理解、程序落库），不阻塞确认回包
-    if (type === 'text' && text) {
-      interpretFeedbackText(text, {
-        assistant: globalThis.window?.electronAPI?.assistant,
-      }).catch(() => {});
-    }
-    // 结构化 heard 信号同步进音轨情报库（UI 路径由 Player 直接上报；
-    // MCP 路径没有来源标记，按网易云 id 入库）
-    if (
-      ['skip', 'skip_quick', 'complete', 'like', 'unlike'].includes(type) &&
-      Number.isInteger(body.trackId)
-    ) {
-      try {
-        globalThis.window?.electronAPI?.assistant?.trackHeard?.({
-          id: `ne:${body.trackId}`,
-          signal: {
-            completed: type === 'complete',
-            skipQuick: type === 'skip_quick',
-          },
-        });
-      } catch {
-        // 情报库不可用不影响反馈确认
-      }
-    }
-    return { accepted: true, entry };
-  };
-
-  const feedbackList = async params => {
-    const body = assertParams(params, ['since', 'limit'], 'feedback.list');
-    const since =
-      Number.isFinite(body.since) && body.since >= 0 ? body.since : 0;
-    const limit = Number.isInteger(body.limit)
-      ? Math.min(Math.max(body.limit, 1), 200)
-      : 50;
-    const entries =
-      await globalThis.window?.electronAPI?.assistant?.listFeedback?.({
-        since,
-        limit,
-      });
-    return { entries: entries ?? [], since };
-  };
-
-  // --- radio ---------------------------------------------------------------
-  const requireRadio = () => {
-    if (!radio) fail('internal_error', 'radio engine unavailable');
-    return radio;
-  };
-  const radioStart = async () => requireRadio().start();
-  const radioStop = async () => requireRadio().stop();
-  const radioStatus = async () =>
-    radio
-      ? radio.status()
-      : {
-          active: false,
-          refilling: false,
-          enqueuedTotal: 0,
-          lastRefillAt: 0,
-          lastPicks: [],
-        };
-
   // Account writes go through an explicit, awaitable store action so failures
   // are reported instead of being swallowed behind a toast, and are serialized
   // like the other mutations.
@@ -579,15 +426,6 @@ export function createControlHandlers({ store, player, radio = null }) {
         id,
         liked: body.liked,
       });
-      // strong signal for the teachable radio; fire-and-forget
-      try {
-        globalThis.window?.electronAPI?.assistant?.recordFeedback?.({
-          type: body.liked ? 'like' : 'unlike',
-          trackId: id,
-        });
-      } catch {
-        // feedback must never fail an account write
-      }
       return {
         accepted: true,
         id,
@@ -606,14 +444,6 @@ export function createControlHandlers({ store, player, radio = null }) {
     lyrics,
     recommend,
     like,
-    'preferences.get': preferences,
-    'preferences.patch': preferencesPatch,
-    'preferences.remove': preferencesRemove,
-    feedback,
-    'feedback.list': feedbackList,
-    'radio.start': radioStart,
-    'radio.stop': radioStop,
-    'radio.status': radioStatus,
   };
 
   return handlers;

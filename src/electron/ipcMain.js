@@ -38,9 +38,6 @@ import {
   saveTrackDownload,
   saveTrackDownloadToBatch,
 } from './trackDownload.js';
-import { createPreferenceStore } from './assistant/preferenceStore.js';
-import { createLlmClient } from './assistant/llmClient.js';
-import { createTrackIntel } from './assistant/trackIntel.js';
 
 const clc = require('cli-color');
 const log = text => {
@@ -724,80 +721,6 @@ export function initIpcMain(
   ipcMain.handle('settings:get', event => {
     if (event.sender !== win.webContents) return null;
     return store.get('settings') || null;
-  });
-
-  // AI assistant preference/feedback store. Lives in the main process so the
-  // data survives renderer restarts and is shared between the UI and MCP.
-  const preferenceStore = createPreferenceStore({ store });
-  const trackIntel = createTrackIntel({ store });
-  ipcMain.handle('assistant:preferences', event => {
-    if (event.sender !== win.webContents) return null;
-    return preferenceStore.get();
-  });
-  ipcMain.handle('assistant:add-rule', (event, payload) => {
-    if (event.sender !== win.webContents || !isRecord(payload)) return null;
-    return preferenceStore.addRule(payload.layer, payload.rule);
-  });
-  ipcMain.handle('assistant:remove-rule', (event, payload) => {
-    if (event.sender !== win.webContents || !isRecord(payload)) return false;
-    return preferenceStore.removeRule(payload.layer, payload.id);
-  });
-  ipcMain.handle('assistant:feedback', (event, payload) => {
-    if (event.sender !== win.webContents || !isRecord(payload)) return null;
-    return preferenceStore.recordFeedback(payload);
-  });
-  ipcMain.handle('assistant:feedback-list', (event, payload) => {
-    if (event.sender !== win.webContents) return [];
-    const params = isRecord(payload) ? payload : {};
-    return preferenceStore.listFeedback(params);
-  });
-  // Track intelligence: heard/manual/AI tracks with derived structured data.
-  ipcMain.handle('assistant:track-upsert', (event, payload) => {
-    if (event.sender !== win.webContents || !isRecord(payload)) return null;
-    return trackIntel.upsert(payload.track, { by: payload.by });
-  });
-  ipcMain.handle('assistant:track-heard', (event, payload) => {
-    if (event.sender !== win.webContents || !isRecord(payload)) return null;
-    return trackIntel.recordHeard(payload.id, payload.signal ?? {});
-  });
-  ipcMain.handle('assistant:track-list', (event, payload) => {
-    if (event.sender !== win.webContents) return trackIntel.list();
-    const params = isRecord(payload) ? payload : {};
-    return trackIntel.list(params);
-  });
-  ipcMain.handle('assistant:track-derived', (event, payload) => {
-    if (event.sender !== win.webContents || !isRecord(payload)) return null;
-    return trackIntel.setDerived(payload.id, payload.derived);
-  });
-  ipcMain.handle('assistant:track-needs-enrichment', (event, payload) => {
-    if (event.sender !== win.webContents || !isRecord(payload)) return false;
-    return trackIntel.needsEnrichment(payload.id);
-  });
-  ipcMain.handle('assistant:track-pool', (event, payload) => {
-    if (event.sender !== win.webContents) return [];
-    const params = isRecord(payload) ? payload : {};
-    return trackIntel.buildCandidatePool(params);
-  });
-  // LLM calls run in the main process (Node fetch, no CORS) against the
-  // user-configured OpenAI-compatible endpoint; disabled or misconfigured
-  // simply resolves to null so callers fall back to rule-based behavior.
-  ipcMain.handle('assistant:llm-chat', async (event, payload) => {
-    if (event.sender !== win.webContents || !isRecord(payload)) return null;
-    const client = createLlmClient({
-      config: store.get('settings.assistantLlm'),
-      fetchImpl: globalThis.fetch,
-    });
-    return client.chat({
-      system:
-        typeof payload.system === 'string'
-          ? payload.system.slice(0, 2048)
-          : undefined,
-      prompt:
-        typeof payload.prompt === 'string'
-          ? payload.prompt.slice(0, 8192)
-          : undefined,
-      maxTokens: payload.maxTokens,
-    });
   });
 
   ipcMain.on('desktop-lyrics:update', (event, payload) => {
