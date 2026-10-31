@@ -34,6 +34,7 @@
             <img
               class="head"
               :src="resizeImage(user.avatarUrl)"
+              alt=""
               loading="lazy"
             />
             <div class="nickname">

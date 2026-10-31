@@ -2,6 +2,7 @@
   <div class="daily-recommend-card" @click="goToDailyTracks">
     <img
       :src="coverUrl"
+      alt=""
       loading="eager"
       fetchpriority="high"
       decoding="async"

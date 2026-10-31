@@ -1,9 +1,9 @@
 <template>
   <div class="lastfm-callback">
     <div class="section-1">
-      <img src="/img/logos/yesplaymusic.png" />
+      <img src="/img/logos/yesplaymusic.png" alt="XuMP" />
       <svg-icon icon-class="x"></svg-icon>
-      <img src="/img/logos/lastfm.png" />
+      <img src="/img/logos/lastfm.png" alt="Last.fm" />
     </div>
     <div class="message">{{ message }}</div>
     <button v-show="done" @click="close"> 完成 </button>

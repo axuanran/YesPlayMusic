@@ -2,7 +2,7 @@
   <div class="track-list">
     <ContextMenu ref="menu">
       <div v-show="type !== 'cloudDisk'" class="item-info">
-        <img :src="rightClickedArtworkPreviewUrl" loading="lazy" />
+        <img :src="rightClickedArtworkPreviewUrl" alt="" loading="lazy" />
         <div class="info">
           <div class="title">{{ rightClickedTrackComputed.name }}</div>
           <div class="subtitle">{{ rightClickedTrackArtistName }}</div>

@@ -147,6 +147,7 @@
         <img
           class="avatar"
           :src="resizeImage(data.user.avatarUrl)"
+          alt=""
           loading="lazy"
         />
         {{ data.user.nickname }}{{ $t('library.sLikedSongs') }}
