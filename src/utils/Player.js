@@ -1282,74 +1282,13 @@ export default class {
   _nextTrackCallback() {
     const player = this._getReactiveSelf();
     player._scrobble(player._currentTrack, 0, true);
-    player._recordAssistantFeedback('complete', player._currentTrack);
     if (!player.isPersonalFM && player.repeatMode === 'one') {
       player._replaceCurrentTrack(player.currentTrackID);
     } else {
-      // the natural completion was already recorded; the follow-up advance is
-      // not a user skip
-      player._playNextTrack(player.isPersonalFM, { feedback: false });
+      player._playNextTrack(player.isPersonalFM);
     }
   }
 
-  // Feedback signals for the teachable AI radio. Best-effort by design: a
-  // failing assistant bridge must never interrupt playback.
-  _recordAssistantFeedback(type, track = this._currentTrack) {
-    if (!isElectron) return;
-    try {
-      const id = track?.id;
-      if (!Number.isInteger(id) || id <= 0) return;
-      const assistant = globalThis.window?.electronAPI?.assistant;
-      assistant?.recordFeedback?.({ type, trackId: id });
-      // heard 管线：计数沉淀进音轨情报库，供候选池与预过滤使用
-      assistant?.trackHeard?.({
-        id: track.local
-          ? `local:${id}`
-          : track.streaming
-            ? `emby:${id}`
-            : `ne:${id}`,
-        signal: {
-          completed: type === 'complete',
-          skipQuick: type === 'skip_quick',
-        },
-      });
-      if (type === 'complete') {
-        this._maybeEnrichTrackIntel(track);
-      }
-    } catch {
-      // ignore: feedback is a weak signal, not a control path
-    }
-  }
-
-  // 富化听过的曲目：歌词片段 + 元数据 → LLM 结构化标签 → 情报库
-  _maybeEnrichTrackIntel(track) {
-    const assistant = globalThis.window?.electronAPI?.assistant;
-    if (!assistant?.llmChat) return;
-    Promise.all([
-      import('@/electron/assistant/enrichment'),
-      track.local || track.streaming
-        ? Promise.resolve([])
-        : import('@/api/track')
-            .then(({ getLyric }) => getLyric(track.id))
-            .then(result => (result?.lrc?.lyric || '').split('\n').slice(0, 8))
-            .catch(() => []),
-    ])
-      .then(([{ maybeEnrichTrack }, lyricLines]) =>
-        maybeEnrichTrack({
-          assistant,
-          track: {
-            id: track.id,
-            name: track.name,
-            artists: (track.ar ?? []).map(artist => artist.name).join('/'),
-            album: track.al?.name ?? '',
-            local: !!track.local,
-            streaming: !!track.streaming,
-          },
-          lyricLines,
-        })
-      )
-      .catch(() => {});
-  }
   async _adoptNativeTrackTransition({ mediaId, reason, source, track } = {}) {
     if (!isCapacitor || !mediaId || sameTrackId(mediaId, this.currentTrackID)) {
       return false;
@@ -1453,11 +1392,11 @@ export default class {
     if (!this._canDiscordPresence()) return null;
     electronPlayer?.pauseDiscordPresence(createDiscordPresenceTrack(track));
   }
-  _playNextTrack(isPersonal, { feedback = true } = {}) {
+  _playNextTrack(isPersonal) {
     if (isPersonal) {
       this.playNextFMTrack();
     } else {
-      this.playNextTrack({ feedback });
+      this.playNextTrack();
     }
   }
 
@@ -1466,12 +1405,8 @@ export default class {
     this._exportQueueState();
     if (isCapacitor) this._cacheNextTrack();
   }
-  playNextTrack({ feedback = true } = {}) {
+  playNextTrack() {
     // TODO: 切换歌曲时增加加载中的状态
-    if (feedback) {
-      const type = (this.progress || 0) < 30 ? 'skip_quick' : 'skip';
-      this._recordAssistantFeedback(type, this._currentTrack);
-    }
     if (this._queue.playNextList.length > 0) {
       const trackID = this._queue.takePlayNext();
       this._exportQueueState();
@@ -1543,7 +1478,6 @@ export default class {
     return true;
   }
   playPrevTrack() {
-    this._recordAssistantFeedback('skip', this._currentTrack);
     const [trackID, index] = this._getSiblingTrack(false);
     if (trackID === undefined) return false;
     console.debug(

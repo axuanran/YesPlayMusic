@@ -44,13 +44,6 @@ let localStorage = {
       host: '127.0.0.1',
       port: 27233,
     },
-    assistantLlm: {
-      enabled: false,
-      baseUrl: '',
-      apiKey: '',
-      model: '',
-      timeoutMs: 30000,
-    },
     showLibraryDefault: false,
     subTitleDefault: false,
     layout: getDefaultUiLayout(),

@@ -425,7 +425,7 @@ describe('xumpctl MCP adapter', () => {
     ).toContain('"limit" must be <= 50');
   });
 
-  it('exposes queue manipulation and assistant tools with correct dispatch', () => {
+  it('exposes queue manipulation tools with correct dispatch', () => {
     const calls = [];
     const call = (method, params) => {
       calls.push({ method, params });
@@ -445,58 +445,6 @@ describe('xumpctl MCP adapter', () => {
     });
     expect(
       validateToolArguments(queue.inputSchema, { action: 'teleport' })
-    ).not.toEqual([]);
-
-    const preferences = MCP_TOOLS.find(
-      tool => tool.name === 'music_preferences'
-    );
-    preferences.handler(
-      { action: 'add', layer: 'longTerm', rule: { rule: '不要现场版' } },
-      call
-    );
-    expect(calls.at(-1)).toEqual({
-      method: 'preferences.patch',
-      params: { layer: 'longTerm', rule: { rule: '不要现场版' } },
-    });
-    preferences.handler({ action: 'get' }, call);
-    expect(calls.at(-1)).toEqual({
-      method: 'preferences.get',
-      params: undefined,
-    });
-    expect(
-      validateToolArguments(preferences.inputSchema, {
-        action: 'add',
-        layer: 'forever',
-      })
-    ).not.toEqual([]);
-
-    const feedback = MCP_TOOLS.find(tool => tool.name === 'music_feedback');
-    feedback.handler({ action: 'report', text: '少点慢歌' }, call);
-    expect(calls.at(-1)).toEqual({
-      method: 'feedback',
-      params: { type: 'text', text: '少点慢歌', trackId: undefined },
-    });
-    feedback.handler({ action: 'list', since: 5, limit: 10 }, call);
-    expect(calls.at(-1)).toEqual({
-      method: 'feedback.list',
-      params: { since: 5, limit: 10 },
-    });
-    expect(
-      validateToolArguments(feedback.inputSchema, { type: 'explode' })
-    ).not.toEqual([]);
-
-    const radio = MCP_TOOLS.find(tool => tool.name === 'music_radio');
-    radio.handler({ action: 'start' }, call);
-    expect(calls.at(-1)).toEqual({ method: 'radio.start', params: undefined });
-    radio.handler({ action: 'stop' }, call);
-    expect(calls.at(-1)).toEqual({ method: 'radio.stop', params: undefined });
-    radio.handler({ action: 'status' }, call);
-    expect(calls.at(-1)).toEqual({
-      method: 'radio.status',
-      params: undefined,
-    });
-    expect(
-      validateToolArguments(radio.inputSchema, { action: 'teleport' })
     ).not.toEqual([]);
   });
 });
