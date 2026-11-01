@@ -12,6 +12,21 @@ export default [
   ...vue.configs['flat/vue2-recommended'],
   prettierRecommended,
   {
+    // Root-level build/config files run in Node (ESM) and use Node + browser
+    // globals (vite.config reads process.env and streams through URL/console).
+    files: ['*.{js,mjs,cjs}'],
+    languageOptions: {
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: 'module',
+      },
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+  },
+  {
     files: ['src/**/*.{js,vue}'],
     languageOptions: {
       parserOptions: {

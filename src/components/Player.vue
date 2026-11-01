@@ -145,13 +145,6 @@
             @click="playNextTrack"
             ><svg-icon icon-class="next"
           /></button-icon>
-          <button-icon
-            v-if="isElectron"
-            :title="$t('player.assistantFeedback')"
-            :class="{ active: showAssistantFeedback }"
-            @click.stop="toggleAssistantFeedback"
-            ><svg-icon icon-class="more"
-          /></button-icon>
         </div>
         <div class="blank"></div>
       </div>
@@ -288,60 +281,6 @@
         </div>
       </div>
     </div>
-
-    <div
-      v-if="showAssistantFeedback"
-      class="assistant-feedback-backdrop"
-      @click="showAssistantFeedback = false"
-    ></div>
-    <div
-      v-if="showAssistantFeedback"
-      class="assistant-feedback"
-      @click.stop
-      @mousedown.stop
-    >
-      <div class="assistant-feedback-quick">
-        <button
-          v-for="(phrase, index) in assistantQuickPhrases"
-          :key="index"
-          type="button"
-          :disabled="assistantFeedbackBusy"
-          @click="sendAssistantFeedback(phrase)"
-        >
-          {{ phrase }}
-        </button>
-      </div>
-      <div class="assistant-feedback-input">
-        <input
-          v-model="assistantFeedbackText"
-          type="text"
-          :placeholder="$t('player.assistantFeedbackPlaceholder')"
-          @keyup.enter="sendAssistantFeedback()"
-        />
-        <button
-          type="button"
-          :disabled="assistantFeedbackBusy"
-          @click="sendAssistantFeedback()"
-        >
-          {{ $t('player.assistantFeedbackSend') }}
-        </button>
-      </div>
-      <div
-        v-if="
-          assistantRadioStatus?.active && assistantRadioStatus.lastPicks?.length
-        "
-        class="assistant-feedback-picks"
-      >
-        <div
-          v-for="pick in assistantRadioStatus.lastPicks.slice(-3)"
-          :key="`${pick.id}-${pick.at}`"
-          class="assistant-feedback-pick"
-        >
-          #{{ pick.id
-          }}<template v-if="pick.reason"> · {{ pick.reason }}</template>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -363,8 +302,6 @@ import {
   createSizedCoverUrl,
   resolveCoverImageUrl,
 } from '@/utils/coverImageUrl';
-import { interpretFeedbackText } from '@/electron/assistant/feedbackInterpreter';
-import { getRadioEngine } from '@/electron/assistant/radioRegistry';
 
 export default {
   name: 'Player',
@@ -383,10 +320,6 @@ export default {
       removeDiscordStatusListener: null,
       amllProgressTimer: null,
       isElectron,
-      showAssistantFeedback: false,
-      assistantFeedbackText: '',
-      assistantFeedbackBusy: false,
-      assistantRadioStatus: null,
     };
   },
   computed: {
@@ -448,11 +381,6 @@ export default {
     playing() {
       void this.playerVersion;
       return this.player.playing;
-    },
-    assistantQuickPhrases() {
-      return [1, 2, 3, 4].map(index =>
-        this.$t(`player.assistantQuick${index}`)
-      );
     },
     progressValue() {
       void this.playerProgressVersion;
@@ -727,38 +655,6 @@ export default {
         this.player.playNextFMTrack();
       } else {
         this.player.playNextTrack();
-      }
-    },
-    toggleAssistantFeedback() {
-      this.showAssistantFeedback = !this.showAssistantFeedback;
-      if (this.showAssistantFeedback) {
-        this.refreshAssistantRadioStatus();
-      }
-    },
-    refreshAssistantRadioStatus() {
-      this.assistantRadioStatus = getRadioEngine()?.status() ?? null;
-    },
-    async sendAssistantFeedback(preset) {
-      const text = (preset ?? this.assistantFeedbackText).trim();
-      if (!text || this.assistantFeedbackBusy) return;
-      this.assistantFeedbackBusy = true;
-      try {
-        const trackId = this.player.currentTrack?.id;
-        const assistant = window.electronAPI?.assistant;
-        await assistant?.recordFeedback?.({
-          type: 'text',
-          text,
-          trackId: Number.isInteger(trackId) ? trackId : undefined,
-        });
-        // 与控制通道同一套分层逻辑：LLM 理解、程序落库
-        await interpretFeedbackText(text, { assistant });
-        this.assistantFeedbackText = '';
-        this.showToast(this.$t('player.assistantFeedbackDone'));
-      } catch (error) {
-        console.warn('[assistant] feedback failed', error);
-      } finally {
-        this.assistantFeedbackBusy = false;
-        this.refreshAssistantRadioStatus();
       }
     },
     likeCurrentTrack() {
@@ -1276,74 +1172,6 @@ export default {
       height: 36px;
       margin-left: 0 !important;
       display: grid;
-    }
-  }
-}
-
-.assistant-feedback-backdrop {
-  position: fixed;
-  z-index: 40;
-  inset: 0;
-  background: transparent;
-}
-
-.assistant-feedback {
-  position: absolute;
-  z-index: 41;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  width: 340px;
-  padding: 12px;
-  border-radius: 12px;
-  background: var(--color-secondary-bg);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
-  transform: translateX(-50%);
-
-  .assistant-feedback-quick {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 8px;
-
-    button {
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      white-space: nowrap;
-    }
-  }
-
-  .assistant-feedback-input {
-    display: flex;
-    gap: 6px;
-
-    input {
-      flex: 1;
-      min-width: 0;
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-size: 13px;
-    }
-
-    button {
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      white-space: nowrap;
-    }
-  }
-
-  .assistant-feedback-picks {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid rgba(128, 128, 128, 0.2);
-    font-size: 12px;
-    opacity: 0.75;
-
-    .assistant-feedback-pick {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
   }
 }
