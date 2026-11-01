@@ -1594,6 +1594,7 @@ import { getResolverConfig, updateResolverConfig } from '@/api/audioResolver';
 import pkg from '../../package.json';
 import { isCapacitor, isElectron } from '@/utils/env';
 import { isLinux, isMac, isWindows } from '@/utils/platform';
+import { scheduleAfterFirstPaint } from '@/utils/afterFirstPaint';
 import { getBuiltinPlugins, setPluginEnabled, syncPlugins } from '@/plugins';
 import {
   getDefaultUiLayout,
@@ -1705,6 +1706,7 @@ export default {
       pendingCacheDir: '',
       removeTrackCacheListener: null,
       nativeCacheListener: null,
+      cancelDeferredSettingsLoad: null,
       lastfmChecker: null,
       mcpServerStatus: null,
       removeMcpStatusListener: null,
@@ -2246,14 +2248,22 @@ export default {
         this.updateTracksCache
       );
     }
-    this.countDBSize('tracks');
-    if (isElectron) {
-      this.getAllOutputDevices();
-      this.listenMcpServerStatus();
-      this.loadCacheLocation();
-    }
+    // Non-critical mount work (an IndexedDB cache scan, device enumeration,
+    // cache-location + assistant/MCP status reads) is deferred to after the
+    // first paint so opening Settings renders immediately; the values fill in
+    // a frame later instead of competing with the initial render.
+    this.cancelDeferredSettingsLoad = scheduleAfterFirstPaint(() => {
+      this.countDBSize('tracks');
+      if (isElectron) {
+        this.getAllOutputDevices();
+        this.listenMcpServerStatus();
+        this.loadCacheLocation();
+        this.loadAssistantPreferences();
+      }
+    });
   },
   beforeUnmount() {
+    this.cancelDeferredSettingsLoad?.();
     this.removeTrackCacheListener?.();
     this.nativeCacheListener?.remove();
     this.removeMcpStatusListener?.();
