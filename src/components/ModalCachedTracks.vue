@@ -21,6 +21,7 @@
           <img
             v-if="track.cover"
             :src="resizeImage(track.cover, 112)"
+            alt=""
             loading="lazy"
           />
           <div v-else class="cover-placeholder"></div>

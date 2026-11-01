@@ -2,7 +2,7 @@
   <div class="login">
     <div class="login-container">
       <div class="section-1">
-        <img src="/img/logos/netease-music.png" />
+        <img src="/img/logos/netease-music.png" alt="NetEase Cloud Music" />
       </div>
       <div class="title">{{ $t('login.loginText') }}</div>
       <div class="section-2">
@@ -72,7 +72,7 @@
 
         <div v-show="mode == 'qrCode'">
           <div v-show="qrCodeSvg" class="qr-code-container">
-            <img :src="qrCodeSvg" loading="lazy" />
+            <img :src="qrCodeSvg" alt="" loading="lazy" />
           </div>
           <div class="qr-code-info">
             {{ qrCodeInformation }}

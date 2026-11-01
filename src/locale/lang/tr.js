@@ -63,6 +63,7 @@ export default {
     userProfileMenu: {
       settings: 'Ayarlar',
       logout: 'Çıkış Yap',
+      logoutConfirm: 'Hesabınızdan çıkış yapılsın mı?',
     },
   },
   localMusic: {
@@ -167,6 +168,9 @@ export default {
     search: 'Çalma Listesinde Ara',
     locateCurrentTrack: 'Çalan parçaya git',
     loadFailed: 'Çalma listesi bilgileri yüklenemedi',
+    deleted: '"{name}" çalma listesi silindi',
+    deleteFailed: 'Bir hata oluştu',
+    editComingSoon: 'Bu özellik geliştirme aşamasında',
   },
   login: {
     accessToAll: 'Tüm verilere eriş',
@@ -569,6 +573,12 @@ export default {
     downloadTrack: 'Parçayı indir',
     downloadArtwork: 'Albüm kapağını indir',
     downloadPlaylist: 'Tüm çalma listesini indir',
+    removeFromQueue: 'Sıradan kaldır',
+    removeFromPlaylist: 'Çalma listesinden kaldır',
+    removeFromCloudDisk: 'Bulut diskinden kaldır',
+    removeFromPlaylistConfirm: '"{name}" çalma listesinden kaldırılsın mı?',
+    removeFromCloudDiskConfirm: '"{name}" bulut diskinizden silinsin mi?',
+    deletePlaylistConfirm: '"{name}" çalma listesi silinsin mi?',
   },
   downloadArtwork: {
     completed: 'Albüm kapağı indirildi',
@@ -618,5 +628,6 @@ export default {
   toast: {
     savedToMyLikedSongs: 'Beğendiğim Müziklere Kaydet',
     removedFromMyLikedSongs: 'Beğendiğim Müziklerden Kaldır',
+    removedFromCloudDisk: 'Bulut diskinden kaldırıldı',
   },
 };

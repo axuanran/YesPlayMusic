@@ -18,6 +18,7 @@
         <img
           v-if="track.al?.picUrl"
           :src="resizeImage(track.al.picUrl, 224)"
+          alt=""
           loading="lazy"
         />
         <div>

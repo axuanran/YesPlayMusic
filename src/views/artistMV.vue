@@ -11,6 +11,7 @@
         <img
           class="avatar"
           :src="resizeImage(artist.img1v1Url, 1024)"
+          alt=""
           loading="lazy"
         />{{ artist.name }}'s Music Videos
       </h1>

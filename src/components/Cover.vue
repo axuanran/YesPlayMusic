@@ -16,6 +16,7 @@
       </div>
       <img
         :src="resolvedImageUrl"
+        alt=""
         :style="imageStyles"
         :loading="imageLoading"
         :fetchpriority="imageFetchPriority"

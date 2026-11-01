@@ -59,6 +59,7 @@ export default {
     userProfileMenu: {
       settings: '设置',
       logout: '登出',
+      logoutConfirm: '确定要退出登录吗？',
     },
   },
   localMusic: {
@@ -158,6 +159,9 @@ export default {
     search: '搜索歌单音乐',
     locateCurrentTrack: '跳转到正在播放',
     loadFailed: '歌单信息加载失败',
+    deleted: '已删除歌单“{name}”',
+    deleteFailed: '发生错误',
+    editComingSoon: '此功能开发中',
   },
   login: {
     accessToAll: '可访问全部数据',
@@ -554,6 +558,12 @@ export default {
     downloadTrack: '下载歌曲',
     downloadArtwork: '下载歌曲封面',
     downloadPlaylist: '下载整个歌单',
+    removeFromQueue: '从队列删除',
+    removeFromPlaylist: '从歌单中删除',
+    removeFromCloudDisk: '从云盘中删除',
+    removeFromPlaylistConfirm: '确定要从歌单删除“{name}”？',
+    removeFromCloudDiskConfirm: '确定要从云盘删除“{name}”？',
+    deletePlaylistConfirm: '确定要删除歌单“{name}”？',
   },
   downloadArtwork: {
     completed: '歌曲封面下载完成',
@@ -602,6 +612,7 @@ export default {
   toast: {
     savedToPlaylist: '已添加到歌单',
     removedFromPlaylist: '已从歌单中删除',
+    removedFromCloudDisk: '已将此歌曲从云盘删除',
     savedToMyLikedSongs: '已添加到我喜欢的音乐',
     removedFromMyLikedSongs: '已从喜欢的音乐中删除',
     copied: '已复制',

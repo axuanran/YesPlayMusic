@@ -63,6 +63,7 @@ export default {
     userProfileMenu: {
       settings: 'Settings',
       logout: 'Logout',
+      logoutConfirm: 'Log out of your account?',
     },
   },
   localMusic: {
@@ -165,6 +166,9 @@ export default {
     search: 'Search in playlist',
     locateCurrentTrack: 'Go to current track',
     loadFailed: 'Could not load playlist details',
+    deleted: 'Deleted playlist "{name}"',
+    deleteFailed: 'Something went wrong',
+    editComingSoon: 'This feature is under development',
   },
   login: {
     accessToAll: 'Access to all data',
@@ -565,6 +569,12 @@ export default {
     downloadTrack: 'Download track',
     downloadArtwork: 'Download artwork',
     downloadPlaylist: 'Download entire playlist',
+    removeFromQueue: 'Remove from queue',
+    removeFromPlaylist: 'Remove from playlist',
+    removeFromCloudDisk: 'Remove from cloud disk',
+    removeFromPlaylistConfirm: 'Remove "{name}" from this playlist?',
+    removeFromCloudDiskConfirm: 'Delete "{name}" from your cloud disk?',
+    deletePlaylistConfirm: 'Delete the playlist "{name}"?',
   },
   downloadArtwork: {
     completed: 'Artwork downloaded',
@@ -614,6 +624,7 @@ export default {
   toast: {
     savedToPlaylist: 'Saved to playlist',
     removedFromPlaylist: 'Removed from playlist',
+    removedFromCloudDisk: 'Removed from cloud disk',
     savedToMyLikedSongs: 'Saved to my Liked Songs',
     removedFromMyLikedSongs: 'Removed from my Liked Songs',
     copied: 'Copied',

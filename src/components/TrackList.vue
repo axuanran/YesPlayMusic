@@ -2,7 +2,7 @@
   <div class="track-list">
     <ContextMenu ref="menu">
       <div v-show="type !== 'cloudDisk'" class="item-info">
-        <img :src="rightClickedArtworkPreviewUrl" loading="lazy" />
+        <img :src="rightClickedArtworkPreviewUrl" alt="" loading="lazy" />
         <div class="info">
           <div class="title">{{ rightClickedTrackComputed.name }}</div>
           <div class="subtitle">{{ rightClickedTrackArtistName }}</div>
@@ -33,7 +33,7 @@
         v-if="extraContextMenuItem.includes('removeTrackFromQueue')"
         class="item"
         @click="removeTrackFromQueue"
-        >从队列删除</div
+        >{{ $t('contextMenu.removeFromQueue') }}</div
       >
       <hr v-show="type !== 'cloudDisk'" />
       <div
@@ -58,7 +58,7 @@
         v-if="extraContextMenuItem.includes('removeTrackFromPlaylist')"
         class="item"
         @click="removeTrackFromPlaylist"
-        >从歌单中删除</div
+        >{{ $t('contextMenu.removeFromPlaylist') }}</div
       >
       <div
         v-show="type !== 'cloudDisk' && !isExternalMusic"
@@ -82,7 +82,7 @@
         v-if="extraContextMenuItem.includes('removeTrackFromCloudDisk')"
         class="item"
         @click="removeTrackFromCloudDisk"
-        >从云盘中删除</div
+        >{{ $t('contextMenu.removeFromCloudDisk') }}</div
       >
     </ContextMenu>
 
@@ -486,7 +486,13 @@ export default {
         this.showToast(locale.global.t('toast.needToLogin'));
         return;
       }
-      if (confirm(`确定要从歌单删除 ${this.rightClickedTrack.name}？`)) {
+      if (
+        confirm(
+          locale.global.t('contextMenu.removeFromPlaylistConfirm', {
+            name: this.rightClickedTrack.name,
+          })
+        )
+      ) {
         let trackID = this.rightClickedTrack.id;
         addOrRemoveTrackFromPlaylist({
           op: 'del',
@@ -523,11 +529,19 @@ export default {
       );
     },
     removeTrackFromCloudDisk() {
-      if (confirm(`确定要从云盘删除 ${this.rightClickedTrack.songName}？`)) {
+      if (
+        confirm(
+          locale.global.t('contextMenu.removeFromCloudDiskConfirm', {
+            name: this.rightClickedTrack.songName,
+          })
+        )
+      ) {
         let trackID = this.rightClickedTrack.songId;
         cloudDiskTrackDelete(trackID).then(data => {
           this.showToast(
-            data.code === 200 ? '已将此歌曲从云盘删除' : data.message
+            data.code === 200
+              ? locale.global.t('toast.removedFromCloudDisk')
+              : data.message
           );
           let newCloudDisk = this.liked.cloudDisk.filter(
             t => t.songId !== trackID
