@@ -306,9 +306,6 @@ export default {
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 0 6px rgba(255, 255, 255, 0.08);
   }
-  .menu .item:hover {
-    color: var(--color-text);
-  }
 }
 
 @supports (-moz-appearance: none) {
@@ -316,84 +313,111 @@ export default {
     background-color: var(--color-body-bg) !important;
   }
 }
+</style>
 
-.menu .item {
-  font-weight: 600;
-  font-size: 14px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  // 菜单项全部是「点击后执行动作」的条目，必须显示可点击光标。
-  // 用 default 时鼠标是文本输入的 I 形，用户会误以为这里不可点。
-  cursor: pointer;
-  color: var(--color-text);
-  display: flex;
-  align-items: center;
-  &:hover,
-  &:focus-visible {
-    color: var(--color-primary);
-    background: var(--color-primary-bg-for-transparent);
-    transition:
-      opacity 125ms ease-out,
-      transform 125ms ease-out;
-  }
-  &:active {
-    opacity: 0.75;
-    transform: scale(0.95);
+<!--
+  菜单内容（.item / hr / .item-info …）都是使用方通过默认插槽传进来的，
+  而 scoped 样式只会命中组件自己模板里的元素：插槽内容带的是父组件的
+  data-v 属性（这里是 xxx-s），拿不到 .menu 所在的 data-v，所以把这些
+  规则写在 scoped 块里时一条都不会生效（菜单项没有内边距、悬停无高亮、
+  鼠标停在文字上还是文本输入的 I 形）。因此这里放一个非 scoped 的块，
+  并用 .context-menu-layer 限定作用范围。
+-->
+<style lang="scss">
+.context-menu-layer {
+  .menu {
+    user-select: none;
   }
 
-  :deep(.svg-icon) {
-    height: 16px;
-    width: 16px;
-    margin-right: 5px;
+  .menu hr {
+    margin: 4px 10px;
+    background: rgba(128, 128, 128, 0.18);
+    height: 1px;
+    box-shadow: none;
+    border: none;
   }
-}
 
-@media (pointer: coarse) {
   .menu .item {
-    min-height: 44px;
-    box-sizing: border-box;
-  }
-}
-
-hr {
-  margin: 4px 10px;
-  background: rgba(128, 128, 128, 0.18);
-  height: 1px;
-  box-shadow: none;
-  border: none;
-}
-
-.item-info {
-  padding: 10px 10px;
-  display: flex;
-  align-items: center;
-  color: var(--color-text);
-  cursor: default;
-  img {
-    height: 38px;
-    width: 38px;
-    border-radius: 4px;
-  }
-  .info {
-    margin-left: 10px;
-  }
-  .title {
-    font-size: 16px;
     font-weight: 600;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
-    overflow: hidden;
-    word-break: break-all;
+    font-size: 14px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    // 菜单项全部是「点击后执行动作」的条目，必须显示手型光标；
+    // 用默认光标时落在文字上是文本输入的 I 形，用户会误以为这里不可点。
+    cursor: pointer;
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+
+    .svg-icon {
+      height: 16px;
+      width: 16px;
+      margin-right: 5px;
+    }
+
+    &:hover,
+    &:focus-visible {
+      color: var(--color-primary);
+      background: var(--color-primary-bg-for-transparent);
+      transition:
+        opacity 125ms ease-out,
+        transform 125ms ease-out;
+    }
+
+    &:active {
+      opacity: 0.75;
+      transform: scale(0.95);
+    }
   }
-  .subtitle {
-    font-size: 12px;
-    opacity: 0.68;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
-    overflow: hidden;
-    word-break: break-all;
+
+  .item-info {
+    padding: 10px 10px;
+    display: flex;
+    align-items: center;
+    color: var(--color-text);
+    cursor: default;
+
+    img {
+      height: 38px;
+      width: 38px;
+      border-radius: 4px;
+    }
+
+    .info {
+      margin-left: 10px;
+    }
+
+    .title {
+      font-size: 16px;
+      font-weight: 600;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 1;
+      overflow: hidden;
+      word-break: break-all;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      opacity: 0.68;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 1;
+      overflow: hidden;
+      word-break: break-all;
+    }
   }
+
+  @media (pointer: coarse) {
+    .menu .item {
+      min-height: 44px;
+      box-sizing: border-box;
+    }
+  }
+}
+
+// 深色主题下主色悬停文字的对比度偏低，保持菜单项文字颜色不变。
+[data-theme='dark'] .context-menu-layer .menu .item:hover {
+  color: var(--color-text);
 }
 </style>
