@@ -10,8 +10,12 @@ concurrency:
 
 on:
   push:
-    branches:
-      - dev
+    # Automatic builds on pushes to `dev` are disabled on purpose.
+    # Builds now run only from a manual "Release" (workflow_dispatch) run or
+    # from a `v*` tag push made by the "Prepare XuMP Release" workflow.
+    # Re-enable by restoring these two lines:
+    # branches:
+    #   - dev
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
