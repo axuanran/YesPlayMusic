@@ -181,6 +181,49 @@ jobs:
           find release_linux -maxdepth 1 -type f -print | sort
           test "$(find release_linux -maxdepth 1 -type f | wc -l)" -gt 0
 
+      - name: Verify Linux packages ship chrome-sandbox
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # electron-builder 26.15.3 - 26.17.0 deleted chrome-sandbox from the
+          # shared linux-unpacked app dir while building the snap, which
+          # silently stripped the SUID sandbox helper from deb/rpm/pacman.
+          # Catch that before publishing: the AUR and Gentoo packages set the
+          # SUID bit on this file and fail to build when it is missing.
+          sandbox_entry='opt/XuMP/chrome-sandbox'
+          sandbox_pattern="(\./)?${sandbox_entry}"
+          listing="$(mktemp)"
+          checked=0
+
+          for pkg in release_linux/*.pacman; do
+            [[ -e "$pkg" ]] || continue
+            checked=$((checked + 1))
+            bsdtar -tf "$pkg" > "$listing"
+            if ! grep -qxE "$sandbox_pattern" "$listing"; then
+              echo "::error file=${pkg}::missing ${sandbox_entry}"
+              exit 1
+            fi
+            echo "OK: ${pkg} contains ${sandbox_entry}"
+          done
+
+          for pkg in release_linux/*.deb; do
+            [[ -e "$pkg" ]] || continue
+            checked=$((checked + 1))
+            bsdtar -xOf "$pkg" --include '*data.tar*' | bsdtar -tf - > "$listing"
+            if ! grep -qxE "$sandbox_pattern" "$listing"; then
+              echo "::error file=${pkg}::missing ${sandbox_entry}"
+              exit 1
+            fi
+            echo "OK: ${pkg} contains ${sandbox_entry}"
+          done
+
+          rm -f "$listing"
+          if [[ "$checked" -eq 0 ]]; then
+            echo "No pacman/deb artifacts to check."
+          fi
+
       - name: Collect Windows release files
         if: runner.os == 'Windows'
         shell: bash

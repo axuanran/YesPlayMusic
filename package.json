@@ -284,7 +284,7 @@
     "@vue/cli-service": "~5.0.9",
     "@vue/compiler-sfc": "^3.5.0",
     "electron": "^42.5.0",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^26.18.0",
     "electron-vite": "^5.0.0",
     "esbuild": "^0.28.1",
     "esbuild-loader": "^4.5.0",
