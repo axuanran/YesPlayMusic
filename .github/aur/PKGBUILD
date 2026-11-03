@@ -42,7 +42,15 @@ package() {
     install -dm755 "$pkgdir/usr/bin"
     ln -sf '/opt/XuMP/xump' "$pkgdir/usr/bin/xump"
 
-    chmod 4755 "$pkgdir/opt/XuMP/chrome-sandbox"
+    # Releases built with electron-builder 26.15.3 - 26.17.0 shipped no
+    # chrome-sandbox (the snap target deleted it from the shared linux-unpacked
+    # app dir), so only set the SUID bit when the helper is actually packaged.
+    if [[ -e "$pkgdir/opt/XuMP/chrome-sandbox" ]]; then
+        chmod 4755 "$pkgdir/opt/XuMP/chrome-sandbox"
+    else
+        echo "==> WARNING: chrome-sandbox is missing from the release artifact;" >&2
+        echo "==> WARNING: the app will fall back to the user-namespace sandbox." >&2
+    fi
 
     install -Dm644 "$srcdir/LICENSE-${_releasever}" \
         "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
