@@ -237,6 +237,12 @@ async function buildPlan(path, q) {
       );
     case '/personal_fm':
       return plan('/api/v1/radio/get', {}, 'weapi');
+    case '/personal/fm/mode':
+      return plan('/api/v1/radio/get', {
+        mode: q.mode,
+        ...(q.mode === 'SCENE_RCMD' ? { subMode: q.submode } : {}),
+        limit: q.limit || 3,
+      });
     case '/personalized':
       return plan(
         '/api/personalized/playlist',

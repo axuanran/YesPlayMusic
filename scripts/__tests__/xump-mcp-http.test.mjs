@@ -14,6 +14,7 @@ const makeSocketPath = name =>
     : path.join(os.tmpdir(), `${name}-${process.pid}-${Date.now()}.sock`);
 
 const CANNED = {
+  roaming: request => ({ result: { accepted: true, ...request.params } }),
   status: () => ({
     result: {
       playing: true,
@@ -61,7 +62,9 @@ beforeEach(async () => {
       }
     });
   });
-  await new Promise(resolve => controlServer.listen(controlSocketPath, resolve));
+  await new Promise(resolve =>
+    controlServer.listen(controlSocketPath, resolve)
+  );
   httpHandle = await startMcpHttpServer({
     socketPath: controlSocketPath,
     port: 0,
@@ -155,6 +158,28 @@ describe('xump-mcp-http (streamable HTTP transport)', () => {
     });
     expect(sneaky.status).toBe(202);
     expect(requests).toHaveLength(0);
+  });
+
+  it('discovers and dispatches roaming modes through Streamable HTTP', async () => {
+    await initialize();
+    const list = await (
+      await post({ jsonrpc: '2.0', id: 2, method: 'tools/list' })
+    ).json();
+    expect(list.result.tools.map(tool => tool.name)).toContain('music_roaming');
+    const args = { action: 'play', mode: 'SCENE_RCMD', scene: 'FOCUS' };
+    const response = await (
+      await post({
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'music_roaming', arguments: args },
+      })
+    ).json();
+    expect(response.result.structuredContent).toEqual({
+      accepted: true,
+      ...args,
+    });
+    expect(requests.at(-1)).toMatchObject({ method: 'roaming', params: args });
   });
 
   it('rejects malformed JSON with 400', async () => {

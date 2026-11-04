@@ -329,6 +329,68 @@ describe('xumpctl MCP adapter', () => {
     expect(requests).toHaveLength(0);
   });
 
+  it('routes roaming requests and account feedback through distinct control methods', async () => {
+    const calls = [];
+    const lines = [];
+    const engine = createMcpServer({
+      write: line => lines.push(JSON.parse(line)),
+      call: async (method, params) => {
+        calls.push({ method, params });
+        return { accepted: true };
+      },
+    });
+    const send = message => engine.handle(JSON.stringify(message));
+    await send({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2025-06-18' },
+    });
+    for (const [index, args] of [
+      { action: 'status' },
+      { action: 'options' },
+      { action: 'play', mode: 'EXPLORE' },
+      { action: 'set_mode', mode: 'SCENE_RCMD', scene: 'FOCUS' },
+      { action: 'next' },
+      { action: 'dislike' },
+    ].entries()) {
+      await send({
+        jsonrpc: '2.0',
+        id: index + 2,
+        method: 'tools/call',
+        params: { name: 'music_roaming', arguments: args },
+      });
+      expect(lines.at(-1).result.structuredContent).toEqual({ accepted: true });
+      expect(calls.at(-1)).toEqual(
+        args.action === 'dislike'
+          ? { method: 'roamingDislike', params: {} }
+          : { method: 'roaming', params: args }
+      );
+    }
+    const count = calls.length;
+    await send({
+      jsonrpc: '2.0',
+      id: 8,
+      method: 'tools/call',
+      params: {
+        name: 'music_roaming',
+        arguments: { action: 'play', mode: 'invalid' },
+      },
+    });
+    expect(lines.at(-1).error.code).toBe(-32602);
+    await send({
+      jsonrpc: '2.0',
+      id: 9,
+      method: 'tools/call',
+      params: {
+        name: 'music_roaming',
+        arguments: { action: 'dislike', mode: 'EXPLORE' },
+      },
+    });
+    expect(lines.at(-1).result.isError).toBe(true);
+    expect(calls).toHaveLength(count);
+  });
+
   it('rejects bad tool arguments with -32602', async () => {
     const { send, last } = connect(socketPath);
     await send({

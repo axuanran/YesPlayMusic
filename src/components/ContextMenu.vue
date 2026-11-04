@@ -11,7 +11,7 @@
           ref="menu"
           class="menu"
           role="menu"
-          :aria-label="$t('contextMenu.label')"
+          :aria-label="label || $t('contextMenu.label')"
           tabindex="-1"
           :style="menuStyle"
           @click="handleMenuClick"
@@ -31,6 +31,9 @@ import { getContextMenuTargetIndex } from '@/utils/contextMenuKeyboard';
 
 export default {
   name: 'ContextMenu',
+  props: {
+    label: { type: String, default: '' },
+  },
   data() {
     return {
       anchorX: 0,

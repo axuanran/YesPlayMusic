@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
       data: [{ id: 1001 }, { id: 1002 }],
     })
   ),
+  fmTrash: vi.fn(() => Promise.resolve({ code: 200 })),
   resolveTrackSource: vi.fn(),
   store: {
     state: {
@@ -53,7 +54,7 @@ vi.mock('@/api/lastfm', () => ({
 }));
 
 vi.mock('@/api/others', () => ({
-  fmTrash: vi.fn(),
+  fmTrash: mocks.fmTrash,
   personalFM: mocks.personalFM,
 }));
 
@@ -225,10 +226,288 @@ describe('Player audio source flow', () => {
     mocks.isCapacitor = false;
     mocks.isElectron = false;
     mocks.isAccountLoggedIn.mockReturnValue(false);
+    mocks.personalFM
+      .mockReset()
+      .mockResolvedValue({ data: [{ id: 1001 }, { id: 1002 }, { id: 1003 }] });
+    mocks.fmTrash.mockReset().mockResolvedValue({ code: 200 });
     mocks.mediaSession.metadata = null;
     mocks.mediaSession.playbackState = 'none';
     mocks.mediaSession.setActionHandler.mockClear();
     mocks.mediaSession.setPositionState.mockClear();
+  });
+
+  it('uses every song in a roaming batch before requesting another batch', async () => {
+    const player = await createPlayer();
+    await player._personalFMRequest;
+    const replace = vi
+      .spyOn(player, '_replaceCurrentTrack')
+      .mockResolvedValue(true);
+    vi.spyOn(player, '_cacheNextTrack').mockImplementation(() => {});
+    await player.playPersonalFM();
+    expect(replace).toHaveBeenLastCalledWith(1001, true);
+    await player.playNextFMTrack();
+    expect(player.personalFMTrack.id).toBe(1002);
+    expect(player._personalFMNextTrack.id).toBe(1003);
+    expect(mocks.personalFM).toHaveBeenCalledTimes(1);
+    mocks.personalFM.mockResolvedValueOnce({
+      data: [{ id: 2001 }, { id: 2002 }],
+    });
+    await player.playNextFMTrack();
+    await player._personalFMRequest;
+    expect(player.personalFMTrack.id).toBe(1003);
+    expect(player._personalFMNextTrack.id).toBe(2001);
+    expect(mocks.personalFM).toHaveBeenCalledTimes(2);
+  });
+
+  it('shares an in-flight recommendation request with next and rejects repeated clicks', async () => {
+    const player = await createPlayer();
+    await player._personalFMRequest;
+    vi.spyOn(player, '_replaceCurrentTrack').mockResolvedValue(true);
+    vi.spyOn(player, '_cacheNextTrack').mockImplementation(() => {});
+    player._personalFMNextTrack = { id: 0 };
+    player._personalFMQueue = [];
+    let resolve;
+    mocks.personalFM.mockImplementationOnce(
+      () =>
+        new Promise(done => {
+          resolve = done;
+        })
+    );
+    const prefetch = player._loadPersonalFMNextTrack();
+    const next = player.playNextFMTrack();
+    await expect(player.playNextFMTrack()).resolves.toBe(false);
+    resolve({ data: [{ id: '1001' }, { id: 2001 }, { id: 2002 }] });
+    await prefetch;
+    await expect(next).resolves.toBe(true);
+    expect(player.personalFMTrack.id).toBe(2001);
+    expect(player._personalFMNextTrack.id).toBe(2002);
+    expect(mocks.personalFM).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([true, false])(
+    'switches an active roaming stream while preserving playing=%s',
+    async playing => {
+      const player = await createPlayer();
+      await player._personalFMRequest;
+      const replace = vi
+        .spyOn(player, '_replaceCurrentTrack')
+        .mockResolvedValue(true);
+      vi.spyOn(player, '_cacheNextTrack').mockImplementation(() => {});
+      player._isPersonalFM = true;
+      player._playing = playing;
+      player._currentTrack = { id: 1001 };
+      mocks.personalFM.mockResolvedValueOnce({
+        data: [{ id: 2001 }, { id: 2002 }],
+      });
+      await expect(
+        player.setPersonalFMMode('SCENE_RCMD', 'FOCUS')
+      ).resolves.toBe(true);
+      expect(mocks.personalFM).toHaveBeenLastCalledWith({
+        mode: 'SCENE_RCMD',
+        submode: 'FOCUS',
+      });
+      expect(replace).toHaveBeenLastCalledWith(2001, playing);
+      expect(player.personalFMMode).toBe('SCENE_RCMD');
+      expect(player.personalFMSubmode).toBe('FOCUS');
+      player.saveSelfToLocalStorage();
+      const saved = JSON.parse(localStorage.getItem('player'));
+      expect(saved._personalFMMode).toBe('SCENE_RCMD');
+      expect(saved._personalFMSubmode).toBe('FOCUS');
+      expect(saved).not.toHaveProperty('_personalFMRequest');
+      expect(saved).not.toHaveProperty('_personalFMModeLoading');
+    }
+  );
+
+  it.each([
+    new Error('offline'),
+    { data: [] },
+    { code: 500, data: [{ id: 2001 }] },
+  ])('keeps the old mode and batch after a failed switch', async result => {
+    const player = await createPlayer();
+    await player._personalFMRequest;
+    const replace = vi
+      .spyOn(player, '_replaceCurrentTrack')
+      .mockResolvedValue(true);
+    if (result instanceof Error) mocks.personalFM.mockRejectedValueOnce(result);
+    else mocks.personalFM.mockResolvedValueOnce(result);
+    await expect(player.setPersonalFMMode('EXPLORE')).resolves.toBe(false);
+    expect(player.personalFMMode).toBe('DEFAULT');
+    expect(player.personalFMTrack.id).toBe(1001);
+    expect(player._personalFMNextTrack.id).toBe(1002);
+    expect(player._personalFMQueue.map(t => t.id)).toEqual([1003]);
+    expect(player.personalFMLoading).toBe(false);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('ignores old prefetch responses after switching modes', async () => {
+    const player = await createPlayer();
+    await player._personalFMRequest;
+    player._personalFMNextTrack = { id: 0 };
+    player._personalFMQueue = [];
+    let resolve;
+    mocks.personalFM.mockImplementationOnce(
+      () =>
+        new Promise(done => {
+          resolve = done;
+        })
+    );
+    const oldRequest = player._loadPersonalFMNextTrack();
+    mocks.personalFM.mockResolvedValueOnce({
+      data: [{ id: 2001 }, { id: 2002 }],
+    });
+    await player.setPersonalFMMode('EXPLORE');
+    resolve({ data: [{ id: 3001 }, { id: 3002 }] });
+    await oldRequest;
+    expect(player.personalFMTrack.id).toBe(2001);
+    expect(player._personalFMNextTrack.id).toBe(2002);
+    expect(player.personalFMError).toBe(false);
+  });
+
+  it('uses only the latest mode selection even when responses arrive out of order', async () => {
+    const player = await createPlayer();
+    await player._personalFMRequest;
+    let resolve;
+    mocks.personalFM.mockImplementationOnce(
+      () =>
+        new Promise(done => {
+          resolve = done;
+        })
+    );
+    const oldSwitch = player.setPersonalFMMode('EXPLORE');
+    mocks.personalFM.mockResolvedValueOnce({
+      data: [{ id: 2001 }, { id: 2002 }],
+    });
+    await player.setPersonalFMMode('DEFAULT');
+    resolve({ data: [{ id: 3001 }] });
+    await expect(oldSwitch).resolves.toBe(false);
+    expect(player.personalFMMode).toBe('DEFAULT');
+    expect(player.personalFMTrack.id).toBe(2001);
+    expect(player.personalFMLoading).toBe(false);
+  });
+
+  it('does not interrupt another playlist while a mode switch is pending', async () => {
+    const player = await createPlayer();
+    await player._personalFMRequest;
+    const replace = vi
+      .spyOn(player, '_replaceCurrentTrack')
+      .mockResolvedValue(true);
+    vi.spyOn(player, '_queueReplaceCurrentTrack').mockResolvedValue(true);
+    player._isPersonalFM = true;
+    let resolve;
+    mocks.personalFM.mockImplementationOnce(
+      () =>
+        new Promise(done => {
+          resolve = done;
+        })
+    );
+    const switching = player.setPersonalFMMode('FAMILIAR');
+    player.replacePlaylist([5001], 5, 'playlist');
+    resolve({ data: [{ id: 2001 }, { id: 2002 }] });
+    await switching;
+    expect(player.isPersonalFM).toBe(false);
+    expect(player.personalFMMode).toBe('FAMILIAR');
+    expect(replace).toHaveBeenCalledExactlyOnceWith(5001);
+  });
+
+  it('recovers an unavailable initial feed without ever playing track zero', async () => {
+    mocks.personalFM.mockRejectedValueOnce(new Error('offline'));
+    const player = await createPlayer();
+    await player._personalFMRequest;
+    expect(player.personalFMError).toBe(true);
+    expect(player.personalFMLoading).toBe(false);
+    const replace = vi
+      .spyOn(player, '_replaceCurrentTrack')
+      .mockResolvedValue(true);
+    vi.spyOn(player, '_cacheNextTrack').mockImplementation(() => {});
+    await player.playPersonalFM();
+    expect(player.personalFMError).toBe(false);
+    expect(replace).toHaveBeenLastCalledWith(1001, true);
+  });
+
+  it('keeps the second recommendation when next retries an unavailable initial feed', async () => {
+    mocks.personalFM.mockRejectedValueOnce(new Error('offline'));
+    const player = await createPlayer();
+    await player._personalFMRequest;
+    vi.spyOn(player, '_replaceCurrentTrack').mockResolvedValue(true);
+    vi.spyOn(player, '_cacheNextTrack').mockImplementation(() => {});
+    await expect(player.playNextFMTrack()).resolves.toBe(true);
+    expect(player.personalFMTrack.id).toBe(1001);
+    expect(player._personalFMNextTrack.id).toBe(1002);
+    expect(player._personalFMQueue.map(t => t.id)).toEqual([1003]);
+  });
+
+  it('invalidates an old Android audio prefetch when changing roaming mode', async () => {
+    mocks.isCapacitor = true;
+    const player = await createPlayer();
+    await player._personalFMRequest;
+    player._isPersonalFM = true;
+    vi.spyOn(player, '_replaceCurrentTrack').mockResolvedValue(true);
+    vi.spyOn(player._resolver, 'loadTrack').mockResolvedValue({ id: 1002 });
+    let resolve;
+    vi.spyOn(player._resolver, 'resolveSource').mockImplementation(
+      () =>
+        new Promise(done => {
+          resolve = done;
+        })
+    );
+    player._cacheNextTrack();
+    await Promise.resolve();
+    mocks.personalFM.mockResolvedValueOnce({
+      data: [{ id: 2001 }, { id: 2002 }],
+    });
+    await player.setPersonalFMMode('EXPLORE');
+    resolve('old-mode.mp3');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mocks.audioInstances[0].clearNextSource).toHaveBeenCalled();
+    expect(mocks.audioInstances[0].queueNextSource).not.toHaveBeenCalled();
+  });
+
+  it('sends dislike feedback for the skipped song, never the newly selected song', async () => {
+    const player = await createPlayer();
+    await player._personalFMRequest;
+    vi.spyOn(player, '_replaceCurrentTrack').mockResolvedValue(true);
+    vi.spyOn(player, '_cacheNextTrack').mockImplementation(() => {});
+    await player.moveToFMTrash();
+    expect(mocks.fmTrash).toHaveBeenLastCalledWith(1001);
+    expect(player.personalFMTrack.id).toBe(1002);
+  });
+
+  it.each([true, false])(
+    'can resume FM without toggling playback when playing=%s',
+    async playing => {
+      const player = await createPlayer();
+      await player._personalFMRequest;
+      player._currentTrack = { id: 1001 };
+      player._playing = playing;
+      const play = vi.spyOn(player, 'play').mockImplementation(() => {});
+      const toggle = vi
+        .spyOn(player, 'playOrPause')
+        .mockImplementation(() => {});
+      vi.spyOn(player, '_cacheNextTrack').mockImplementation(() => {});
+      await expect(player.playPersonalFM({ toggle: false })).resolves.toBe(
+        true
+      );
+      expect(play).toHaveBeenCalledOnce();
+      expect(toggle).not.toHaveBeenCalled();
+    }
+  );
+
+  it('reports rejected FM feedback to MCP while retaining toast errors for the card', async () => {
+    const player = await createPlayer();
+    await player._personalFMRequest;
+    vi.spyOn(player, '_replaceCurrentTrack').mockResolvedValue(true);
+    vi.spyOn(player, '_cacheNextTrack').mockImplementation(() => {});
+    mocks.fmTrash.mockResolvedValueOnce({ code: 500 });
+    await expect(player.moveToFMTrash({ throwOnError: true })).rejects.toThrow(
+      'NetEase rejected FM dislike'
+    );
+    mocks.fmTrash.mockRejectedValueOnce(new Error('offline'));
+    await expect(player.moveToFMTrash()).resolves.toBe(false);
+    expect(mocks.store.dispatch).toHaveBeenCalledWith(
+      'showToast',
+      '提交不喜欢失败，请稍后重试'
+    );
   });
 
   it('checks the cache before using resolver source', async () => {

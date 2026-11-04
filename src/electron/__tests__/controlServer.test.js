@@ -178,6 +178,40 @@ describeSocket('control server', () => {
     });
   });
 
+  it('forwards roaming controls through the renderer allowlist', async () => {
+    const socketPath = path.join(runtimeDir, 'roaming.sock');
+    await startOn(socketPath);
+    const params = { action: 'set_mode', mode: 'SCENE_RCMD', scene: 'FOCUS' };
+    const response = await send(socketPath, {
+      id: 1,
+      method: 'roaming',
+      params,
+    });
+    expect(response.result).toEqual({ method: 'roaming', params });
+  });
+
+  it.each([false, true])(
+    'enforces the account-write opt-in for FM dislike (allowed=%s)',
+    async allowed => {
+      const socketPath = path.join(runtimeDir, 'roaming-dislike.sock');
+      await startOn(socketPath, echoReply, allowed);
+      const response = await send(socketPath, {
+        id: 1,
+        method: 'roamingDislike',
+        params: {},
+      });
+      if (allowed)
+        expect(response.result).toEqual({
+          method: 'roamingDislike',
+          params: {},
+        });
+      else
+        expect(response.error).toMatchObject({
+          code: 'account_write_disabled',
+        });
+    }
+  );
+
   it('refuses replies from another sender', async () => {
     const socketPath = path.join(runtimeDir, 'sender.sock');
     await startOn(socketPath, payload => {

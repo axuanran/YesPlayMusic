@@ -30,6 +30,20 @@ const createPlayer = () => ({
     dt: 269000,
   },
   isPersonalFM: false,
+  personalFMMode: 'DEFAULT',
+  personalFMSubmode: 'EXERCISE',
+  personalFMLoading: false,
+  personalFMError: false,
+  personalFMTrack: {
+    id: 444,
+    name: 'FM song',
+    album: { name: 'FM album' },
+    artists: [{ name: 'FM artist' }],
+  },
+  setPersonalFMMode: vi.fn().mockResolvedValue(true),
+  playPersonalFM: vi.fn().mockResolvedValue(true),
+  playNextFMTrack: vi.fn().mockResolvedValue(true),
+  moveToFMTrash: vi.fn().mockResolvedValue(true),
   list: [111, 222, 333],
   playAlbumByID: vi.fn(),
   playArtistByID: vi.fn(),
@@ -90,6 +104,140 @@ describe('control handlers', () => {
     expect(() =>
       handlers.control({ type: 'setShuffle', enabled: 'yes' })
     ).toThrow(/boolean/);
+  });
+
+  it('reports roaming state and discovers all modes/scenes without mutating playback', () => {
+    expect(handlers.status().roaming).toEqual({
+      active: false,
+      mode: 'DEFAULT',
+      scene: null,
+      loading: false,
+      error: false,
+      track: {
+        id: 444,
+        name: 'FM song',
+        artists: ['FM artist'],
+        album: 'FM album',
+        durationMs: null,
+      },
+    });
+    player.personalFMMode = 'SCENE_RCMD';
+    player.personalFMSubmode = 'FOCUS';
+    expect(handlers.roaming({ action: 'status' }).scene).toBe('FOCUS');
+    expect(handlers.roaming({ action: 'options' })).toMatchObject({
+      modes: ['DEFAULT', 'FAMILIAR', 'EXPLORE', 'SCENE_RCMD'],
+      scenes: expect.arrayContaining(['FOCUS', 'EXERCISE', 'YINGSHI']),
+    });
+    expect(handlers.roaming({ action: 'options' }).scenes).toHaveLength(42);
+    expect(player.setPersonalFMMode).not.toHaveBeenCalled();
+    expect(player.playPersonalFM).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {},
+    { action: 'dislike' },
+    { action: 'set_mode' },
+    { action: 'set_mode', mode: 'INVALID' },
+    { action: 'set_mode', mode: 'SCENE_RCMD' },
+    { action: 'play', mode: 'SCENE_RCMD', scene: 'UNKNOWN' },
+    { action: 'play', mode: 'EXPLORE', scene: 'FOCUS' },
+    { action: 'play', scene: 'FOCUS' },
+    { action: 'status', mode: 'EXPLORE' },
+    { action: 'options', scene: 'FOCUS' },
+    { action: 'next', mode: 'DEFAULT' },
+    { action: 'play', extra: true },
+  ])('rejects invalid roaming input before mutating the player: %j', params => {
+    expect(() => handlers.roaming(params)).toThrow(
+      expect.objectContaining({ code: 'invalid_params' })
+    );
+    expect(player.setPersonalFMMode).not.toHaveBeenCalled();
+    expect(player.playPersonalFM).not.toHaveBeenCalled();
+  });
+
+  it('starts roaming idempotently and passes explicit scene selection to the player', async () => {
+    await expect(
+      handlers.roaming({ action: 'play', mode: 'SCENE_RCMD', scene: 'FOCUS' })
+    ).resolves.toMatchObject({ accepted: true });
+    expect(player.setPersonalFMMode).toHaveBeenCalledExactlyOnceWith(
+      'SCENE_RCMD',
+      'FOCUS'
+    );
+    expect(player.playPersonalFM).toHaveBeenCalledExactlyOnceWith({
+      toggle: false,
+    });
+    await handlers.roaming({ action: 'play' });
+    expect(player.setPersonalFMMode).toHaveBeenCalledTimes(1);
+    expect(player.playPersonalFM).toHaveBeenCalledTimes(2);
+  });
+
+  it('changes the saved mode without starting another playlist', async () => {
+    await expect(
+      handlers.roaming({ action: 'set_mode', mode: 'FAMILIAR' })
+    ).resolves.toMatchObject({ accepted: true, active: false });
+    expect(player.setPersonalFMMode).toHaveBeenCalledExactlyOnceWith(
+      'FAMILIAR',
+      undefined
+    );
+    expect(player.playPersonalFM).not.toHaveBeenCalled();
+  });
+
+  it('does not claim success or start playback after a mode-fetch failure', async () => {
+    player.setPersonalFMMode.mockResolvedValueOnce(false);
+    await expect(
+      handlers.roaming({ action: 'play', mode: 'EXPLORE' })
+    ).rejects.toMatchObject({ code: 'api_error' });
+    expect(player.playPersonalFM).not.toHaveBeenCalled();
+    player.playPersonalFM.mockResolvedValueOnce(false);
+    await expect(handlers.roaming({ action: 'play' })).rejects.toMatchObject({
+      code: 'api_error',
+    });
+  });
+
+  it('rejects busy requests and never skips a regular playlist as roaming', async () => {
+    player.personalFMLoading = true;
+    await expect(handlers.roaming({ action: 'play' })).rejects.toMatchObject({
+      code: 'busy',
+    });
+    player.personalFMLoading = false;
+    await expect(handlers.roaming({ action: 'next' })).rejects.toMatchObject({
+      code: 'not_roaming',
+    });
+    expect(player.playNextFMTrack).not.toHaveBeenCalled();
+    player.isPersonalFM = true;
+    await expect(handlers.roaming({ action: 'next' })).resolves.toMatchObject({
+      accepted: true,
+    });
+    player.playNextFMTrack.mockResolvedValueOnce(false);
+    await expect(handlers.roaming({ action: 'next' })).rejects.toMatchObject({
+      code: 'api_error',
+    });
+  });
+
+  it('awaits dislike feedback and surfaces API errors through the dedicated write method', async () => {
+    await expect(handlers.roamingDislike({})).rejects.toMatchObject({
+      code: 'not_roaming',
+    });
+    player.isPersonalFM = true;
+    await expect(handlers.roamingDislike({})).resolves.toMatchObject({
+      accepted: true,
+    });
+    expect(player.moveToFMTrash).toHaveBeenCalledExactlyOnceWith({
+      throwOnError: true,
+    });
+    player.moveToFMTrash.mockRejectedValueOnce(
+      new Error('NetEase rejected feedback')
+    );
+    await expect(handlers.roamingDislike({})).rejects.toMatchObject({
+      code: 'api_error',
+      message: 'NetEase rejected feedback',
+    });
+    player.moveToFMTrash.mockResolvedValueOnce(false);
+    await expect(handlers.roamingDislike({})).rejects.toMatchObject({
+      code: 'api_error',
+    });
+    expect(() => handlers.roamingDislike({ mode: 'EXPLORE' })).toThrow(
+      /does not accept/
+    );
   });
 
   it('jumps inside the queue and plays foreign tracks on their own', async () => {

@@ -25,6 +25,8 @@ const MAX_INFLIGHT = 32;
 // the app's API layer.
 const RENDERER_METHODS = new Set([
   'status',
+  'roaming',
+  'roamingDislike',
   'control',
   'play',
   'enqueue',
@@ -38,7 +40,7 @@ const RENDERER_METHODS = new Set([
 // Methods that change the remote NetEase account (not just local playback):
 // they stay behind an explicit opt-in that the app enforces, so a raw socket
 // caller cannot bypass it.
-const ACCOUNT_WRITE_METHODS = new Set(['like']);
+const ACCOUNT_WRITE_METHODS = new Set(['like', 'roamingDislike']);
 
 export class ControlError extends Error {
   constructor(code, message) {

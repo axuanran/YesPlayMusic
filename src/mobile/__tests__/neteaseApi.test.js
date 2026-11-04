@@ -45,6 +45,26 @@ describe('Android native NetEase API adapter', () => {
     );
   });
 
+  it.each([
+    [{ mode: 'EXPLORE' }, { mode: 'EXPLORE', limit: 3 }],
+    [
+      { mode: 'SCENE_RCMD', submode: 'FOCUS', limit: 5 },
+      { mode: 'SCENE_RCMD', subMode: 'FOCUS', limit: 5 },
+    ],
+  ])(
+    'maps roaming recommendations to native eapi with scene casing',
+    async (params, data) => {
+      await requestNeteaseOnAndroid({ url: '/personal/fm/mode', params });
+      expect(mocks.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          uri: '/api/v1/radio/get',
+          crypto: 'eapi',
+          data,
+        })
+      );
+    }
+  );
+
   it('passes persisted login cookies to the Android module', async () => {
     localStorage.setItem('cookie-MUSIC_U', 'token');
     localStorage.setItem('cookie-__csrf', 'csrf');

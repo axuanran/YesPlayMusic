@@ -112,6 +112,33 @@ conversion happens here.
 `recommend` - `{offset, limit}` (limit ≤ 256). The logged-in account's daily
 recommendation list as a page of song objects.
 
+`roaming` - `{action, mode?, scene?}` controls personal roaming. Actions:
+
+* `status`: `{active, mode, scene, loading, error, track}`; `track` is the
+  recommendation shown on the FM card, including while roaming is inactive.
+  The actual playing track remains in `status.currentTrack`. `status` also
+  includes this object as `roaming`.
+* `options`: `{modes, scenes}` lists the supported upstream codes (four modes
+  and 42 scenes), without changing playback.
+* `play`: start or resume the selected mode, optionally selecting `mode` first.
+  Repeated calls do not toggle pause. Use `control` to pause/resume.
+* `set_mode`: requires `mode`; updates the card without interrupting a regular
+  playlist, and preserves playing/paused state when already roaming.
+* `next`: skip the current roaming recommendation; fails with `not_roaming`
+  when a regular playlist is active.
+
+Modes: `DEFAULT`, `FAMILIAR`, `EXPLORE`, `SCENE_RCMD`. Explicitly selecting
+`SCENE_RCMD` requires a valid `scene`, for example `FOCUS`. Other modes and
+read/next actions reject scene parameters. Mutation results include
+`{accepted: true, ...roamingStatus}`; this acknowledges the player request,
+not successful audio playback. Failures report `busy` or `api_error`.
+
+`roamingDislike` - `{}` skips the current roaming track and awaits NetEase
+dislike feedback. This is a remote account write and uses the same opt-in as
+`like` below; raw socket callers cannot bypass it via a `roaming` action.
+Feedback failures are returned to the caller. It fails with `not_roaming`
+outside personal roaming.
+
 `like` - `{id, liked}` (explicit boolean, no toggle). Changes the remote
 NetEase account and is therefore **disabled by default**: the app checks
 `controlAccountWrite` (electron-store settings) or `XUMP_CONTROL_ACCOUNT_WRITE=1`
@@ -133,6 +160,7 @@ xumpctl repeat on | shuffle on
 xumpctl queue [--limit N] [--offset N]
 xumpctl search "海阔天空" [--type album] [--limit N]
 xumpctl lyrics 347230 [--offset N] [--limit N]
+xumpctl raw '{"method":"roaming","params":{"action":"play","mode":"SCENE_RCMD","scene":"FOCUS"}}'
 ```
 
 `--json` prints raw results (and JSON errors) for scripting, `--socket <path>`
