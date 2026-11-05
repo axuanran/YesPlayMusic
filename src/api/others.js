@@ -33,11 +33,13 @@ export function search(params, options = {}) {
   });
 }
 
-export function personalFM() {
+export function personalFM({ mode, submode } = {}) {
   return request({
-    url: '/personal_fm',
+    url: mode ? '/personal/fm/mode' : '/personal_fm',
     method: 'get',
     params: {
+      ...(mode ? { mode, limit: 3 } : {}),
+      ...(mode === 'SCENE_RCMD' ? { submode } : {}),
       timestamp: new Date().getTime(),
     },
   });

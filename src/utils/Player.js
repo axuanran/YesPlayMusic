@@ -15,6 +15,10 @@ import { createActor } from 'xstate';
 import { createPlayerMachine } from '@/player/playerMachine';
 import PlayerResolver, { isCanceledRequest } from '@/player/playerResolver';
 import { normalizePlaybackRate } from '@/utils/playbackRate';
+import {
+  normalizePersonalFMOptions,
+  normalizePersonalFMTracks,
+} from '@/utils/personalFM';
 import { createDiscordPresenceTrack } from '@/utils/discordPresencePayload';
 import {
   createMediaSessionMetadata,
@@ -43,16 +47,14 @@ const UNPLAYABLE_CONDITION = {
 };
 
 const electronPlayer = window.electronAPI?.player;
-const delay = ms =>
-  new Promise(resolve => {
-    setTimeout(() => {
-      resolve('');
-    }, ms);
-  });
 const excludeSaveKeys = [
   '_playing',
   '_personalFMLoading',
   '_personalFMNextLoading',
+  '_personalFMModeLoading',
+  '_personalFMError',
+  '_personalFMGeneration',
+  '_personalFMRequest',
 ];
 
 function formatTrackDebugLabel(track) {
@@ -169,6 +171,13 @@ export default class {
     this._personalFMNextTrack = {
       id: 0,
     }; // 私人FM下一首歌曲信息（为了快速加载下一首）
+    this._personalFMMode = 'DEFAULT';
+    this._personalFMSubmode = 'EXERCISE';
+    this._personalFMQueue = [];
+    this._personalFMModeLoading = false;
+    this._personalFMError = false;
+    this._personalFMGeneration = 0;
+    this._personalFMRequest = null;
 
     /**
      * The blob records for cleanup.
@@ -524,6 +533,29 @@ export default class {
   get personalFMTrack() {
     return this._personalFMTrack;
   }
+  get personalFMMode() {
+    return this._personalFMMode;
+  }
+  get personalFMSubmode() {
+    return this._personalFMSubmode;
+  }
+  get personalFMLoading() {
+    return (
+      this._personalFMModeLoading ||
+      this._personalFMLoading ||
+      (!this._personalFMTrack?.id && this._personalFMNextLoading)
+    );
+  }
+  get personalFMError() {
+    return this._personalFMError;
+  }
+  retryPersonalFM() {
+    if (this.personalFMLoading) return Promise.resolve([false, undefined]);
+    return this._loadPersonalFMNextTrack();
+  }
+  _notifyPersonalFMChange() {
+    getRuntimeStore()?.commit('bumpPlayerVersion');
+  }
   get currentTrackDuration() {
     const trackDuration = this._currentTrack?.dt || 1000;
     let duration = ~~(trackDuration / 1000);
@@ -651,17 +683,16 @@ export default class {
     this._initMediaSession();
 
     // 初始化私人FM
-    if (
-      this._personalFMTrack.id === 0 ||
-      this._personalFMNextTrack.id === 0 ||
-      this._personalFMTrack.id === this._personalFMNextTrack.id
-    ) {
-      personalFM().then(result => {
-        this._personalFMTrack = result.data[0];
-        this._personalFMNextTrack = result.data[1];
-        return this._personalFMTrack;
-      });
-    }
+    const options = normalizePersonalFMOptions(
+      this._personalFMMode,
+      this._personalFMSubmode
+    );
+    this._personalFMMode = options.mode;
+    this._personalFMSubmode = options.submode;
+    this._personalFMQueue = Array.isArray(this._personalFMQueue)
+      ? this._personalFMQueue
+      : [];
+    this._loadPersonalFMNextTrack();
   }
   _setPlaying(isPlaying) {
     const changed = this._playing !== isPlaying;
@@ -1359,26 +1390,124 @@ export default class {
     return true;
   }
   _loadPersonalFMNextTrack() {
-    if (this._personalFMNextLoading) {
-      return [false, undefined];
+    if (this._personalFMModeLoading) return Promise.resolve([false, undefined]);
+    if (
+      this._personalFMNextTrack?.id &&
+      !sameTrackId(this._personalFMNextTrack.id, this._personalFMTrack?.id)
+    ) {
+      return Promise.resolve([true, this._personalFMNextTrack]);
     }
+    if (this._personalFMRequest) return this._personalFMRequest;
+    if (this._personalFMQueue.length) {
+      this._personalFMNextTrack = this._personalFMQueue.shift();
+      if (this.isPersonalFM) this._cacheNextTrack();
+      this._notifyPersonalFMChange();
+      return Promise.resolve([true, this._personalFMNextTrack]);
+    }
+    const generation = this._personalFMGeneration;
     this._personalFMNextLoading = true;
-    return personalFM()
+    this._notifyPersonalFMChange();
+    this._personalFMRequest = personalFM({
+      mode: this.personalFMMode,
+      submode: this.personalFMSubmode,
+    })
       .then(result => {
-        if (!result || !result.data) {
-          this._personalFMNextTrack = undefined;
-        } else {
-          this._personalFMNextTrack = result.data[0];
-          this._cacheNextTrack(); // cache next track
+        if (generation !== this._personalFMGeneration)
+          return [false, undefined];
+        const tracks = normalizePersonalFMTracks(result, [
+          this._personalFMTrack?.id,
+        ]);
+        if (!tracks.length) throw new Error('No personal FM tracks returned');
+        if (!this._personalFMTrack?.id) {
+          this._personalFMTrack = tracks.shift();
         }
-        this._personalFMNextLoading = false;
+        this._personalFMNextTrack = tracks.shift() || { id: 0 };
+        this._personalFMQueue = tracks;
+        this._personalFMError = false;
+        if (this.isPersonalFM) this._cacheNextTrack();
         return [true, this._personalFMNextTrack];
       })
       .catch(() => {
-        this._personalFMNextTrack = undefined;
-        this._personalFMNextLoading = false;
-        return [false, this._personalFMNextTrack];
+        if (generation === this._personalFMGeneration) {
+          this._personalFMError = true;
+        }
+        return [false, undefined];
+      })
+      .finally(() => {
+        if (generation === this._personalFMGeneration) {
+          this._personalFMNextLoading = false;
+          this._personalFMRequest = null;
+          this._notifyPersonalFMChange();
+        }
       });
+    return this._personalFMRequest;
+  }
+  async setPersonalFMMode(mode, submode = this.personalFMSubmode) {
+    const options = normalizePersonalFMOptions(mode, submode);
+    if (
+      options.mode === this.personalFMMode &&
+      options.submode === this.personalFMSubmode &&
+      this._personalFMTrack?.id &&
+      !this._personalFMModeLoading
+    )
+      return true;
+
+    const generation = ++this._personalFMGeneration;
+    const wasPersonalFM = this.isPersonalFM;
+    const currentTrackID = this.currentTrackID;
+    const previousError = this._personalFMError;
+    this._personalFMModeLoading = true;
+    this._personalFMRequest = null;
+    this._personalFMNextLoading = false;
+    this._personalFMLoading = false;
+    this._personalFMError = false;
+    if (wasPersonalFM) {
+      this._prefetchToken += 1;
+      this._prefetchingTrackId = null;
+      this._audio.clearNextSource?.();
+    }
+    this._notifyPersonalFMChange();
+    try {
+      const result = await personalFM(options);
+      if (generation !== this._personalFMGeneration) return false;
+      const tracks = normalizePersonalFMTracks(result);
+      if (!tracks.length) throw new Error('No personal FM tracks returned');
+      this._personalFMMode = options.mode;
+      this._personalFMSubmode = options.submode;
+      this._personalFMTrack = tracks.shift();
+      this._personalFMNextTrack = tracks.shift() || { id: 0 };
+      this._personalFMQueue = tracks;
+      if (
+        wasPersonalFM &&
+        this.isPersonalFM &&
+        sameTrackId(currentTrackID, this.currentTrackID)
+      ) {
+        // Drop the old mode's native queue and in-flight audio prefetch.
+        this._prefetchToken += 1;
+        this._prefetchingTrackId = null;
+        this._audio.clearNextSource?.();
+        this._setDisplayTrackTarget(this._personalFMTrack.id);
+        this._replaceCurrentTrack(this._personalFMTrack.id, this.playing);
+        this._loadPersonalFMNextTrack();
+      }
+      this.persist();
+      return true;
+    } catch {
+      if (generation === this._personalFMGeneration) {
+        this._personalFMError = previousError;
+        if (this.isPersonalFM) this._cacheNextTrack();
+        store.dispatch(
+          'showToast',
+          '切换漫游模式失败，请检查网络或网易云 API 服务后重试'
+        );
+      }
+      return false;
+    } finally {
+      if (generation === this._personalFMGeneration) {
+        this._personalFMModeLoading = false;
+        this._notifyPersonalFMChange();
+      }
+    }
   }
   _playDiscordPresence(track, seekTime = 0) {
     if (!this._canDiscordPresence()) return null;
@@ -1432,50 +1561,34 @@ export default class {
     return true;
   }
   async playNextFMTrack() {
-    if (this._personalFMLoading) {
-      return false;
-    }
-
+    if (this.personalFMLoading) return false;
+    const generation = this._personalFMGeneration;
     this._isPersonalFM = true;
-    if (!this._personalFMNextTrack) {
-      this._personalFMLoading = true;
-      let result = null;
-      let retryCount = 5;
-      for (; retryCount >= 0; retryCount--) {
-        result = await personalFM().catch(() => null);
-        if (!result) {
-          this._personalFMLoading = false;
-          store.dispatch('showToast', 'personal fm timeout');
-          return false;
-        }
-        if (result.data?.length > 0) {
-          break;
-        } else if (retryCount > 0) {
-          await delay(1000);
-        }
+    this._personalFMLoading = true;
+    const hadTrack = Boolean(this._personalFMTrack?.id);
+    try {
+      if (
+        !this._personalFMNextTrack?.id ||
+        sameTrackId(this._personalFMNextTrack.id, this._personalFMTrack?.id)
+      ) {
+        await this._loadPersonalFMNextTrack();
       }
-      this._personalFMLoading = false;
-
-      if (retryCount < 0) {
-        let content = '获取私人FM数据时重试次数过多，请手动切换下一首';
-        store.dispatch('showToast', content);
-        console.log(content);
+      if (generation !== this._personalFMGeneration || !this.isPersonalFM)
         return false;
-      }
-      // 这里只能拿到一条数据
-      this._personalFMTrack = result.data[0];
-    } else {
-      if (this._personalFMNextTrack.id === this._personalFMTrack.id) {
-        return false;
-      }
-      this._personalFMTrack = this._personalFMNextTrack;
-    }
-    if (this._isPersonalFM) {
+      const track = hadTrack
+        ? this._personalFMNextTrack
+        : this._personalFMTrack;
+      if (!track?.id) return false;
+      this._personalFMTrack = track;
+      if (hadTrack) this._personalFMNextTrack = { id: 0 };
       this._setDisplayTrackTarget(this._personalFMTrack.id);
       this._replaceCurrentTrack(this._personalFMTrack.id);
+      this._loadPersonalFMNextTrack();
+      return true;
+    } finally {
+      if (generation === this._personalFMGeneration)
+        this._personalFMLoading = false;
     }
-    this._loadPersonalFMNextTrack();
-    return true;
   }
   playPrevTrack() {
     const [trackID, index] = this._getSiblingTrack(false);
@@ -1758,19 +1871,43 @@ export default class {
       this._cacheNextTrack();
     }
   }
-  playPersonalFM() {
+  async playPersonalFM({ toggle = true } = {}) {
+    if (this.personalFMLoading) return false;
+    const generation = this._personalFMGeneration;
     this._isPersonalFM = true;
-    if (this.currentTrackID !== this._personalFMTrack.id) {
-      this._replaceCurrentTrack(this._personalFMTrack.id, true);
-    } else {
-      this.playOrPause();
+    this._personalFMLoading = true;
+    try {
+      if (!this._personalFMTrack?.id) await this._loadPersonalFMNextTrack();
+      if (generation !== this._personalFMGeneration || !this.isPersonalFM)
+        return false;
+      if (!this._personalFMTrack?.id) return false;
+      if (!sameTrackId(this.currentTrackID, this._personalFMTrack.id)) {
+        this._replaceCurrentTrack(this._personalFMTrack.id, true);
+      } else if (toggle) {
+        this.playOrPause();
+      } else {
+        this.play();
+      }
+      this._loadPersonalFMNextTrack();
+      return true;
+    } finally {
+      if (generation === this._personalFMGeneration)
+        this._personalFMLoading = false;
     }
   }
-  async moveToFMTrash() {
+  async moveToFMTrash({ throwOnError = false } = {}) {
+    const id = this._personalFMTrack?.id;
+    if (!id || this.personalFMLoading) return false;
     this._isPersonalFM = true;
-    let id = this._personalFMTrack.id;
-    if (await this.playNextFMTrack()) {
-      fmTrash(id);
+    if (!(await this.playNextFMTrack())) return false;
+    try {
+      const result = await fmTrash(id);
+      if (result?.code !== 200) throw new Error('NetEase rejected FM dislike');
+      return true;
+    } catch (error) {
+      if (throwOnError) throw error;
+      store.dispatch('showToast', '提交不喜欢失败，请稍后重试');
+      return false;
     }
   }
 

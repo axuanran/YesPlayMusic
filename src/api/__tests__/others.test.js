@@ -13,7 +13,42 @@ vi.mock('@/utils/common', () => ({
   mapTrackPlayableStatus: mocks.mapTrackPlayableStatus,
 }));
 
-import { search } from '@/api/others';
+import { personalFM, search } from '@/api/others';
+
+describe('personal FM modes', () => {
+  it('keeps the legacy endpoint available without a mode', async () => {
+    mocks.request.mockResolvedValue({ code: 200, data: [] });
+    await personalFM();
+    expect(mocks.request).toHaveBeenLastCalledWith({
+      url: '/personal_fm',
+      method: 'get',
+      params: { timestamp: expect.any(Number) },
+    });
+  });
+
+  it('requests a fresh batch with the selected roaming mode', async () => {
+    await personalFM({ mode: 'EXPLORE', submode: 'FOCUS' });
+    expect(mocks.request).toHaveBeenLastCalledWith({
+      url: '/personal/fm/mode',
+      method: 'get',
+      params: { mode: 'EXPLORE', limit: 3, timestamp: expect.any(Number) },
+    });
+  });
+
+  it('only includes a scene for scene recommendations', async () => {
+    await personalFM({ mode: 'SCENE_RCMD', submode: 'FOCUS' });
+    expect(mocks.request).toHaveBeenLastCalledWith({
+      url: '/personal/fm/mode',
+      method: 'get',
+      params: {
+        mode: 'SCENE_RCMD',
+        submode: 'FOCUS',
+        limit: 3,
+        timestamp: expect.any(Number),
+      },
+    });
+  });
+});
 
 describe('search', () => {
   beforeEach(() => {

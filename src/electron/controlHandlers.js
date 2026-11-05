@@ -1,4 +1,5 @@
 import { handleMprisCommand } from './ipcRenderer';
+import { PERSONAL_FM_MODES, PERSONAL_FM_SCENES } from '@/utils/personalFM';
 
 // Renderer side of the local control channel (docs/control-api.md). Everything
 // here runs inside the Vue app, so it can use the player/store and the app's
@@ -103,7 +104,7 @@ const trackBrief = track => {
     id: track.id,
     name: track.name || '',
     artists: artistsOf(track),
-    album: track.al?.name || '',
+    album: track.al?.name || track.album?.name || '',
     durationMs: track.dt ?? track.duration ?? null,
   };
 };
@@ -146,6 +147,7 @@ export function createControlHandlers({ store, player }) {
       repeatMode: player.repeatMode,
       shuffle: !!player.shuffle,
       isPersonalFM: !!player.isPersonalFM,
+      roaming: roamingStatus(),
       currentTrack,
       source: player.playlistSource ?? null,
       queue: {
@@ -159,6 +161,101 @@ export function createControlHandlers({ store, player }) {
           ? likedSongs.includes(currentTrack.id)
           : undefined,
     };
+  };
+
+  const roamingStatus = () => ({
+    active: !!player.isPersonalFM,
+    mode: player.personalFMMode,
+    scene:
+      player.personalFMMode === 'SCENE_RCMD' ? player.personalFMSubmode : null,
+    loading: !!player.personalFMLoading,
+    error: !!player.personalFMError,
+    track: trackBrief(player.personalFMTrack),
+  });
+
+  const roaming = params => {
+    const body = assertParams(params, ['action', 'mode', 'scene'], 'roaming');
+    const { action, mode, scene } = body;
+    if (!['status', 'options', 'play', 'set_mode', 'next'].includes(action)) {
+      fail('invalid_params', `unsupported roaming action "${action}"`);
+    }
+    const selectsMode = action === 'play' || action === 'set_mode';
+    if (!selectsMode && (mode !== undefined || scene !== undefined)) {
+      fail('invalid_params', `${action} does not accept mode or scene`);
+    }
+    if (action === 'set_mode' && mode === undefined) {
+      fail('invalid_params', 'set_mode requires a mode');
+    }
+    if (mode !== undefined && !PERSONAL_FM_MODES.includes(mode)) {
+      fail(
+        'invalid_params',
+        `mode must be one of ${PERSONAL_FM_MODES.join(', ')}`
+      );
+    }
+    if (mode === 'SCENE_RCMD' && !PERSONAL_FM_SCENES.includes(scene)) {
+      fail(
+        'invalid_params',
+        'SCENE_RCMD requires a supported scene from roaming options'
+      );
+    }
+    if (scene !== undefined && mode !== 'SCENE_RCMD') {
+      fail('invalid_params', 'scene is only accepted with mode=SCENE_RCMD');
+    }
+    if (action === 'status') return roamingStatus();
+    if (action === 'options') {
+      return { modes: [...PERSONAL_FM_MODES], scenes: [...PERSONAL_FM_SCENES] };
+    }
+    return serialize(async () => {
+      if (player.personalFMLoading)
+        fail('busy', 'Personal roaming is loading; retry shortly');
+      if (
+        mode !== undefined &&
+        !(await player.setPersonalFMMode(mode, scene))
+      ) {
+        fail('api_error', 'Could not load the requested roaming mode');
+      }
+      if (
+        action === 'play' &&
+        !(await player.playPersonalFM({ toggle: false }))
+      ) {
+        fail('api_error', 'Could not start personal roaming');
+      }
+      if (action === 'next') {
+        if (!player.isPersonalFM)
+          fail(
+            'not_roaming',
+            'Start personal roaming before skipping a roaming track'
+          );
+        if (!(await player.playNextFMTrack()))
+          fail('api_error', 'Could not load the next roaming track');
+      }
+      return { accepted: true, ...roamingStatus() };
+    });
+  };
+
+  // Separate method so the main process can enforce the existing account-write gate.
+  const roamingDislike = params => {
+    assertParams(params, [], 'roamingDislike');
+    return serialize(async () => {
+      if (!player.isPersonalFM)
+        fail(
+          'not_roaming',
+          'Start personal roaming before disliking a roaming track'
+        );
+      if (player.personalFMLoading)
+        fail('busy', 'Personal roaming is loading; retry shortly');
+      try {
+        if (!(await player.moveToFMTrash({ throwOnError: true }))) {
+          fail(
+            'api_error',
+            'Could not skip and dislike the current roaming track'
+          );
+        }
+      } catch (error) {
+        fail('api_error', error.message || 'Could not submit roaming feedback');
+      }
+      return { accepted: true, ...roamingStatus() };
+    });
   };
 
   const control = params => {
@@ -436,6 +533,8 @@ export function createControlHandlers({ store, player }) {
 
   const handlers = {
     status,
+    roaming,
+    roamingDislike,
     control,
     play,
     enqueue,

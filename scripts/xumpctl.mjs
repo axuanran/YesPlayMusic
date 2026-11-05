@@ -366,6 +366,49 @@ export const MCP_TOOLS = [
     handler: (params, call = request) => call('status', params),
   },
   {
+    name: 'music_roaming',
+    description:
+      'Control NetEase personal roaming (私人漫游). status reads active/mode/scene/loading/error and the recommendation shown on the card; options lists supported mode and scene codes. play starts or resumes without toggling pause, optionally with a mode/scene. set_mode updates recommendations while preserving the current playback state; next skips only while roaming is active. Use music_control to pause/resume. dislike skips and rejects the current recommendation in the NetEase account and requires the existing account-write opt-in. Replies are accepted requests; check music_status for actual playback.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['status', 'options', 'play', 'set_mode', 'next', 'dislike'],
+        },
+        mode: {
+          type: 'string',
+          enum: ['DEFAULT', 'FAMILIAR', 'EXPLORE', 'SCENE_RCMD'],
+          description:
+            'Optional for play, required for set_mode. SCENE_RCMD also requires scene.',
+        },
+        scene: {
+          type: 'string',
+          description:
+            'A scene code from action=options, e.g. FOCUS. Only valid with mode=SCENE_RCMD.',
+        },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    handler: ({ action, mode, scene }, call = request) => {
+      if (action === 'dislike') {
+        if (mode !== undefined || scene !== undefined) {
+          throw Object.assign(
+            new Error('dislike does not accept mode or scene'),
+            { code: 'invalid_params' }
+          );
+        }
+        return call('roamingDislike', {});
+      }
+      return call('roaming', {
+        action,
+        ...(mode === undefined ? {} : { mode }),
+        ...(scene === undefined ? {} : { scene }),
+      });
+    },
+  },
+  {
     name: 'music_control',
     description:
       'Transport controls for the running player (pause/resume, skipping, volume, seek, repeat, shuffle). It controls the loaded track only; use music_play to start something specific.',

@@ -91,6 +91,7 @@ account.
 | tool | arguments | notes |
 | --- | --- | --- |
 | `music_status` | - | current track **with its NetEase song id**, position, volume, repeat/shuffle, queue sizes, liked |
+| `music_roaming` | `action: status\|options\|play\|set_mode\|next\|dislike`, `mode?`, `scene?` | personal roaming; same tool on stdio, standalone HTTP and built-in desktop HTTP |
 | `music_control` | `action`, `value` | play/pause/play_pause/stop/next/previous/volume/seek/repeat/shuffle |
 | `music_search` | `query`, `type`, `offset`, `limit` | songs/albums/artists/playlists, ids usable with `music_play` |
 | `music_play` | exactly one of `id`, `query`, `playlist_id`, `album_id`, `artist_id` | replaces what is playing; replies "accepted", verify with `music_status` |
@@ -104,9 +105,38 @@ Notes for agents: check `music_status` before interrupting playback; prefer
 song; `music_play` with `query` picks the best match (exact title or an artist
 named in the query) rather than the raw first hit.
 
+### Personal roaming
+
+Call `music_roaming` with `{"action":"options"}` to discover the four mode
+codes and 42 supported scene codes. Examples of tool arguments:
+
+```jsonc
+{"action":"status"} // selected mode/scene, active/loading/error, card recommendation
+{"action":"play","mode":"EXPLORE"} // start or resume exploration
+{"action":"set_mode","mode":"SCENE_RCMD","scene":"FOCUS"} // select focus
+{"action":"play"} // resume the remembered choice; never toggles pause
+{"action":"next"} // only valid when personal roaming is active
+{"action":"dislike"} // account-write opt-in required
+```
+
+Modes are `DEFAULT`, `FAMILIAR`, `EXPLORE`, `SCENE_RCMD`. Explicitly selecting
+`SCENE_RCMD` requires `scene`; get valid codes from `options`. `set_mode`
+preserves the current playing/paused state and does not start roaming over a
+regular playlist. `play` starts/resumes it. Use `music_control` for pause,
+resume, volume and seeking; its `next` action already follows the active
+playback mode. `music_roaming next` refuses to skip an unrelated playlist.
+
+Use `music_status` after a playback request: `accepted` is not proof of audio
+playback. Its new `roaming` field and `music_roaming status` expose
+`{active, mode, scene, loading, error, track}`; `track` is the card's
+recommendation, while `music_status.currentTrack` is the actual loaded song.
+Loading conflicts return `busy`, failed recommendation/feedback calls return
+`api_error`, and next/dislike outside roaming returns `not_roaming`.
+
 ## Account writes
 
-`music_like` changes the remote NetEase account, so it is disabled by default.
+`music_like` and `music_roaming` with `action=dislike` change the remote NetEase
+account, so they are disabled by default.
 Enable it explicitly:
 
 * app setting (electron-store `settings.json`): `"controlAccountWrite": true`, or
