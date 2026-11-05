@@ -17,9 +17,9 @@ on:
       - 'docs/**'
       - 'UPDATE.md'
   push:
-    branches:
-      - dev
-      - master
+#    branches:
+#      - dev
+#      - master
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
