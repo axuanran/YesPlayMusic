@@ -42,6 +42,8 @@ dev分支会自动编译到Release。被合并后可以安装查看自己编写�
 
 ### Windows平台建议下载标注为latest的版本的 XuMP Setup xxx.exe
 
+目前发布前测试仅 Windows Setup包，如果其他平台有问题需要issue处理（抱歉）
+
 ---
 
 别忘了star ~
