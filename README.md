@@ -1,4 +1,3 @@
-# 请使用标注为Latest的版本
 
 
 <p align="center">
@@ -29,6 +28,8 @@
   ·
   <a href="https://t.me/ypmaxuanran"><strong>Telegram 频道</strong></a>
 </p>
+
+## 请使用标注为Latest的版本
 ## 最近新增
 
 - 📻 **私人漫游**：在首页或音乐库原有的私人 FM 卡片中选择默认、熟悉、探索或场景模式，场景包含运动、专注、助眠、通勤等；选择会保存在当前设备。支持通过 [`music_roaming` MCP 工具](llm-docs/mcp.md#personal-roaming)查看状态、启动、切换模式和场景、下一首及不喜欢。正在漫游时切换模式会更新推荐歌曲，切换失败保留原模式。自定义网易云 API 服务需支持 [`/personal/fm/mode`](https://neteasecloudmusicapienhanced.js.org/#/?id=私人-fm-模式选择)。  感谢 @xzl01
@@ -57,13 +58,13 @@ dev分支会自动编译到Release。被合并后可以安装查看自己编写�
 
 ---
 
-别忘了star ~
+求star ~
 
 ---
 
-此 README 以及本项目的修改部分基本由 AI 编写。由于 dev 分支不稳定，请尽量使用手动标注为 Latest 的版本。Docker 的 latest 跟随 dev，建议部署固定版本标签。目前docker仅为测试版本，不保证可用性
+此 README 以及本项目的修改部分基本由 AI 编写。由于 dev 分支不稳定，请尽量使用手动标注为 Latest 的版本。Docker 的 latest 跟随 dev，建议部署固定版本标签。目前docker仅为测试版本，不保证可用性。目前docker不可用
 
- https://github.com/axuanran/YesPlayMusic/releases/tag/%232474 ，此版本仅对上游升级了api-enhance版本，可能相对更稳定
+ https://github.com/axuanran/YesPlayMusic/releases/tag/%232474 ，此版本仅对上游升级了api-enhance版本
 
 ## 项目简介
 
@@ -203,7 +204,7 @@ sudo emaint sync -r xr-overlay
 ```bash
 sudo mkdir -p /etc/portage/package.accept_keywords
 echo "media-sound/yesplaymusic-bin ~amd64" | \
-  sudo tee /etc/portage/package.accept_keywords/yesplaymusic
+  sudo tee /etc/portage/package.accept_keywords/yesplaymusicd
 sudo emerge -av media-sound/yesplaymusic-bin
 ```
 
