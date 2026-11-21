@@ -47,7 +47,7 @@
 
 此项目基本接受所有的AI PR。允许各位直接在dev分支直接进行测试和修复。随时可提交fix。也没几个人来开发，所以随意。看到有pr会合并。
 
-dev分支会自动编译到Release。被合并后可以安装查看自己编写的内容是否完善。如果本地没有编译环境也可以通过积极的fix提交pr。
+dev分支不再随推送自动编译到Release，只在手动运行 Release 工作流或打 v* 标签时构建 prerelease。被合并后可以安装查看自己编写的内容是否完善。如果本地没有编译环境也可以通过积极的fix提交pr。
 
 也因此dev版本（即pre-release）没有任何测试保证。普通使用建议下载标注为latest的版本。
 
@@ -63,7 +63,7 @@ dev分支会自动编译到Release。被合并后可以安装查看自己编写�
 
 ---
 
-此 README 以及本项目的修改部分基本由 AI 编写。由于 dev 分支不稳定，请尽量使用手动标注为 Latest 的版本。Docker 的 latest 跟随 dev，建议部署固定版本标签。目前docker仅为测试版本，不保证可用性。目前docker不可用
+此 README 以及本项目的修改部分基本由 AI 编写。由于 dev 分支不稳定，请尽量使用手动标注为 Latest 的版本。Docker 镜像不再随 dev 自动构建，只在打 v* 标签或手动触发时产出，latest 可能落后于源码，建议部署固定版本标签。目前docker仅为测试版本，不保证可用性。目前docker不可用
 
  https://github.com/axuanran/YesPlayMusic/releases/tag/%232474 ，此版本仅对上游升级了api-enhance版本
 
