@@ -151,7 +151,7 @@ dev分支不再随推送自动编译到Release，只在手动运行 Release 工�
 | 私人漫游 | 默认 / 熟悉 / 探索 / 场景模式，设备内持久化，配套 `music_roaming` MCP 工具 | 仅单一私人 FM | **xzl01** |
 | 播放内核 | 移除 howler，自研 AudioEngine + xstate 状态机 + Provider 解析链 | howler | axuanran |
 | 队列与播放交互 | 队列弹层、播放模式菜单、播放速度、大列表增量渲染 | 基础队列 | **babaele**、axuanran |
-| 缓存与下载 | 缓存浏览与按曲目管理，桌面端与 Android 下载 | 仅基础缓存 | axuanran |
+| 缓存与下载 | 缓存浏览与按曲目管理、缓存位置可更改（用 junction / symlink 迁移缓存目录，登录与设置不动）、桌面端与 Android 下载 | 仅基础缓存 | axuanran |
 | 桌面歌词 | 独立歌词窗口、多行模式、位置与溢出处理、样式模板、单句循环 | 无 | axuanran |
 | 歌词同步 | AMLL WebSocket 同步、歌词时钟、歌词显示模式 | 无 | axuanran |
 | 系统媒体集成 | Windows SMTC、虚拟桌面固定、托盘图标主题、窗口外观与低性能模式 | 无 | axuanran |
