@@ -188,9 +188,7 @@ export function createMenu(win, store, desktopLyrics) {
           label: 'GitHub',
           click: async () => {
             const { shell } = require('electron');
-            await shell.openExternal(
-              'https://github.com/axuanran/YesPlayMusic'
-            );
+            await shell.openExternal('https://github.com/axuanran/xump');
           },
         },
         {

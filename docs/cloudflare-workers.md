@@ -4,7 +4,7 @@ YesPlayMusic 的 Web 端可以直接使用 Cloudflare Workers Static Assets 部�
 
 ## Cloudflare Git 部署
 
-在 Cloudflare Dashboard 的 **Workers & Pages → Create application → Import a repository** 中选择 `axuanran/YesPlayMusic`，并使用以下设置：
+在 Cloudflare Dashboard 的 **Workers & Pages → Create application → Import a repository** 中选择 `axuanran/xump`，并使用以下设置：
 
 - Production branch: `dev`
 - Root directory: `/`

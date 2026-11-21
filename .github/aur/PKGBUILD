@@ -6,7 +6,7 @@ pkgrel=1
 _releasever=0.0.0
 pkgdesc="XuMP - a third-party Netease Cloud Music player"
 arch=('x86_64')
-url="https://github.com/axuanran/YesPlayMusic"
+url="https://github.com/axuanran/xump"
 license=('MIT')
 provides=('xump')
 conflicts=(
@@ -29,7 +29,7 @@ optdepends=(
 options=('!strip' '!debug')
 source=(
     "XuMP-${_releasever}.pacman::${url}/releases/download/v${_releasever}/XuMP-${_releasever}.pacman"
-    "LICENSE-${_releasever}::https://raw.githubusercontent.com/axuanran/YesPlayMusic/v${_releasever}/LICENSE"
+    "LICENSE-${_releasever}::https://raw.githubusercontent.com/axuanran/xump/v${_releasever}/LICENSE"
 )
 sha256sums=('SKIP'
             'SKIP')

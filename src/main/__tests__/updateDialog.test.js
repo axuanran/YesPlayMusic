@@ -54,7 +54,7 @@ describe('update available dialog', () => {
     ).resolves.toBe(true);
 
     expect(openExternal).toHaveBeenCalledWith(
-      'https://github.com/axuanran/YesPlayMusic/releases'
+      'https://github.com/axuanran/xump/releases'
     );
     expectRestored(mainWindow);
   });

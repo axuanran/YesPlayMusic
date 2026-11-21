@@ -4,7 +4,7 @@
 EAPI=8
 
 DESCRIPTION="XuMP - a third-party Netease Cloud Music player"
-HOMEPAGE="https://github.com/axuanran/YesPlayMusic"
+HOMEPAGE="https://github.com/axuanran/xump"
 
 MY_PV="@RELEASE_VERSION@"
 BASE_URI="${HOMEPAGE}/releases/download/v${MY_PV}"

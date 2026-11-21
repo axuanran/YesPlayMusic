@@ -16,7 +16,7 @@ if (!versionArg || !packageDirectoryArg || assetNames.length !== 2) {
 
 const releaseVersion = versionArg.replace(/^v/, '');
 const baseUrl =
-  `https://github.com/axuanran/YesPlayMusic/releases/download/` +
+  `https://github.com/axuanran/xump/releases/download/` +
   `v${releaseVersion}`;
 
 async function hashAsset(assetName) {

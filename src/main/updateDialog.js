@@ -1,4 +1,4 @@
-const RELEASES_URL = 'https://github.com/axuanran/YesPlayMusic/releases';
+const RELEASES_URL = 'https://github.com/axuanran/xump/releases';
 
 export async function showUpdateAvailableDialog({
   dialog,

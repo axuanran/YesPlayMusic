@@ -13,18 +13,18 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/axuanran/YesPlayMusic/releases/latest"><img src="https://img.shields.io/github/v/release/axuanran/YesPlayMusic?include_prereleases&label=Release" alt="Release"></a>
-  <a href="https://github.com/axuanran/YesPlayMusic/actions/workflows/build.yaml"><img src="https://img.shields.io/github/actions/workflow/status/axuanran/YesPlayMusic/build.yaml?branch=dev&label=Build" alt="Build"></a>
-  <a href="https://github.com/axuanran/YesPlayMusic/stargazers"><img src="https://img.shields.io/github/stars/axuanran/YesPlayMusic?style=flat" alt="Stars"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/axuanran/YesPlayMusic" alt="License"></a>
+  <a href="https://github.com/axuanran/xump/releases/latest"><img src="https://img.shields.io/github/v/release/axuanran/xump?include_prereleases&label=Release" alt="Release"></a>
+  <a href="https://github.com/axuanran/xump/actions/workflows/build.yaml"><img src="https://img.shields.io/github/actions/workflow/status/axuanran/xump/build.yaml?branch=dev&label=Build" alt="Build"></a>
+  <a href="https://github.com/axuanran/xump/stargazers"><img src="https://img.shields.io/github/stars/axuanran/xump?style=flat" alt="Stars"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/axuanran/xump" alt="License"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/axuanran/YesPlayMusic/releases/latest"><strong>下载客户端</strong></a>
+  <a href="https://github.com/axuanran/xump/releases/latest"><strong>下载客户端</strong></a>
   ·
-  <a href="https://github.com/axuanran/YesPlayMusic/wiki"><strong>项目 Wiki</strong></a>
+  <a href="https://github.com/axuanran/xump/wiki"><strong>项目 Wiki</strong></a>
   ·
-  <a href="https://github.com/axuanran/YesPlayMusic/issues"><strong>问题反馈</strong></a>
+  <a href="https://github.com/axuanran/xump/issues"><strong>问题反馈</strong></a>
   ·
   <a href="https://t.me/ypmaxuanran"><strong>Telegram 频道</strong></a>
 </p>
@@ -180,7 +180,7 @@ dev分支不再随推送自动编译到Release，只在手动运行 Release 工�
 
 ### 桌面客户端
 
-请从 [Releases](https://github.com/axuanran/YesPlayMusic/releases/latest) 下载适用于当前系统的安装包。普通用户建议选择标记为 **Latest** 的正式版本；prerelease 包含较新的改动，更适合测试与反馈。
+请从 [Releases](https://github.com/axuanran/xump/releases/latest) 下载适用于当前系统的安装包。普通用户建议选择标记为 **Latest** 的正式版本；prerelease 包含较新的改动，更适合测试与反馈。
 
 - Windows：优先选择 XuMP 的 NSIS 安装包，免安装可使用 `XuMP.exe`。
 - Linux：按发行版选择 AppImage、deb、rpm、tar.gz、snap 或 pacman 包；主程序命令为 `xump`。
@@ -250,7 +250,7 @@ arm64 用户请将 `~amd64` 替换为 `~arm64`。维护和发布说明见 [Gento
 ### 使用 Docker Compose（推荐）
 
 ```bash
-git clone --branch dev https://github.com/axuanran/YesPlayMusic.git XuMP
+git clone --branch dev https://github.com/axuanran/xump.git XuMP
 cd XuMP
 docker compose pull
 docker compose up -d
@@ -344,7 +344,7 @@ xump-tui        # 运行独立 TUI 入口
 ### 本地启动
 
 ```bash
-git clone --branch dev --recursive https://github.com/axuanran/YesPlayMusic.git XuMP
+git clone --branch dev --recursive https://github.com/axuanran/xump.git XuMP
 cd XuMP
 corepack enable
 yarn install
@@ -438,7 +438,7 @@ XuMP
 
 ### 报告问题
 
-提交问题前请先搜索已有 [Issues](https://github.com/axuanran/YesPlayMusic/issues)。新问题建议附上：
+提交问题前请先搜索已有 [Issues](https://github.com/axuanran/xump/issues)。新问题建议附上：
 
 - XuMP 版本、操作系统及安装包类型
 - 是否使用 Docker 或第三方媒体服务器
@@ -475,7 +475,7 @@ XuMP 基于 [qier222/YesPlayMusic](https://github.com/qier222/YesPlayMusic) 持�
 
 **项目维护与原作**：[Xuanran](https://github.com/axuanran)（现任维护者）、[qier222](https://github.com/qier222)（YesPlayMusic 原作者）
 
-下面名单覆盖上游继承历史与本仓库的全部提交者，按提交量排序，同一人的多个邮箱与昵称已合并；完整贡献记录见 [GitHub 贡献者页面](https://github.com/axuanran/YesPlayMusic/graphs/contributors)。
+下面名单覆盖上游继承历史与本仓库的全部提交者，按提交量排序，同一人的多个邮箱与昵称已合并；完整贡献记录见 [GitHub 贡献者页面](https://github.com/axuanran/xump/graphs/contributors)。
 
 <details>
 <summary>查看全部贡献者（81 人）</summary>
