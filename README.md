@@ -55,15 +55,13 @@ dev分支不再随推送自动编译到Release，只在手动运行 Release 工�
 
 ### Windows平台建议下载标注为latest的版本的 XuMP Setup xxx.exe
 
-目前发布前测试仅 Windows Setup包，如果其他平台有问题需要issue处理（抱歉）
+目前发布前测试可能会仅处理 Windows Setup包，如果其他平台有问题需要issue处理（抱歉）
 
 ---
 
 求star ~
 
----
-
-此 README 以及本项目的修改部分基本由 AI 编写。由于 dev 分支不稳定，请尽量使用手动标注为 Latest 的版本。Docker 镜像不再随 dev 自动构建，只在打 v* 标签或手动触发时产出，latest 可能落后于源码，建议部署固定版本标签。目前docker仅为测试版本，不保证可用性。目前docker不可用
+此 README 以及本项目的修改部分基本由 AI 编写
 
  https://github.com/axuanran/YesPlayMusic/releases/tag/%232474 ，此版本仅对上游升级了api-enhance版本
 
