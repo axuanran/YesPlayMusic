@@ -66,12 +66,31 @@
     "asar": true,
     "files": [
       "out/**",
+      "admin/**",
+      "server/**",
       "scripts/yesplaymusic-tui.mjs",
       "scripts/xumpctl.mjs",
       "scripts/xump-mcp-http.mjs",
-      "server/**",
-      "admin/**",
-      "package.json"
+      "package.json",
+      "!server/__tests__/**",
+      "!out/**/*.map",
+      "!node_modules/**/*.md",
+      "!node_modules/**/*.map",
+      "!node_modules/**/{test,tests,__tests__,__mocks__,example,examples}/**",
+      "!node_modules/@neteasecloudmusicapienhanced/api/public/**",
+      "!node_modules/vue/**",
+      "!node_modules/vue-router/**",
+      "!node_modules/vuex/**",
+      "!node_modules/vue-i18n/**",
+      "!node_modules/vue-slider-component/**",
+      "!node_modules/plyr/**",
+      "!node_modules/dexie/**",
+      "!node_modules/node-vibrant/**",
+      "!node_modules/xstate/**",
+      "!node_modules/jsbi/**",
+      "!node_modules/dayjs/**",
+      "!node_modules/core-js/**",
+      "!node_modules/@vscode/codicons/**"
     ],
     "publish": [
       {
@@ -127,7 +146,11 @@
           "to": "tui",
           "filter": [
             "**/*",
-            "!**/.build/**"
+            "!**/.build/**",
+            "!**/node_modules/**",
+            "!**/doc/**",
+            "!**/installer/**",
+            "!**/*.pdf"
           ]
         }
       ],
@@ -193,7 +216,11 @@
           "to": "tui",
           "filter": [
             "**/*",
-            "!**/.build/**"
+            "!**/.build/**",
+            "!**/node_modules/**",
+            "!**/doc/**",
+            "!**/installer/**",
+            "!**/*.pdf"
           ]
         }
       ]
@@ -210,7 +237,13 @@
     },
     "portable": {
       "artifactName": "XuMP.exe"
-    }
+    },
+    "compression": "maximum",
+    "electronLanguages": [
+      "en-US",
+      "zh-CN",
+      "zh-TW"
+    ]
   },
   "engines": {
     "node": ">=22 <26"

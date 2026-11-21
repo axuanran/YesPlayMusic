@@ -385,7 +385,7 @@ Copy-Item .env.example .env
 | `yarn electron:build-linux` | Linux 桌面包 |
 | `yarn electron:build-mac` | macOS dmg |
 
-Web 构建输出到 `dist`，桌面构建输出到 `dist_electron`。跨平台发布建议使用项目的 GitHub Actions 工作流。
+Web 构建输出到 `dist`，桌面构建输出到 `dist_electron`。跨平台发布建议使用项目的 GitHub Actions 工作流。打包配置、体积构成与裁剪方式见 [打包与产物体积](docs/packaging.md)。
 
 ### Android 手机端（开发中，暂不可用）
 
