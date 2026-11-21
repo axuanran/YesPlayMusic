@@ -140,20 +140,6 @@
         }
       ],
       "icon": "build/icons/icon.ico",
-      "extraResources": [
-        {
-          "from": "dist_tui",
-          "to": "tui",
-          "filter": [
-            "**/*",
-            "!**/.build/**",
-            "!**/node_modules/**",
-            "!**/doc/**",
-            "!**/installer/**",
-            "!**/*.pdf"
-          ]
-        }
-      ],
       "publish": [
         "github"
       ]
@@ -208,20 +194,6 @@
         {
           "from": "scripts/install-cli.sh",
           "to": "scripts/install-cli.sh"
-        }
-      ],
-      "extraResources": [
-        {
-          "from": "dist_tui",
-          "to": "tui",
-          "filter": [
-            "**/*",
-            "!**/.build/**",
-            "!**/node_modules/**",
-            "!**/doc/**",
-            "!**/installer/**",
-            "!**/*.pdf"
-          ]
         }
       ]
     },

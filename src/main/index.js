@@ -36,6 +36,7 @@ import { DesktopLyricsWindow } from '../electron/desktopLyricsWindow.js';
 import { createMenu } from '../electron/menu';
 import { createTray } from '@/electron/tray';
 import { createTouchBar } from '../electron/touchBar';
+import { resolveTuiPaths } from '../electron/tuiBundle.js';
 import { createDockMenu } from '../electron/dockMenu';
 import { registerGlobalShortcuts } from '../electron/globalShortcut';
 import { showUpdateAvailableDialog } from './updateDialog.js';
@@ -99,6 +100,7 @@ function getPackagedTuiExecutable() {
   const executableName =
     process.platform === 'win32' ? 'yesplaymusic-tui.exe' : 'yesplaymusic-tui';
   const candidates = [
+    resolveTuiPaths().executable,
     path.join(process.resourcesPath, 'tui', executableName),
     path.join(__dirname, '../../dist_tui', executableName),
   ].filter(Boolean);
@@ -118,6 +120,11 @@ function quoteCmdArg(value) {
 }
 
 async function startTuiEntrypoint() {
+  const { mpv } = resolveTuiPaths();
+  if (mpv && !process.env.YPM_TUI_MPV) {
+    process.env.YPM_TUI_MPV = mpv;
+  }
+
   const packagedTuiEntry = getPackagedTuiEntry();
   if (packagedTuiEntry) {
     await import(pathToFileURL(packagedTuiEntry).href);

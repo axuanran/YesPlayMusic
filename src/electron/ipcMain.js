@@ -27,6 +27,12 @@ import {
   prepareRelocation,
 } from './cacheLocation.js';
 import {
+  getBundleStatus,
+  getTuiHome,
+  installBundle,
+  uninstallBundle,
+} from './tuiBundle.js';
+import {
   MCP_SERVER_GET_STATUS_CHANNEL,
   MCP_SERVER_STATUS_CHANNEL,
   normalizeMcpServerConfig,
@@ -272,6 +278,29 @@ export function initIpcMain(
     app.exit(0);
     return { ok: true };
   });
+  let tuiBundleInstall = null;
+  ipcMain.handle('tui-bundle:get-status', () => getBundleStatus());
+  ipcMain.handle('tui-bundle:install', async event => {
+    if (event.sender !== win.webContents) {
+      throw new Error('Invalid TUI bundle sender');
+    }
+    if (tuiBundleInstall) return tuiBundleInstall;
+    tuiBundleInstall = installBundle(progress => {
+      if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+        win.webContents.send('tui-bundle:progress', progress);
+      }
+    }).finally(() => {
+      tuiBundleInstall = null;
+    });
+    return tuiBundleInstall;
+  });
+  ipcMain.handle('tui-bundle:uninstall', event => {
+    if (event.sender !== win.webContents) {
+      throw new Error('Invalid TUI bundle sender');
+    }
+    return uninstallBundle();
+  });
+  ipcMain.handle('tui-bundle:open-folder', () => shell.openPath(getTuiHome()));
   ipcMain.handle('download:track', (event, payload) => {
     if (event.sender !== win.webContents) {
       throw new Error('Invalid download sender');

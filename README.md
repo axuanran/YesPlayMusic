@@ -141,7 +141,7 @@ dev分支不再随推送自动编译到Release，只在手动运行 Release 工�
 | 基础框架 | Vue 3.5 + Vite 7 + electron-vite，ESLint 9 flat config | Vue 2.6 + Webpack 4 | axuanran |
 | 桌面运行时 | Electron 42，主进程 / preload / renderer 三段式，NSIS、Portable、AppImage、deb、rpm、snap、pacman | Electron 13 + vue-cli 插件链 | axuanran |
 | Android 端 | Capacitor 壳、Media3 后台播放与锁屏控制、原生缓存（512MB LRU）、原生登录与反作弊 token、系统级下载 | 无 | axuanran |
-| 终端 TUI | 基于 mpv 的终端界面 | 无 | axuanran |
+| 终端 TUI | 基于 mpv 的终端界面，安装包不含，按需从 R2 下载 | 无 | axuanran |
 | Docker | 单容器：nginx + 内置 API + Audio Resolver，含健康检查与数据卷 | 仅静态 Web 镜像 | axuanran |
 | 音频 Resolver | 独立 `server/`：Provider 链、缓存、流代理、Cookie 同步、管理面板 | 无 | axuanran |
 | 音质体系 | `standard` / `exhigh` / `lossless` / `hires` / `jyeffect` / `sky` / `jymaster` 七档，支持逐级降级 | 固定 128k / 320k / 无损 | axuanran |
@@ -311,7 +311,9 @@ docker run -d \
 
 ## TUI（暂缓推进）
 
-项目提供基于 `mpv` 的终端界面，支持网易云登录与 Cookie 同步、搜索、私人 FM 和终端播放。请先确保系统中已安装 mpv。
+项目提供基于 `mpv` 的终端界面，支持网易云登录与 Cookie 同步、搜索、私人 FM 和终端播放。
+
+TUI 与 mpv 约 209 MB，**不再随安装包分发**，默认不下载。需要时在「设置 → TUI 与 mpv（可选下载）」下载即可，下载后可随时删除。细节见 [TUI 与 mpv 的可选下载](docs/tui-bundle.md)。
 
 > TUI 目前暂缓推进，入口保留但随时可能调整。
 
@@ -320,6 +322,8 @@ yarn tui        # 从源码运行
 xump --tui      # 从桌面程序启动
 xump-tui        # 运行独立 TUI 入口
 ```
+
+从源码运行时仍需自行安装 `mpv`；打包版会优先使用上面下载的 mpv。
 
 <details>
 <summary>查看 TUI 截图</summary>

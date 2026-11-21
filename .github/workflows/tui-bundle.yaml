@@ -1,0 +1,162 @@
+name: TUI Bundle
+
+# Builds the optional TUI + mpv bundle and publishes it to Cloudflare R2.
+# The desktop installer no longer ships it; the app downloads it on demand from
+# `<R2_PUBLIC_BASE_URL>/tui/v<version>/latest.json`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Bundle version; defaults to the package.json version
+        required: false
+        type: string
+  push:
+    tags:
+      - 'v*'
+    paths:
+      - 'scripts/yesplaymusic-tui.mjs'
+      - 'scripts/build-tui-exe.mjs'
+      - 'scripts/pack-tui-bundle.mjs'
+      - '.github/workflows/tui-bundle.yaml'
+
+permissions:
+  contents: read
+
+env:
+  R2_PUBLIC_BASE_URL: https://ypmdl.repo.oxiilo.com
+
+jobs:
+  build:
+    name: pack (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win-x64
+          - os: ubuntu-22.04
+            platform: linux-x64
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          corepack enable
+          yarn install --frozen-lockfile --ignore-engines
+
+      - name: Build TUI bundle sources
+        run: |
+          yarn tui:build
+          yarn tui:exe
+
+      - name: Resolve bundle version
+        id: version
+        shell: bash
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ inputs.version }}" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Resolved bundle version: $(cat "$GITHUB_OUTPUT")"
+
+      - name: Pack bundle
+        run: >
+          node scripts/pack-tui-bundle.mjs
+          --platform ${{ matrix.platform }}
+          --version ${{ steps.version.outputs.value }}
+          --out dist_bundle
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tui-${{ matrix.platform }}
+          path: dist_bundle/*
+          retention-days: 7
+
+  publish:
+    name: publish to R2
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download bundle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist_bundle
+          pattern: tui-*
+          merge-multiple: true
+
+      - name: Merge manifests
+        id: manifest
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const path = require("node:path");
+            const dir = "dist_bundle";
+            const merged = { version: null, generatedAt: new Date().toISOString(), platforms: {} };
+            for (const name of fs.readdirSync(dir)) {
+              if (!name.endsWith(".json")) continue;
+              const manifest = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8"));
+              if (!merged.version) merged.version = manifest.version || null;
+              Object.assign(merged.platforms, manifest.platforms || {});
+            }
+            if (!merged.version || !Object.keys(merged.platforms).length) {
+              throw new Error("No bundle manifests were produced");
+            }
+            fs.writeFileSync(path.join(dir, "latest.json"), JSON.stringify(merged, null, 2));
+            fs.writeFileSync(path.join(dir, "version.txt"), merged.version);
+            console.log(`version ${merged.version}: ${Object.keys(merged.platforms).join(", ")}`);
+          '
+          echo "version=$(cat dist_bundle/version.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify R2 configuration
+        env:
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          test -n "$R2_ACCOUNT_ID" || { echo "Missing repository variable: R2_ACCOUNT_ID" >&2; exit 1; }
+          test -n "$R2_BUCKET_NAME" || { echo "Missing repository variable: R2_BUCKET_NAME" >&2; exit 1; }
+          test -n "$R2_ACCESS_KEY_ID" || { echo "Missing repository secret: R2_ACCESS_KEY_ID" >&2; exit 1; }
+          test -n "$R2_SECRET_ACCESS_KEY" || { echo "Missing repository secret: R2_SECRET_ACCESS_KEY" >&2; exit 1; }
+
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 cp dist_bundle/ "s3://${R2_BUCKET_NAME}/tui/v${VERSION}/" \
+            --endpoint-url "$endpoint" --recursive \
+            --exclude "*.json" --exclude "version.txt" \
+            --cache-control "public, max-age=31536000, immutable"
+          aws s3 cp dist_bundle/ "s3://${R2_BUCKET_NAME}/tui/v${VERSION}/" \
+            --endpoint-url "$endpoint" --recursive --include "*.json" --include "version.txt" \
+            --cache-control "public, max-age=300"
+          aws s3 cp dist_bundle/latest.json "s3://${R2_BUCKET_NAME}/tui/latest.json" \
+            --endpoint-url "$endpoint" \
+            --cache-control "public, max-age=300"
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          echo "Published TUI bundle v${VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Manifest: ${R2_PUBLIC_BASE_URL}/tui/v${VERSION}/latest.json" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          ls -lh dist_bundle >> "$GITHUB_STEP_SUMMARY"

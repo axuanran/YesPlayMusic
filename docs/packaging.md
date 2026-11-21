@@ -15,31 +15,32 @@
 | macOS | `yarn electron:build-mac` | dmg |
 | Android | `yarn mobile:sync` + Android Studio | `android/` |
 | Docker | `docker build -f Dockerfile .` | 镜像 `ghcr.io/axuanran/xump` |
+| TUI 与 mpv | `.github/workflows/tui-bundle.yaml` | R2：`tui/v<version>/` |
 
-桌面打包配置位于 `package.json` 的 `build` 字段（electron-builder 26）。
+桌面打包配置位于 `package.json` 的 `build` 字段（electron-builder 26）。TUI 与 mpv 不再进安装包，见 [TUI 与 mpv 的可选下载](tui-bundle.md)。
 
 ## 体积构成（Windows x64）
 
-解包目录 `win-unpacked` 约 **571 MB**，大头只有三块：
+解包目录 `win-unpacked` 约 **362 MB**：
 
 | 组成 | 体积 | 说明 |
 | --- | --- | --- |
 | `XuMP.exe` | 222 MB | Electron 42 运行时，随上游 Electron 版本变化 |
-| `resources/tui` | 209 MB | `mpv.exe` 115 MB + `yesplaymusic-tui.exe` 90 MB |
 | `resources/app.asar` | 49 MB | 应用代码 + 运行时依赖 |
+| Electron 资源 | 约 85 MB | dll、`icudtl.dat`、`resources.pak`、`LICENSES.chromium.html` 等 |
 
-其余是 Electron 自带的 dll、`icudtl.dat`、`resources.pak`、`LICENSES.chromium.html` 等必需文件，不建议改动。
+TUI 与 mpv（约 209 MB）已移出安装包，改为按需下载。
 
 ## 已做的裁剪
 
-本次只动打包配置，不改运行逻辑。
+只动打包配置与分发方式，不改主流程逻辑。
 
-| 项 | 配置 | 实测效果 |
+| 项 | 做法 | 实测效果 |
 | --- | --- | --- |
+| TUI 与 mpv 移出安装包 | 删除 `win`/`linux` 的 `extraResources`，改为主进程从 R2 按需下载 | 解包 −209 MB，payload −56 MB |
 | Electron 语言包 | `electronLanguages: ["en-US", "zh-CN", "zh-TW"]` | `locales` 47.2 → 1.6 MB |
-| asar 内依赖裁剪 | `files` 中的否定规则，见下 | `app.asar` 94.2 → 48.7 MB |
-| TUI 附带资源 | `extraResources` 排除 `doc/**`、`installer/**`、`node_modules/**`、`*.pdf` | 约 −2 MB（mpv 文档与安装脚本） |
-| 压缩等级 | `compression: "maximum"` | 与其他改动合计后 payload −24.9 MB |
+| asar 内依赖裁剪 | `files` 中的否定规则，见下 | `app.asar` 94.2 → 48.8 MB |
+| 压缩等级 | `compression: "maximum"` | 与其他改动合计计入 payload |
 
 `files` 里被排除的依赖：
 
@@ -53,12 +54,13 @@
 
 ### 实测对比（同一份源码）
 
-| 指标 | 调整前 | 调整后 | 变化 |
+| 指标 | 最初 | 现在 | 变化 |
 | --- | --- | --- | --- |
-| 解包总大小 | 664.1 MB | 571.4 MB | −92.7 MB（−14.0%） |
-| `app.asar` | 94.2 MB | 48.7 MB | −45.5 MB（−48.3%） |
+| 解包总大小 | 664.1 MB | 362.0 MB | −302.1 MB（−45.5%） |
+| `app.asar` | 94.2 MB | 48.8 MB | −45.4 MB（−48.2%） |
 | `locales` | 47.2 MB | 1.6 MB | −45.6 MB |
-| 压缩 payload（`*.nsis.7z`） | 179.3 MB | 154.4 MB | −24.9 MB（−13.9%） |
+| TUI 资源 | 209.5 MB | 0（按需下载） | −209.5 MB |
+| 压缩 payload（`*.nsis.7z`） | 179.3 MB | 98.4 MB | −80.9 MB（−45.1%） |
 
 安装包体积约为 payload 再加数 MB 的 NSIS 外壳。
 
@@ -94,13 +96,12 @@ import('@neteasecloudmusicapienhanced/api/generateConfig.js');
 Error writing temporary file. Make sure your temp folder is valid.
 ```
 
-已确认与打包配置无关：用调整前的 `package.json` 重新构建会复现同样的错误，且 `%TEMP%` 与磁盘空间均正常。建议在 GitHub Actions 的 Windows runner 上出包（见 `.github/workflows/win-installer.yaml`），`--dir` 产物不受影响。
+已确认与打包配置无关：用调整前的 `package.json` 重新构建会复现同样的错误，且 `%TEMP%` 与磁盘空间均正常。建议在 GitHub Actions 的 Windows runner 上出包（见 `.github/workflows/win-installer.yaml`），`--dir` 产物与 `*.nsis.7z` payload 不受影响。
 
 ## 进一步压缩的空间
 
-按性价比排序，都还没有做：
+1. **把前端依赖从 `dependencies` 移到 `devDependencies`**——目前 `files` 只挡住了包目录本身，electron-builder 仍按依赖树打包 `@vue/*` 等传递依赖（约 6 MB）。注意 Docker 运行阶段用的是 `yarn install --production`，移动前需确认不影响 `server/`。
+2. **`dxcompiler.dll`（24.4 MB）与 `vk_swiftshader.dll`（5.3 MB）**——可以删，但会牺牲软件渲染兜底与部分 GPU 场景，不建议。
+3. **`LICENSES.chromium.html`（19.4 MB）**——Electron 的许可文件，属于合规要求，保留。
 
-1. **TUI 与 mpv 改为可选下载**（约 209 MB）——收益最大，但会改变「装上即用」的体验，需要在设置里增加下载入口。
-2. **把前端依赖从 `dependencies` 移到 `devDependencies`**——目前 `files` 只挡住了包目录本身，electron-builder 仍按依赖树打包 `@vue/*` 等传递依赖（约 6 MB）。注意 Docker 运行阶段用的是 `yarn install --production`，移动前需确认不影响 `server/`。
-3. **`dxcompiler.dll`（24.4 MB）与 `vk_swiftshader.dll`（5.3 MB）**——可以删，但会牺牲软件渲染兜底与部分 GPU 场景，不建议。
-4. **`LICENSES.chromium.html`（19.4 MB）**——Electron 的许可文件，属于合规要求，保留。
+剩下的 222 MB 基本就是 Electron 运行时本身，除非换成更小的运行时（如自建精简 Electron 或改用 Web 版），否则无法再显著压缩。

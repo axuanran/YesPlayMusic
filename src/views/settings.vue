@@ -276,6 +276,11 @@
       </h3>
       <StreamingServerSettings v-if="isElectron" />
 
+      <h3 v-if="isElectron" id="settings-tui">
+        {{ $t('settings.tuiBundle.title') }}
+      </h3>
+      <TuiBundleSettings v-if="isElectron" />
+
       <h3 id="settings-plugins">{{ $t('settings.pluginSection') }}</h3>
       <div
         v-for="plugin in builtinPlugins"
@@ -1610,6 +1615,7 @@ import {
   unassignedWidgets,
 } from '@/utils/uiLayout';
 import StreamingServerSettings from '@/components/StreamingServerSettings.vue';
+import TuiBundleSettings from '@/components/TuiBundleSettings.vue';
 import Modal from '@/components/Modal.vue';
 import {
   adaptDesktopLyricsStyleImport,
@@ -1699,7 +1705,7 @@ const desktopLyricsSetting = (key, fallback) => ({
 
 export default {
   name: 'Settings',
-  components: { StreamingServerSettings, Modal },
+  components: { StreamingServerSettings, TuiBundleSettings, Modal },
   data() {
     return {
       tracksCache: {

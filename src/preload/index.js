@@ -127,6 +127,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStatus: () => ipcRenderer.invoke('mcp-server:get-status'),
     onStatus: callback => on('mcp-server:status', callback),
   },
+  tuiBundle: {
+    getStatus: () => ipcRenderer.invoke('tui-bundle:get-status'),
+    install: () => ipcRenderer.invoke('tui-bundle:install'),
+    uninstall: () => ipcRenderer.invoke('tui-bundle:uninstall'),
+    openFolder: () => ipcRenderer.invoke('tui-bundle:open-folder'),
+    onProgress: callback => on('tui-bundle:progress', callback),
+  },
   player: {
     updateTrayTooltip: title =>
       sendString('updateTrayTooltip', title, { maxLength: 256 }),
