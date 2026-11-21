@@ -41,6 +41,7 @@
 - 🧩 **界面布局自定义**：功能卡片独立化，首页模块可自由编排
 - 🛠️ **队列页面重做**：本地化标题、分区语义化，完善加载 / 空列表 / 部分失败重试状态
 - 🔍 **导航搜索优化**：修复全局样式对搜索框背景的干扰
+- 🙏 **感谢所有贡献者**：代码、文档、翻译、测试与问题反馈都是贡献，完整名单见[贡献者](#贡献者)
 
 ---
 
@@ -119,17 +120,17 @@ dev分支会自动编译到Release。被合并后可以安装查看自己编写�
 | 模块 | 能力概览 |
 | --- | --- |
 | 网易云音乐 | Cookie 与网页登录、每日推荐、私人漫游（默认 / 熟悉 / 探索 / 场景）、云盘、MV、搜索、收藏和歌单管理 |
-| 音频解析 | Netease、LX、UnblockNeteaseMusic、Fallback Provider；音质选择、灰色歌曲替换、缓存与管理面板 |
+| 音频解析 | Netease、LX（洛雪）、Fallback Provider；音质选择、灰色歌曲替换、缓存与管理面板 |
 | Android | Capacitor 原生壳、Media3 后台播放、MediaSession、原生缓存、锁屏与通知栏控制 |
 | 本地音乐 | 文件夹扫描、元数据与封面读取、本地歌词匹配、文件夹歌单及统一播放队列 |
 | 流媒体 | 连接 Emby、Jellyfin 等兼容服务器，浏览并播放专辑、歌手和歌曲 |
 | 歌词体验 | 滚动歌词、翻译与发音歌词、独立桌面歌词、AMLL WebSocket 同步 |
 | 桌面集成 | Windows SMTC、Linux MPRIS、Discord Rich Presence、系统托盘、全局快捷键与自动更新 |
 | 播放体验 | 音质与输出设备选择、播放速度、缓存播放、媒体按键、深浅色主题与低性能模式 |
+| AI 控制 | 内置 MCP 服务器与本地控制接口，支持搜索、播放、队列、歌词与私人漫游；详见 [MCP 文档](llm-docs/mcp.md) 与[控制 API 文档](docs/control-api.md) |
 | 其他形态 | Web / PWA、Docker 自托管、基于 mpv 的 TUI |
 
 音频 Resolver 采用 Provider 链管理不同来源，可查看解析状态、测试歌曲、调整 Provider 顺序并管理缓存。第三方 Provider 的可用性不作长期保证。
-
 
 ## 平台与分发
 
@@ -142,7 +143,7 @@ dev分支会自动编译到Release。被合并后可以安装查看自己编写�
 | Arch Linux | [AUR：yesplaymusic-axuanran-bin](https://aur.archlinux.org/packages/yesplaymusic-axuanran-bin) | 现有 AUR 包，安装后的程序名为 XuMP |
 | Gentoo | `media-sound/yesplaymusic-bin` | 通过 xr-overlay 安装，程序命令为 `xump` |
 | macOS | Intel 与 Apple Silicon dmg | CI 构建，测试覆盖有限 |
-| Docker | Compose、GHCR 镜像 | 镜像为 `ghcr.io/axuanran/xump` |
+| Docker | Compose、GHCR 镜像 | 镜像为 `ghcr.io/axuanran/xump`，当前仍属测试阶段 |
 | Web / PWA | Vite Web 应用 | 支持 |
 
 ## 安装
@@ -172,7 +173,7 @@ chmod +x XuMP-*.AppImage
 
   ```bash
   mkdir -p ~/.local/bin
-  ln -s "$PWD/XuMP-0.1.1.AppImage" ~/.local/bin/xump
+  ln -s "$PWD/XuMP-0.1.6.AppImage" ~/.local/bin/xump
   ```
 
   tar.gz 解压目录内附带 `scripts/install-cli.sh`，也可直接运行 `./scripts/install-cli.sh install`（卸载用 `uninstall`）。
@@ -182,7 +183,7 @@ chmod +x XuMP-*.AppImage
   sudo /Applications/XuMP.app/Contents/Resources/scripts/install-cli.sh install
   ```
 
-终端控制（`xumpctl`）与独立 TUI（`xump-tui`）见下文「TUI」。
+终端控制（`xumpctl`）与独立 TUI（`xump-tui`）见下文「TUI」，控制接口细节见[控制 API 文档](docs/control-api.md)。
 
 ### Arch Linux
 
@@ -204,7 +205,7 @@ sudo emaint sync -r xr-overlay
 ```bash
 sudo mkdir -p /etc/portage/package.accept_keywords
 echo "media-sound/yesplaymusic-bin ~amd64" | \
-  sudo tee /etc/portage/package.accept_keywords/yesplaymusicd
+  sudo tee /etc/portage/package.accept_keywords/yesplaymusic
 sudo emerge -av media-sound/yesplaymusic-bin
 ```
 
@@ -212,7 +213,11 @@ arm64 用户请将 `~amd64` 替换为 `~arm64`。维护和发布说明见 [Gento
 
 ## Docker 部署
 
-Docker Compose 会启动 XuMP Web 服务、内置网易云音乐 API、Audio Resolver，以及独立的 UnblockNeteaseMusic 辅助服务。
+> Docker 支持目前仍属测试阶段，不保证可用。镜像构建已不再随 `dev` 自动触发，仅在 `v*` 标签推送或手动运行 Docker 工作流时产出，`latest` 可能落后于源码。
+
+镜像是单容器结构：容器内由 nginx 提供前端静态页面并反向代理，同时运行内置网易云音乐 API 与 Audio Resolver（含 `/admin/` 管理面板）。旧版本依赖的独立 UnblockNeteaseMusic 旁路服务已移除，音源解锁改由内置 LX（洛雪）Provider 负责。
+
+### 使用 Docker Compose（推荐）
 
 ```bash
 git clone --branch dev https://github.com/axuanran/YesPlayMusic.git XuMP
@@ -221,24 +226,44 @@ docker compose pull
 docker compose up -d
 ```
 
-启动后访问 `http://localhost`。运行数据和 Resolver 配置保存在 `xump-data` 数据卷中。
+启动后访问 `http://localhost`（默认映射宿主机 80 端口），音源解析管理面板位于 `http://localhost/admin/`。运行数据与 Resolver 配置保存在 `xump-data` 数据卷中，容器自带 `/api/health` 健康检查。
 
 常用维护命令：
 
+| 命令 | 用途 |
+| --- | --- |
+| `docker compose ps` | 查看容器与服务状态 |
+| `docker compose logs -f` | 跟踪日志 |
+| `docker compose pull && docker compose up -d` | 拉取新镜像并重建 |
+| `docker compose down` | 停止并移除容器 |
+
+Compose 文件支持的环境变量：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `XUMP_IMAGE` | `ghcr.io/axuanran/xump:latest` | 指定镜像与版本标签 |
+| `TZ` | `Asia/Shanghai` | 容器时区 |
+
+需要更换宿主机端口时，直接修改 `docker-compose.yml` 中的 `ports`（例如 `"8080:80"`）后重新执行 `docker compose up -d`。
+
+### 镜像标签
+
+| 标签 | 含义 |
+| --- | --- |
+| `latest` | 默认标签，来自 `dev` 分支构建；分支自动构建已关闭，可能落后于源码 |
+| `dev` | `dev` 分支的构建产物 |
+| `v0.1.6` | 与 Release 标签一一对应，GHCR 上已发布到 `v0.1.6` |
+| `sha-<commit>` | 按提交构建 |
+
+长期部署建议固定到 Release 标签，而不是使用 `latest`：
+
 ```bash
-docker compose ps          # 查看状态
-docker compose logs -f     # 跟踪日志
-docker compose down        # 停止服务
+XUMP_IMAGE=ghcr.io/axuanran/xump:v0.1.6 docker compose up -d
 ```
 
-默认镜像为 `ghcr.io/axuanran/xump:latest`。长期部署建议通过环境变量固定 Release 标签：
+### 使用 docker run
 
-```bash
-XUMP_IMAGE=ghcr.io/axuanran/xump:<tag> docker compose up -d
-```
-
-<details>
-<summary>使用单容器运行</summary>
+不使用 Compose 时可直接运行容器：
 
 ```bash
 docker run -d \
@@ -246,16 +271,17 @@ docker run -d \
   --restart always \
   -p 80:80 \
   -v xump-data:/data \
+  -e TZ=Asia/Shanghai \
   ghcr.io/axuanran/xump:latest
 ```
 
-单容器模式不包含独立的 UnblockNeteaseMusic 服务。
+> 镜像标签与容器内部结构可能随 `dev` 变动，升级前请先用固定标签验证。版本变更记录见 [CHANGELOG](CHANGELOG.md)。
 
-</details>
-
-## TUI   TUI 计划暂推
+## TUI（暂缓推进）
 
 项目提供基于 `mpv` 的终端界面，支持网易云登录与 Cookie 同步、搜索、私人 FM 和终端播放。请先确保系统中已安装 mpv。
+
+> TUI 目前暂缓推进，入口保留但随时可能调整。
 
 ```bash
 yarn tui        # 从源码运行
@@ -316,8 +342,7 @@ Copy-Item .env.example .env
 
 如果 Electron 二进制或原生依赖安装不完整，可运行 `yarn electron:repair-and-serve` 进行修复并重新启动。
 
-<details>
-<summary>桌面端构建命令</summary>
+### 桌面端构建
 
 | 命令 | 产物 |
 | --- | --- |
@@ -330,13 +355,9 @@ Copy-Item .env.example .env
 
 Web 构建输出到 `dist`，桌面构建输出到 `dist_electron`。跨平台发布建议使用项目的 GitHub Actions 工作流。
 
-</details>
-
-### Android 手机端 手机端仍在开发中，不可用
+### Android 手机端（开发中，暂不可用）
 
 手机端使用 Capacitor，共用现有 Vue 3 页面、账号、歌单与播放器逻辑。Android 应用显示名称为 **XuMP**，正式包标识为 `com.axuanran.xump`。无需配置公网网易云 API 或 Audio Resolver 地址：Android 原生模块直接完成网易云 `weapi/eapi` 加密、Cookie 管理和 HTTPS 请求；音频地址由 Vue 内置 Provider 解析，桌面端和 Android 共用。
-
-执行：
 
 ```bash
 yarn mobile:sync
@@ -347,22 +368,22 @@ yarn mobile:open
 
 当前手机端实际解码与播放使用 Android Media3：原生 `MediaSessionService` 负责后台播放、音频焦点、拔出耳机自动暂停、锁屏与通知栏媒体控件；Vue 播放器通过 Capacitor 插件同步进度、播放状态及上一首/下一首命令。Media3 原生缓存使用 512MB LRU 上限，播放服务与预下载器共享歌曲缓存键。上一首、当前和下一首组成的播放窗口会同步到原生队列，可在 WebView 或播放服务重建后恢复会话与持久化队列。
 
-| 命令                 | 用途                              |
-| -------------------- | --------------------------------- |
-| `yarn mobile:build`  | 构建手机端 Web 资源               |
-| `yarn mobile:assets` | 重新生成 Android 图标资源         |
-| `yarn mobile:sync`   | 构建并同步 Android 工程           |
-| `yarn mobile:open`   | 在 Android Studio 中打开工程      |
-| `yarn mobile:run`    | 构建并运行到已连接的 Android 设备 |
+| 命令 | 用途 |
+| --- | --- |
+| `yarn mobile:build` | 构建手机端 Web 资源 |
+| `yarn mobile:assets` | 重新生成 Android 图标资源 |
+| `yarn mobile:sync` | 构建并同步 Android 工程 |
+| `yarn mobile:open` | 在 Android Studio 中打开工程 |
+| `yarn mobile:run` | 构建并运行到已连接的 Android 设备 |
 
-内置音频解析可在“设置 → 插件 → 内置音频解析”中启停、查看 Provider 状态、清理缓存和测试歌曲。它不依赖独立的 `server/resolver` 进程。
+内置音频解析可在「设置 → 插件 → 内置音频解析」中启停、查看 Provider 状态、清理缓存和测试歌曲。它不依赖独立的 `server/resolver` 进程。
 
 ## 技术架构
 
 - 前端：Vue 3、Vue Router 4、Vuex 4、Vue I18n、Vite、Sass
 - 桌面端：Electron、electron-vite、electron-builder、electron-updater
 - Android：Capacitor、Android Media3、MediaSessionService
-- 服务与媒体：Node.js、Express、NeteaseCloudMusicApi Enhanced、UnblockNeteaseMusic、music-metadata、mpv
+- 服务与媒体：Node.js、Express、NeteaseCloudMusicApi Enhanced、LX（洛雪）音源脚本、music-metadata、mpv
 - 工程质量：Vitest、ESLint、Prettier、GitHub Actions
 
 ```text
@@ -371,16 +392,17 @@ XuMP
 ├── android/     Android / Capacitor 原生工程
 ├── server/      Audio Resolver 与管理接口
 ├── admin/       Resolver 管理页面
-├── scripts/     构建、发布与 TUI 脚本
-├── docs/        功能与打包文档
+├── scripts/     构建、发布、TUI 与 xumpctl 脚本
+├── docs/        功能、控制接口与打包文档
+├── llm-docs/    面向 AI 的功能说明与 MCP 文档
 └── .github/     CI、发布及发行版配置
 ```
 
-## 发布与贡献
-
-`dev` 是主要开发分支。推送到该分支后，GitHub Actions 会生成 prerelease；正式版本通过 Release 流程发布。Release、R2、Telegram、桌面端和 Android 的发行品牌统一使用 **XuMP**。
+## 贡献指南
 
 欢迎提交 Bug 修复、平台适配、音频 Provider、文档、翻译和自动化测试。Pull Request 请以 `dev` 为目标分支，并尽量说明改动目的、验证方式和受影响平台。
+
+### 报告问题
 
 提交问题前请先搜索已有 [Issues](https://github.com/axuanran/YesPlayMusic/issues)。新问题建议附上：
 
@@ -389,13 +411,36 @@ XuMP
 - 可复现的操作步骤
 - 相关日志和必要截图
 
+### 发布流程
+
+`dev` 是主要开发分支，也是 PR 的目标分支。自动构建已关闭：CI 在 Pull Request 与手动触发时运行，Release 由手动运行 **Release** 工作流（`workflow_dispatch`，可选 draft / prerelease / release）触发，或由 **Prepare XuMP Release** 工作流创建 `v*` 标签后触发，届时会构建各平台产物并生成对应的 Release。
+
+Docker 镜像同样只在 `v*` 标签推送或手动运行 **XuMP Docker Image** 工作流时构建并推送至 GHCR。Release、R2、Telegram、桌面端和 Android 的发行品牌统一使用 **XuMP**。
+
+## 贡献者
+
+感谢每一位为 XuMP 提交代码、完善文档与翻译、参与测试或反馈问题的贡献者。名单按提交量排序，同一人的多个邮箱与昵称已合并；完整贡献记录见 [GitHub 贡献者页面](https://github.com/axuanran/YesPlayMusic/graphs/contributors)。
+
+**项目维护与原作**：[Xuanran](https://github.com/axuanran)（现任维护者）、[qier222](https://github.com/qier222)（YesPlayMusic 原作者）
+
+<details>
+<summary>查看全部贡献者（82 人）</summary>
+
+<br>
+
+qier222、Xuanran、zwx08、kunkka、pan93412、memorydream、Vidocq、Map1en_、njzy、Revincx、Changjian Gao、wenjie、Rick、TestGifts、Younglina、StarsEnd、BeADre、colawithsauce、是虹川飴、runnableAir、Kris Hu、marcus、Karbob、mayandev、郭桓桓、chen310、代强、xzl01、Mr. Will、babaele、Wenqi Huang、タイムライン、BakerBunker、拆家大主教、草方块、Ethan Wong、GalvinGao、Shi Liang、poly000、5unV、fengkx、LEILU-lua、12471220、Holger、Frz、amphineko、zuotiya、Davy、LittleChest、657、久治明千树汐、洩氏诹诹子、MUXTER117、CNawalol、Wei Jiahao、scarletborder、jbwfu、guaqiu、FSpark、火花✨、Felix_SANA、HengYi Wei、Arthals、Sin、李洋、moonrailgun、Jiang Menghao、bestlaw66、Chiro、Chuwen、leex、Viyerelu23333、akliuxingyuan、leko、Anmizi、Siykt、bluebullet、Vanilla、sr.zer、Kay W、CuSO4Deposit、人工知能
+
+</details>
+
 ## 致谢与许可
 
 XuMP 基于 [qier222/YesPlayMusic](https://github.com/qier222/YesPlayMusic) 持续维护，并使用或参考以下项目：
 
 - [NeteaseCloudMusicApi Enhanced](https://github.com/neteasecloudmusicapienhanced/api-enhanced)
-- [UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server)
+- [LX Music（洛雪音源）](https://github.com/lyswhut/lx-music-desktop)
 - [nagi-studio/YesPlayMusic](https://github.com/nagi-studio/YesPlayMusic)
+
+早期版本曾集成 [UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server)，该 Provider 已因上游长期失修而移除，在此一并致谢。
 
 感谢原项目作者、所有贡献者，以及持续参与测试和反馈的用户。
 
