@@ -132,6 +132,38 @@ dev分支会自动编译到Release。被合并后可以安装查看自己编写�
 
 音频 Resolver 采用 Provider 链管理不同来源，可查看解析状态、测试歌曲、调整 Provider 顺序并管理缓存。第三方 Provider 的可用性不作长期保证。
 
+## 相比上游的新增功能
+
+分叉点为 `df075cc`（`fix: Vue Router on Netlify (#2467)`）。此后上游只有 13 个提交并停在 0.4.11，本仓库同期累计 516 个提交。
+
+| 模块 | 新增 / 变化内容 | 上游 qier222/YesPlayMusic | 主要贡献者 |
+| --- | --- | --- | --- |
+| 基础框架 | Vue 3.5 + Vite 7 + electron-vite，ESLint 9 flat config | Vue 2.6 + Webpack 4 | axuanran |
+| 桌面运行时 | Electron 42，主进程 / preload / renderer 三段式，NSIS、Portable、AppImage、deb、rpm、snap、pacman | Electron 13 + vue-cli 插件链 | axuanran |
+| Android 端 | Capacitor 壳、Media3 后台播放与锁屏控制、原生缓存（512MB LRU）、原生登录与反作弊 token、系统级下载 | 无 | axuanran |
+| 终端 TUI | 基于 mpv 的终端界面 | 无 | axuanran |
+| Docker | 单容器：nginx + 内置 API + Audio Resolver，含健康检查与数据卷 | 仅静态 Web 镜像 | axuanran |
+| 音频 Resolver | 独立 `server/`：Provider 链、缓存、流代理、Cookie 同步、管理面板 | 无 | axuanran |
+| 音质体系 | `standard` / `exhigh` / `lossless` / `hires` / `jyeffect` / `sky` / `jymaster` 七档，支持逐级降级 | 固定 128k / 320k / 无损 | axuanran |
+| 本地音乐 | 文件夹扫描、元数据与封面读取、本地歌词匹配、文件夹歌单 | 无 | axuanran |
+| 流媒体服务器 | Emby / Jellyfin 多服务器连接、浏览与播放 | 无 | axuanran |
+| 播客 | `/podcast` 列表与详情 | 无 | axuanran |
+| 私人漫游 | 默认 / 熟悉 / 探索 / 场景模式，设备内持久化，配套 `music_roaming` MCP 工具 | 仅单一私人 FM | **xzl01** |
+| 播放内核 | 移除 howler，自研 AudioEngine + xstate 状态机 + Provider 解析链 | howler | axuanran |
+| 队列与播放交互 | 队列弹层、播放模式菜单、播放速度、大列表增量渲染 | 基础队列 | **babaele**、axuanran |
+| 缓存与下载 | 缓存浏览与按曲目管理，桌面端与 Android 下载 | 仅基础缓存 | axuanran |
+| 桌面歌词 | 独立歌词窗口、多行模式、位置与溢出处理、样式模板、单句循环 | 无 | axuanran |
+| 歌词同步 | AMLL WebSocket 同步、歌词时钟、歌词显示模式 | 无 | axuanran |
+| 系统媒体集成 | Windows SMTC、虚拟桌面固定、托盘图标主题、窗口外观与低性能模式 | 无 | axuanran |
+| Linux 集成 | MPRIS 重写与登录稳定性改进 | 基础 MPRIS | **LEILU-lua** |
+| macOS Touch Bar | 播放控制按钮 | 无 | **babaele** |
+| MCP / 控制接口 | 内置 MCP 服务器（Streamable HTTP）、本地控制通道、`xumpctl`、独立 mcp-http | 无 | **xzl01**、axuanran |
+| 插件系统 | manifest / runtime / routes / settings / events / audio provider 注册 | 无 | axuanran |
+| 工程质量 | Vitest（90 个测试文件）、七个 GitHub Actions 工作流 | 无测试体系 | axuanran |
+| 已移除 | UnblockNeteaseMusic Provider，改用 LX（洛雪） | 有 UNM 开关 | axuanran |
+
+> 「主要贡献者」列只标注社区 PR 来源，其余为本项目维护者。`babaele` 的 NCM 投屏 PR（#37）已回滚，仅保留 Touch Bar 与队列 / 播放交互。完整名单见[贡献者](#贡献者)。
+
 ## 平台与分发
 
 | 平台 | 可用形式 | 说明 |
@@ -417,21 +449,6 @@ XuMP
 
 Docker 镜像同样只在 `v*` 标签推送或手动运行 **XuMP Docker Image** 工作流时构建并推送至 GHCR。Release、R2、Telegram、桌面端和 Android 的发行品牌统一使用 **XuMP**。
 
-## 贡献者
-
-感谢每一位为 XuMP 提交代码、完善文档与翻译、参与测试或反馈问题的贡献者。名单按提交量排序，同一人的多个邮箱与昵称已合并；完整贡献记录见 [GitHub 贡献者页面](https://github.com/axuanran/YesPlayMusic/graphs/contributors)。
-
-**项目维护与原作**：[Xuanran](https://github.com/axuanran)（现任维护者）、[qier222](https://github.com/qier222)（YesPlayMusic 原作者）
-
-<details>
-<summary>查看全部贡献者（82 人）</summary>
-
-<br>
-
-qier222、Xuanran、zwx08、kunkka、pan93412、memorydream、Vidocq、Map1en_、njzy、Revincx、Changjian Gao、wenjie、Rick、TestGifts、Younglina、StarsEnd、BeADre、colawithsauce、是虹川飴、runnableAir、Kris Hu、marcus、Karbob、mayandev、郭桓桓、chen310、代强、xzl01、Mr. Will、babaele、Wenqi Huang、タイムライン、BakerBunker、拆家大主教、草方块、Ethan Wong、GalvinGao、Shi Liang、poly000、5unV、fengkx、LEILU-lua、12471220、Holger、Frz、amphineko、zuotiya、Davy、LittleChest、657、久治明千树汐、洩氏诹诹子、MUXTER117、CNawalol、Wei Jiahao、scarletborder、jbwfu、guaqiu、FSpark、火花✨、Felix_SANA、HengYi Wei、Arthals、Sin、李洋、moonrailgun、Jiang Menghao、bestlaw66、Chiro、Chuwen、leex、Viyerelu23333、akliuxingyuan、leko、Anmizi、Siykt、bluebullet、Vanilla、sr.zer、Kay W、CuSO4Deposit、人工知能
-
-</details>
-
 ## 致谢与许可
 
 XuMP 基于 [qier222/YesPlayMusic](https://github.com/qier222/YesPlayMusic) 持续维护，并使用或参考以下项目：
@@ -445,6 +462,27 @@ XuMP 基于 [qier222/YesPlayMusic](https://github.com/qier222/YesPlayMusic) 持�
 感谢原项目作者、所有贡献者，以及持续参与测试和反馈的用户。
 
 项目基于 [MIT License](LICENSE) 开源。使用本项目时，请同时遵守相关平台、媒体服务器及第三方服务的服务条款和所在地区法律法规。
+
+## 贡献者
+
+感谢每一位为 XuMP 提交代码、完善文档与翻译、参与测试或反馈问题的朋友。以下社区贡献者在分叉之后仍持续投入，特此致谢：
+
+- [xzl01](https://github.com/xzl01)：MCP 控制接口与 `xumpctl`（#36）、私人漫游与 `music_roaming` 工具（#47）
+- [babaele](https://github.com/babaele)：播放加载与队列交互体验（#38）、macOS Touch Bar（#37）
+- [LEILU-lua](https://github.com/LEILU-lua)：Linux MPRIS 与登录稳定性改进
+
+**项目维护与原作**：[Xuanran](https://github.com/axuanran)（现任维护者）、[qier222](https://github.com/qier222)（YesPlayMusic 原作者）
+
+下面名单覆盖上游继承历史与本仓库的全部提交者，按提交量排序，同一人的多个邮箱与昵称已合并；完整贡献记录见 [GitHub 贡献者页面](https://github.com/axuanran/YesPlayMusic/graphs/contributors)。
+
+<details>
+<summary>查看全部贡献者（81 人）</summary>
+
+<br>
+
+qier222、Xuanran、kunkka、pan93412、memorydream、Vidocq、Map1en_、njzy、Revincx、Changjian Gao、wenjie、Rick、TestGifts、Younglina、StarsEnd、BeADre、colawithsauce、是虹川飴、runnableAir、Kris Hu、marcus、Karbob、mayandev、郭桓桓、chen310、代强、xzl01、Mr. Will、babaele、Wenqi Huang、タイムライン、BakerBunker、拆家大主教、草方块、Ethan Wong、GalvinGao、Shi Liang、poly000、5unV、fengkx、LEILU-lua、12471220、Holger、Frz、amphineko、zuotiya、Davy、LittleChest、657、久治明千树汐、洩氏诹诹子、MUXTER117、CNawalol、Wei Jiahao、scarletborder、jbwfu、guaqiu、FSpark、火花✨、Felix_SANA、HengYi Wei、Arthals、Sin、李洋、moonrailgun、Jiang Menghao、bestlaw66、Chiro、Chuwen、leex、Viyerelu23333、akliuxingyuan、leko、Anmizi、Siykt、bluebullet、Vanilla、sr.zer、Kay W、CuSO4Deposit、人工知能
+
+</details>
 
 ---
 
