@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> 本项目已迁移到 **[axuanran/xump](https://github.com/axuanran/xump)**。本仓库已归档为只读，后续的开发、Issue 与 Release 都在新仓库进行。
+
 
 
 <p align="center">
